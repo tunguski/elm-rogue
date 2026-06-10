@@ -1,0 +1,77 @@
+name: Deploy to GitHub Pages
+
+# Compiles the roguelike to a single self-contained HTML page and publishes it to
+# https://tunguski.github.io/elm-rogue/.
+#
+# The game is written for the elm-lang compiler (github.com/tunguski/elm-lang), which lives in a
+# separate repo, so the build checks that out, packages it into a runnable `elm.jar`, and runs
+# `elm make` to produce the page. Like the other elm-lang example apps it compiles with --no-check
+# (the strict type checker doesn't fully analyse a few idioms the game uses). The output is fully
+# standalone — no server needed.
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+# Least-privilege token plus the permissions the Pages deploy needs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a newer push cancels an in-flight build.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the game
+        uses: actions/checkout@v4
+
+      - name: Check out the elm-lang compiler
+        uses: actions/checkout@v4
+        with:
+          repository: tunguski/elm-lang
+          ref: master
+          path: elm-lang
+
+      - name: Set up GraalVM for JDK 25
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: 'graalvm'
+          cache: 'maven'
+          cache-dependency-path: elm-lang/pom.xml
+
+      - name: Build the elm compiler (elm.jar)
+        working-directory: elm-lang
+        run: |
+          chmod +x ./mvnw
+          ./mvnw -B -ntp clean package -DskipTests
+
+      - name: Compile the game to public/index.html
+        run: |
+          mkdir -p public
+          java -jar elm-lang/target/elm.jar make \
+            src/Main.elm --project=elm.json -o public/index.html --no-check
+          ls -la public
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

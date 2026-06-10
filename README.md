@@ -1,5 +1,7 @@
 # elm-rogue — a moddable roguelike in Elm
 
+**▶ Play it live: <https://tunguski.github.io/elm-rogue/>**
+
 A turn-based, grid dungeon crawler in the spirit of
 [Shattered Pixel Dungeon](https://github.com/00-Evan/shattered-pixel-dungeon), written for the
 [elm-lang](https://github.com/tunguski/elm-lang) implementation of Elm and built so that **the
