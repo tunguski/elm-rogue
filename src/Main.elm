@@ -1,24 +1,24 @@
 module Main exposing (main)
 
-{-| Milestones 2–3: generate a dungeon from a seed and draw it through the pluggable renderer seam.
+{-| The app shell: holds a `Rogue.Game`, feeds it keyboard input, and draws it through whichever
+`Rogue.Render.Renderer` is selected (the SVG one for now). All the game logic lives in `Rogue.Game`;
+`Main` is only wiring — input in, `Scene` out.
 
-`Main` owns only the wiring: it holds the generated level and a `Scene`, and delegates all drawing to
-a `Rogue.Render.Renderer` (here the SVG one). The engine/content layers arrive in later milestones;
-this stage proves the generator and the renderer boundary.
+Controls: arrows / WASD / HJKL to move, Y U B N for diagonals, `.` to wait, `>` to descend.
 -}
 
 import Browser
+import Browser.Events
 import Html exposing (Html)
 import Html.Attributes as HA
-import Rogue.Dungeon as Dungeon exposing (Generated)
-import Rogue.Level as Level
-import Rogue.Render as Render exposing (Scene)
+import Json.Decode as Decode
+import Rogue.Game as Game exposing (Game)
+import Rogue.Grid as Grid
 import Rogue.Render.Svg as SvgRenderer
-import Set exposing (Set)
 
 
 type alias Model =
-    { dungeon : Generated }
+    { game : Game }
 
 
 startSeed : Int
@@ -28,55 +28,102 @@ startSeed =
 
 init : Model
 init =
-    { dungeon = Dungeon.generate Dungeon.defaultConfig startSeed }
+    { game = Game.newGame startSeed }
 
 
-scene : Model -> Scene
-scene model =
-    let
-        lvl =
-            model.dungeon.level
-
-        allCells =
-            Set.fromList (List.map (\p -> ( p.x, p.y )) (Level.positions lvl))
-
-        hud =
-            Render.emptyHud
-    in
-    { level = lvl
-    , visible = allCells
-    , explored = allCells
-    , glyphs = []
-    , hud =
-        { hud
-            | title = "elm-rouge"
-            , depth = 1
-            , status = String.fromInt (List.length model.dungeon.rooms) ++ " rooms generated"
-        }
-    }
+update : Game.Msg -> Model -> Model
+update msg model =
+    { model | game = Game.update msg model.game }
 
 
-view : Model -> Html msg
+view : Model -> Html Game.Msg
 view model =
     Html.div
         [ HA.style "font-family" "ui-monospace, Menlo, Consolas, monospace"
         , HA.style "background" "#0b0e14"
         , HA.style "color" "#c7d0dd"
         , HA.style "min-height" "100vh"
-        , HA.style "padding" "24px"
+        , HA.style "padding" "20px"
         , HA.style "box-sizing" "border-box"
         ]
-        [ Html.div [ HA.style "text-align" "center", HA.style "font-size" "12px", HA.style "color" "#5b6b82", HA.style "margin-bottom" "14px" ]
-            [ Html.text "milestone 2–3 — seeded dungeon + pluggable SVG renderer" ]
-        , SvgRenderer.renderer.view (scene model)
+        [ Html.div
+            [ HA.style "text-align" "center", HA.style "font-size" "12px", HA.style "color" "#5b6b82", HA.style "margin-bottom" "12px" ]
+            [ Html.text "move: arrows / WASD / HJKL · diagonals: Y U B N · wait: . · descend: >" ]
+        , SvgRenderer.renderer.view (Game.toScene model.game)
         ]
 
 
-main : Program () Model msg
+keyToMsg : String -> Game.Msg
+keyToMsg key =
+    case String.toLower key of
+        "arrowup" ->
+            Game.Move Grid.dirN
+
+        "arrowdown" ->
+            Game.Move Grid.dirS
+
+        "arrowleft" ->
+            Game.Move Grid.dirW
+
+        "arrowright" ->
+            Game.Move Grid.dirE
+
+        "w" ->
+            Game.Move Grid.dirN
+
+        "s" ->
+            Game.Move Grid.dirS
+
+        "a" ->
+            Game.Move Grid.dirW
+
+        "d" ->
+            Game.Move Grid.dirE
+
+        "k" ->
+            Game.Move Grid.dirN
+
+        "j" ->
+            Game.Move Grid.dirS
+
+        "h" ->
+            Game.Move Grid.dirW
+
+        "l" ->
+            Game.Move Grid.dirE
+
+        "y" ->
+            Game.Move Grid.dirNW
+
+        "u" ->
+            Game.Move Grid.dirNE
+
+        "b" ->
+            Game.Move Grid.dirSW
+
+        "n" ->
+            Game.Move Grid.dirSE
+
+        "." ->
+            Game.Wait
+
+        ">" ->
+            Game.Descend
+
+        _ ->
+            Game.NoOp
+
+
+subscriptions : Model -> Sub Game.Msg
+subscriptions _ =
+    Browser.Events.onKeyDown (Decode.map keyToMsg (Decode.field "key" Decode.string))
+
+
+main : Program () Model Game.Msg
 main =
     Browser.element
         { init = \_ -> ( init, Cmd.none )
-        , update = \_ model -> ( model, Cmd.none )
+        , update = \msg model -> ( update msg model, Cmd.none )
         , view = view
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
         }
