@@ -151,13 +151,15 @@ defaultTheme =
     themeForDepth 1
 
 
-{-| Everything a renderer needs for one frame. -}
+{-| Everything a renderer needs for one frame. `camera` is the cell the view should centre on (the
+hero), letting a renderer scroll a viewport over a large map instead of drawing every cell. -}
 type alias Scene =
     { level : Level
     , visible : Set ( Int, Int )
     , explored : Set ( Int, Int )
     , glyphs : List Glyph
     , theme : Theme
+    , camera : Pos
     , hud : Hud
     }
 

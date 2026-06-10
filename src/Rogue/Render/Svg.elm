@@ -39,11 +39,32 @@ view scene =
         lvl =
             scene.level
 
-        w =
-            lvl.width * cellSize
+        -- A viewport that scrolls with the hero: only the window of cells around the camera is drawn,
+        -- so a huge map costs no more DOM nodes than a small one (the core culling optimisation).
+        win =
+            viewport scene.camera lvl.width lvl.height
 
-        h =
-            lvl.height * cellSize
+        cells =
+            List.concatMap
+                (\vy -> List.map (\vx -> { x = vx, y = vy }) (List.range win.x0 win.x1))
+                (List.range win.y0 win.y1)
+
+        pxW =
+            (win.x1 - win.x0 + 1) * cellSize
+
+        pxH =
+            (win.y1 - win.y0 + 1) * cellSize
+
+        viewBoxStr =
+            String.join " "
+                [ String.fromInt (win.x0 * cellSize)
+                , String.fromInt (win.y0 * cellSize)
+                , String.fromInt pxW
+                , String.fromInt pxH
+                ]
+
+        inWindow p =
+            p.x >= win.x0 && p.x <= win.x1 && p.y >= win.y0 && p.y <= win.y1
     in
     Html.div
         [ HA.style "display" "flex"
@@ -54,22 +75,44 @@ view scene =
         ]
         [ Html.div [ HA.style "position" "relative" ]
             [ svg
-                [ SA.viewBox ("0 0 " ++ String.fromInt w ++ " " ++ String.fromInt h)
-                , SA.width (String.fromInt w)
-                , SA.height (String.fromInt h)
+                [ SA.viewBox viewBoxStr
+                , SA.width (String.fromInt pxW)
+                , SA.height (String.fromInt pxH)
                 , HA.style "background" "#05070b"
                 , HA.style "border" "1px solid #1b2433"
                 , HA.style "border-radius" "8px"
                 , HA.style "max-width" "100%"
                 , HA.style "height" "auto"
                 ]
-                [ g [] (List.map (cellSvg scene) (Level.positions lvl))
-                , g [] (List.filterMap (glyphSvg scene) (List.sortBy .layer scene.glyphs))
+                [ g [] (List.map (cellSvg scene) cells)
+                , g [] (List.filterMap (glyphSvg scene) (List.sortBy .layer (List.filter (\gl -> inWindow gl.pos) scene.glyphs)))
                 ]
             , overlayView scene.hud
             ]
         , hudView scene.hud
         ]
+
+
+{-| The inclusive cell window to draw, centred on `camera` and clamped to the map. -}
+viewport : Pos -> Int -> Int -> { x0 : Int, y0 : Int, x1 : Int, y1 : Int }
+viewport camera width height =
+    let
+        vw =
+            min width 31
+
+        vh =
+            min height 21
+
+        clampStart c span extent =
+            max 0 (min (extent - span) (c - span // 2))
+
+        x0 =
+            clampStart camera.x vw width
+
+        y0 =
+            clampStart camera.y vh height
+    in
+    { x0 = x0, y0 = y0, x1 = x0 + vw - 1, y1 = y0 + vh - 1 }
 
 
 {-| A translucent end-of-game banner over the map: green for victory, red for death. -}

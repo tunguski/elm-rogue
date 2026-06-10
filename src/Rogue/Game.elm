@@ -1981,6 +1981,7 @@ toScene game =
             ++ List.map enemyGlyph game.enemies
             ++ [ heroGlyph game ]
     , theme = Render.themeForDepth game.depth
+    , camera = game.hero.pos
     , hud =
         { title = "elm-rouge"
         , region = (Render.themeForDepth game.depth).name
