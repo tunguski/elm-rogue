@@ -28,6 +28,7 @@ import Rogue.Grid as Grid exposing (Pos)
 import Rogue.Level as Level exposing (Level)
 import Rogue.Rng as Rng exposing (Seed)
 import Rogue.Tile as Tile exposing (Tile(..))
+import Set exposing (Set)
 
 
 {-| Tunable generation parameters. A mod can supply its own `GenConfig` for bigger/denser floors. -}
@@ -131,8 +132,12 @@ generate cfg seed0 =
 
         ( features, seed4 ) =
             pickFeatures rooms seed3
+
+        -- A vault's locked door must never sever the route to the stairs; if it would, leave it open.
+        level7 =
+            ensureSolvable vaultDoor upPos downPos level6
     in
-    { level = level6
+    { level = level7
     , rooms = rooms
     , stairsUp = upPos
     , stairsDown = downPos
@@ -141,6 +146,84 @@ generate cfg seed0 =
     , features = features
     , seed = seed4
     }
+
+
+{-| If the only `LockedDoor` (a vault's) blocks the path from up- to down-stairs, downgrade it to an
+ordinary `Door` so every floor is always completable. -}
+ensureSolvable : Maybe Pos -> Pos -> Pos -> Level -> Level
+ensureSolvable vaultDoor up down level =
+    case vaultDoor of
+        Nothing ->
+            level
+
+        Just door ->
+            if stairsConnected level up down then
+                level
+
+            else
+                Level.set door Door level
+
+
+{-| BFS from `up` over walkable terrain (doors — even secret — count as passable; locked doors and
+walls do not), reporting whether `down` is reached. -}
+stairsConnected : Level -> Pos -> Pos -> Bool
+stairsConnected level up down =
+    connBfs level down [ up ] (Set.singleton ( up.x, up.y ))
+
+
+connBfs : Level -> Pos -> List Pos -> Set ( Int, Int ) -> Bool
+connBfs level goal frontier visited =
+    if Set.member ( goal.x, goal.y ) visited then
+        True
+
+    else
+        case frontier of
+            [] ->
+                False
+
+            _ ->
+                let
+                    ( nf, nv ) =
+                        List.foldl
+                            (\cur acc ->
+                                List.foldl
+                                    (\nb ( fr, vis ) ->
+                                        if connWalkable (Level.at nb level) && not (Set.member ( nb.x, nb.y ) vis) then
+                                            ( nb :: fr, Set.insert ( nb.x, nb.y ) vis )
+
+                                        else
+                                            ( fr, vis )
+                                    )
+                                    acc
+                                    (Grid.neighbors4 cur)
+                            )
+                            ( [], visited )
+                            frontier
+                in
+                if List.isEmpty nf then
+                    Set.member ( goal.x, goal.y ) visited
+
+                else
+                    connBfs level goal nf nv
+
+
+connWalkable : Tile -> Bool
+connWalkable tile =
+    case tile of
+        Wall ->
+            False
+
+        LockedDoor ->
+            False
+
+        Empty ->
+            False
+
+        Chasm ->
+            False
+
+        _ ->
+            True
 
 
 {-| Tag up to two "middle" rooms (not the start or the stair room) as a treasure room and a monster
