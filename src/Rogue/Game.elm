@@ -52,6 +52,8 @@ type alias Hero =
     , color : String
     , fovRadius : Int
     , statuses : List Status
+    , level : Int
+    , xp : Int
     }
 
 
@@ -217,6 +219,8 @@ newGame ruleset class rawSeed =
             , color = class.color
             , fovRadius = class.fovRadius
             , statuses = []
+            , level = 1
+            , xp = 0
             }
     in
     enterLevel ruleset 1 0 gen.seed gen hero [ "You enter the dungeon as " ++ withArticle class.name ++ "." ]
@@ -767,6 +771,7 @@ heroAttack enemy game =
             , kills = game.kills + 1
         }
             |> addLog ("You kill the " ++ enemy.def.name ++ ".")
+            |> gainXp enemy.def.xp
 
     else
         { game
@@ -774,6 +779,49 @@ heroAttack enemy game =
             , seed = seed1
         }
             |> addLog ("You hit the " ++ enemy.def.name ++ " (" ++ String.fromInt dmg ++ ").")
+
+
+
+-- EXPERIENCE -------------------------------------------------------------------------------------
+
+
+{-| Total XP needed to advance *out of* the given level. A gentle ramp: 10×level. -}
+xpToNext : Int -> Int
+xpToNext level =
+    10 * level
+
+
+{-| Award XP and apply any level-ups it unlocks (each grants HP/damage and a full heal). -}
+gainXp : Int -> Game -> Game
+gainXp amount game =
+    let
+        hero =
+            game.hero
+    in
+    levelUps { game | hero = { hero | xp = hero.xp + amount } }
+
+
+levelUps : Game -> Game
+levelUps game =
+    let
+        hero =
+            game.hero
+    in
+    if hero.xp >= xpToNext hero.level then
+        let
+            leveled =
+                { hero
+                    | xp = hero.xp - xpToNext hero.level
+                    , level = hero.level + 1
+                    , maxHp = hero.maxHp + 5
+                    , damage = hero.damage + 1
+                    , hp = hero.maxHp + 5
+                }
+        in
+        levelUps ({ game | hero = leveled } |> addLog ("You reach level " ++ String.fromInt leveled.level ++ "! You feel mightier."))
+
+    else
+        game
 
 
 
@@ -1063,6 +1111,9 @@ toScene game =
     , hud =
         { title = "elm-rouge"
         , region = (Render.themeForDepth game.depth).name
+        , level = game.hero.level
+        , xp = game.hero.xp
+        , xpNext = xpToNext game.hero.level
         , depth = game.depth
         , hp = game.hero.hp
         , maxHp = game.hero.maxHp

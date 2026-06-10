@@ -250,6 +250,7 @@ hudView hud =
         ]
         [ Html.div [ HA.style "font-size" "20px", HA.style "font-weight" "700" ] [ Html.text hud.title ]
         , statLine "Depth" (String.fromInt hud.depth ++ "  " ++ hud.region)
+        , statLine "Level" (String.fromInt hud.level ++ "  (xp " ++ String.fromInt hud.xp ++ "/" ++ String.fromInt hud.xpNext ++ ")")
         , statLine "Turn" (String.fromInt hud.turn)
         , statLine "Gold" (String.fromInt hud.gold)
         , hpBar hud

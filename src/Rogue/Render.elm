@@ -73,6 +73,9 @@ layerHero =
 type alias Hud =
     { title : String
     , region : String
+    , level : Int
+    , xp : Int
+    , xpNext : Int
     , depth : Int
     , hp : Int
     , maxHp : Int
@@ -93,6 +96,9 @@ emptyHud : Hud
 emptyHud =
     { title = "elm-rouge"
     , region = ""
+    , level = 1
+    , xp = 0
+    , xpNext = 10
     , depth = 1
     , hp = 0
     , maxHp = 0
