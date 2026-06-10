@@ -42,6 +42,10 @@ ruleset =
         , leatherArmour
         , mailArmour
         , plateArmour
+        , scrollOfTeleport
+        , scrollOfMagicMapping
+        , scrollOfIdentify
+        , wandMagicMissile
         ]
     }
 
@@ -399,4 +403,60 @@ plateArmour =
     , minDepth = 5
     , maxDepth = 99
     , spawnWeight = 3
+    }
+
+
+
+-- SCROLLS & WANDS --------------------------------------------------------------------------------
+
+
+scrollOfTeleport : ItemDef
+scrollOfTeleport =
+    { id = "scroll-teleport"
+    , name = "scroll of teleportation"
+    , glyph = "?"
+    , color = "#c9a0ff"
+    , kind = Consumable TeleportSelf
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 5
+    }
+
+
+scrollOfMagicMapping : ItemDef
+scrollOfMagicMapping =
+    { id = "scroll-magic-mapping"
+    , name = "scroll of magic mapping"
+    , glyph = "?"
+    , color = "#80cbc4"
+    , kind = Consumable MagicMap
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 5
+    }
+
+
+scrollOfIdentify : ItemDef
+scrollOfIdentify =
+    { id = "scroll-identify"
+    , name = "scroll of identify"
+    , glyph = "?"
+    , color = "#f0c674"
+    , kind = Consumable IdentifyAll
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 4
+    }
+
+
+wandMagicMissile : ItemDef
+wandMagicMissile =
+    { id = "wand-magic-missile"
+    , name = "wand of magic missile"
+    , glyph = "-"
+    , color = "#82aaff"
+    , kind = Wand { damage = 5, charges = 4 }
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 4
     }

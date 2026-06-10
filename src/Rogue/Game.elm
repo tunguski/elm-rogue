@@ -587,6 +587,84 @@ tryUse index game =
                 Content.Equipment slot _ ->
                     endTurn (equip index slot def game)
 
+                Content.Wand spec ->
+                    zapWand index spec game
+
+
+{-| Zap the wand in inventory slot `index` at the nearest visible monster, spending a charge (the
+wand is removed when its last charge is used). Does nothing — and costs no turn — with no target. -}
+zapWand : Int -> Content.WandSpec -> Game -> Game
+zapWand index spec game =
+    case nearestVisibleEnemy game of
+        Nothing ->
+            addLog "You wave the wand, but there is no target in sight." game
+
+        Just target ->
+            let
+                ( dmg, seed1 ) =
+                    rollDamage spec.damage target.def.defense game.seed
+
+                afterHit =
+                    if target.hp - dmg <= 0 then
+                        { game | enemies = List.filter (\e -> e.pos /= target.pos) game.enemies, seed = seed1, kills = game.kills + 1 }
+                            |> addLog ("Your magic missile destroys the " ++ target.def.name ++ "!")
+                            |> gainXp target.def.xp
+
+                    else
+                        { game | enemies = updateEnemyAt target.pos (\e -> { e | hp = e.hp - dmg, alerted = True }) game.enemies, seed = seed1 }
+                            |> addLog ("Your magic missile hits the " ++ target.def.name ++ " (" ++ String.fromInt dmg ++ ").")
+
+                spent =
+                    spec.charges - 1
+
+                hero =
+                    afterHit.hero
+
+                newInventory =
+                    if spent <= 0 then
+                        removeAt index hero.inventory
+
+                    else
+                        List.indexedMap
+                            (\i it ->
+                                if i == index then
+                                    { it | kind = Content.Wand { spec | charges = spent } }
+
+                                else
+                                    it
+                            )
+                            hero.inventory
+
+                drained =
+                    if spent <= 0 then
+                        addLog "The wand crumbles to dust." afterHit
+
+                    else
+                        afterHit
+            in
+            endTurn { drained | hero = { hero | inventory = newInventory } }
+
+
+{-| The nearest monster the hero can currently see (within the visible set), if any. -}
+nearestVisibleEnemy : Game -> Maybe Enemy
+nearestVisibleEnemy game =
+    game.enemies
+        |> List.filter (\e -> Set.member ( e.pos.x, e.pos.y ) game.visible)
+        |> List.foldl
+            (\e best ->
+                case best of
+                    Nothing ->
+                        Just e
+
+                    Just b ->
+                        if Grid.chebyshev e.pos game.hero.pos < Grid.chebyshev b.pos game.hero.pos then
+                            Just e
+
+                        else
+                            best
+            )
+            Nothing
+
 
 {-| Wear `def` (at inventory `index`) in `slot`: pull it from the pack and put whatever was in the
 slot back into the pack. -}
@@ -667,6 +745,24 @@ applyEffect def game =
             addStatus Regen perTurn turns game
                 |> addLog ("You drink the " ++ name ++ ". You begin to mend.")
 
+        TeleportSelf ->
+            teleportHero game |> addLog "You read the scroll and blink away."
+
+        MagicMap ->
+            { game | explored = Set.fromList (List.map (\p -> ( p.x, p.y )) (Level.positions game.level)) }
+                |> addLog "You read the scroll. The floor plan floods into your mind."
+
+        IdentifyAll ->
+            let
+                idents =
+                    game.idents
+
+                allPotions =
+                    game.ruleset.items |> List.filter isPotion |> List.map .id
+            in
+            { game | idents = { idents | known = Set.union idents.known (Set.fromList allPotions) } }
+                |> addLog "You read the scroll. All potions are now familiar."
+
 
 effectOf : ItemDef -> ItemEffect
 effectOf def =
@@ -724,16 +820,21 @@ assignLooks ruleset seed =
 "<adjective> potion" appearance. -}
 displayName : Idents -> ItemDef -> String
 displayName idents def =
-    if not (isPotion def) || Set.member def.id idents.known then
-        def.name
+    case def.kind of
+        Content.Wand spec ->
+            def.name ++ " (" ++ String.fromInt spec.charges ++ ")"
 
-    else
-        case Dict.get def.id idents.looks of
-            Just look ->
-                look.adjective ++ " potion"
+        _ ->
+            if not (isPotion def) || Set.member def.id idents.known then
+                def.name
 
-            Nothing ->
-                "potion"
+            else
+                case Dict.get def.id idents.looks of
+                    Just look ->
+                        look.adjective ++ " potion"
+
+                    Nothing ->
+                        "potion"
 
 
 {-| The colour to draw an item with: true colour once identified, else its appearance colour. -}

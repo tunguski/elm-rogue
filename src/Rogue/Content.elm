@@ -62,6 +62,9 @@ type ItemEffect
     | DefenseBonus Int
     | Gold Int
     | Regenerate Int Int
+    | TeleportSelf
+    | MagicMap
+    | IdentifyAll
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -84,6 +87,15 @@ worn in a slot for a passive `EquipBonus` until swapped out. Adding a new kind i
 type ItemKind
     = Consumable ItemEffect
     | Equipment EquipSlot EquipBonus
+    | Wand WandSpec
+
+
+{-| A wand: zaps the nearest visible monster for `damage`, with a limited number of `charges`. When
+used the engine writes back a copy with one fewer charge; at zero charges the wand is spent. -}
+type alias WandSpec =
+    { damage : Int
+    , charges : Int
+    }
 
 
 {-| A pickup archetype — defined as data, exactly like `EnemyDef`. Instances on the floor carry a
