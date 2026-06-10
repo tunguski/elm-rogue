@@ -381,7 +381,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
             spawnVault ruleset depth gen keySpots seed4
 
         ( featureEnemies, featureItems, seed6 ) =
-            spawnFeatures ruleset depth gen.features seed5
+            spawnFeatures ruleset depth (floorFeatures gen) seed5
 
         bossEnemy =
             case Content.bossForDepth depth ruleset of
@@ -610,6 +610,15 @@ bossSpot gen =
 
 {-| Populate the tagged special rooms: a treasure room gets extra loot, a nest gets an extra monster
 pack. Returns the added enemies, items, and advanced seed. -}
+{-| Restrict each feature's cells to the actually-carved floor (shaped rooms leave wall corners and
+pillars), so feature loot/monsters never land inside a wall. -}
+floorFeatures : Generated -> List Dungeon.Feature
+floorFeatures gen =
+    List.map
+        (\f -> { f | cells = List.filter (\p -> Level.at p gen.level == Floor) f.cells })
+        gen.features
+
+
 spawnFeatures : Ruleset -> Int -> List Dungeon.Feature -> Seed -> ( List Enemy, List ItemOnFloor, Seed )
 spawnFeatures ruleset depth features seed =
     List.foldl

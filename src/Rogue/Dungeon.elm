@@ -424,15 +424,116 @@ placeRooms cfg attempts acc level seed =
             placeRooms cfg (attempts - 1) acc level s4
 
         else
-            placeRooms cfg (attempts - 1) (room :: acc) (carveRoom room level) s4
+            let
+                ( shape, s5 ) =
+                    Rng.int 5 s4
+            in
+            placeRooms cfg (attempts - 1) (room :: acc) (carveRoomShaped shape room level) s5
+
+
+{-| Carve a room as a solid rectangle by default, but sometimes round its corners, ring it with
+pillars, or carve it as an ellipse — visual variety that still keeps the centre (and so the corridor
+connection) clear. `shape` is a 0–4 roll. -}
+carveRoomShaped : Int -> Room -> Level -> Level
+carveRoomShaped shape room level =
+    case shape of
+        1 ->
+            -- Rounded corners: drop the four corner cells.
+            carveCells (List.filter (not << isCorner room) (roomCells room)) level
+
+        2 ->
+            -- Pillared hall: solid floor, then sparse interior pillars.
+            carveCells (roomCells room) level |> addPillars room
+
+        3 ->
+            -- Elliptical chamber.
+            carveCells (List.filter (inEllipse room) (roomCells room)) level
+
+        _ ->
+            carveCells (roomCells room) level
+
+
+carveCells : List Pos -> Level -> Level
+carveCells cells level =
+    List.foldl (\p lv -> Level.set p Floor lv) level cells
+
+
+isCorner : Room -> Pos -> Bool
+isCorner room p =
+    (p.x == room.x || p.x == room.x + room.w - 1)
+        && (p.y == room.y || p.y == room.y + room.h - 1)
+
+
+{-| Pillars on an interior even-grid, kept off the centre cross so the room never splits. -}
+addPillars : Room -> Level -> Level
+addPillars room level =
+    if room.w < 5 || room.h < 5 then
+        level
+
+    else
+        let
+            cx =
+                room.x + room.w // 2
+
+            cy =
+                room.y + room.h // 2
+        in
+        List.foldl
+            (\p lv ->
+                if
+                    modBy 2 (p.x - room.x)
+                        == 0
+                        && modBy 2 (p.y - room.y)
+                        == 0
+                        && p.x
+                        > room.x
+                        && p.x
+                        < room.x + room.w - 1
+                        && p.y
+                        > room.y
+                        && p.y
+                        < room.y + room.h - 1
+                        && p.x
+                        /= cx
+                        && p.y
+                        /= cy
+                then
+                    Level.set p Wall lv
+
+                else
+                    lv
+            )
+            level
+            (roomCells room)
+
+
+inEllipse : Room -> Pos -> Bool
+inEllipse room p =
+    let
+        cx =
+            toFloat room.x + toFloat (room.w - 1) / 2
+
+        cy =
+            toFloat room.y + toFloat (room.h - 1) / 2
+
+        rx =
+            toFloat room.w / 2
+
+        ry =
+            toFloat room.h / 2
+
+        dx =
+            (toFloat p.x - cx) / rx
+
+        dy =
+            (toFloat p.y - cy) / ry
+    in
+    dx * dx + dy * dy <= 1.05
 
 
 carveRoom : Room -> Level -> Level
 carveRoom room level =
-    List.foldl
-        (\p lv -> Level.set p Floor lv)
-        level
-        (roomCells room)
+    carveCells (roomCells room) level
 
 
 roomCells : Room -> List Pos
