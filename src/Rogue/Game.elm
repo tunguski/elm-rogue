@@ -63,6 +63,7 @@ type alias Game =
     , enemies : List Enemy
     , depth : Int
     , turn : Int
+    , kills : Int
     , seed : Seed
     , visible : Set ( Int, Int )
     , explored : Set ( Int, Int )
@@ -70,13 +71,21 @@ type alias Game =
     , stairsDown : Pos
     , stairsUp : Pos
     , gameOver : Bool
+    , won : Bool
     }
+
+
+{-| How close (Chebyshev) a monster must be, with line of sight, to wake and start hunting. -}
+aggroRange : Int
+aggroRange =
+    8
 
 
 type Msg
     = Move Dir
     | Descend
     | Wait
+    | Restart
     | NoOp
 
 
@@ -95,13 +104,13 @@ newGame ruleset rawSeed =
             , defense = ruleset.hero.defense
             }
     in
-    enterLevel ruleset 1 gen.seed gen hero [ "You enter the dungeon." ]
+    enterLevel ruleset 1 0 gen.seed gen hero [ "You enter the dungeon." ]
 
 
 {-| Place the hero on a freshly generated level, spawn its monster population, recompute fog, and keep
-the carried-over hero and log. Shared by `newGame` and descending. -}
-enterLevel : Ruleset -> Int -> Seed -> Generated -> Hero -> List String -> Game
-enterLevel ruleset depth seed gen hero log =
+the carried-over hero, kill count and log. Shared by `newGame` and descending. -}
+enterLevel : Ruleset -> Int -> Int -> Seed -> Generated -> Hero -> List String -> Game
+enterLevel ruleset depth kills seed gen hero log =
     let
         heroAt =
             { hero | pos = gen.stairsUp }
@@ -119,6 +128,7 @@ enterLevel ruleset depth seed gen hero log =
     , enemies = enemies
     , depth = depth
     , turn = 0
+    , kills = kills
     , seed = seed2
     , visible = vis
     , explored = vis
@@ -126,6 +136,7 @@ enterLevel ruleset depth seed gen hero log =
     , stairsDown = gen.stairsDown
     , stairsUp = gen.stairsUp
     , gameOver = False
+    , won = False
     }
 
 
@@ -221,34 +232,39 @@ update msg game =
             Wait ->
                 endTurn game
 
+            Restart ->
+                -- The shell (Main) owns reseeding a new run; inside a game it's a no-op.
+                game
+
             NoOp ->
                 game
 
 
-{-| Attempt to step the hero one cell. Walking into a wall costs no turn; a successful step advances
-the turn and refreshes fog. (Bumping a monster will become an attack in M7.) -}
+{-| The hero's intent for one cell: bumping a monster attacks it, an open cell is a step, a wall is a
+no-op (costs no turn). A turn-consuming action is followed by every monster taking its turn. -}
 tryMove : Dir -> Game -> Game
 tryMove dir game =
     let
         target =
             Grid.move game.hero.pos dir
     in
-    if enemyAt target game /= Nothing then
-        -- A monster occupies the target — combat lands in M7; for now it simply blocks.
-        game
+    case enemyAt target game of
+        Just enemy ->
+            endTurn (heroAttack enemy game)
 
-    else if Level.isPassableAt target game.level then
-        let
-            hero =
-                game.hero
+        Nothing ->
+            if Level.isPassableAt target game.level then
+                let
+                    hero =
+                        game.hero
 
-            moved =
-                { hero | pos = target }
-        in
-        endTurn (refreshFov { game | hero = moved })
+                    moved =
+                        { hero | pos = target }
+                in
+                endTurn (refreshFov { game | hero = moved })
 
-    else
-        game
+            else
+                game
 
 
 tryDescend : Game -> Game
@@ -263,6 +279,7 @@ tryDescend game =
         in
         enterLevel game.ruleset
             (game.depth + 1)
+            game.kills
             nextSeedB
             gen
             game.hero
@@ -272,9 +289,169 @@ tryDescend game =
         addLog "There are no stairs down here." game
 
 
+
+-- COMBAT -----------------------------------------------------------------------------------------
+
+
+{-| Damage is `attack − defense` with ±1 of scatter, never below 1, drawn from the game seed. -}
+rollDamage : Int -> Int -> Seed -> ( Int, Seed )
+rollDamage attack defense seed =
+    let
+        base =
+            attack - defense
+    in
+    Rng.range (max 1 (base - 1)) (max 1 (base + 1)) seed
+
+
+{-| The hero strikes a monster; a lethal blow removes it and counts a kill. -}
+heroAttack : Enemy -> Game -> Game
+heroAttack enemy game =
+    let
+        ( dmg, seed1 ) =
+            rollDamage game.hero.damage enemy.def.defense game.seed
+
+        remaining =
+            enemy.hp - dmg
+    in
+    if remaining <= 0 then
+        { game
+            | enemies = List.filter (\e -> e.pos /= enemy.pos) game.enemies
+            , seed = seed1
+            , kills = game.kills + 1
+        }
+            |> addLog ("You kill the " ++ enemy.def.name ++ ".")
+
+    else
+        { game
+            | enemies = updateEnemyAt enemy.pos (\e -> { e | hp = remaining }) game.enemies
+            , seed = seed1
+        }
+            |> addLog ("You hit the " ++ enemy.def.name ++ " (" ++ String.fromInt dmg ++ ").")
+
+
+
+-- MONSTER TURN -----------------------------------------------------------------------------------
+
+
+{-| Every living monster acts once, in list order, after a hero action that consumed a turn. Each
+either attacks the adjacent hero, steps toward a hero it can see, or idles. Positions are threaded
+through an `occupied` set so monsters never stack. -}
+enemiesTurn : Game -> Game
+enemiesTurn game =
+    if game.gameOver then
+        game
+
+    else
+        let
+            occupied0 =
+                Set.fromList (( game.hero.pos.x, game.hero.pos.y ) :: List.map (\e -> ( e.pos.x, e.pos.y )) game.enemies)
+
+            ( newEnemiesRev, acc ) =
+                List.foldl stepEnemy ( [], { hero = game.hero, seed = game.seed, log = game.log, occupied = occupied0, level = game.level } ) game.enemies
+        in
+        checkHeroDeath
+            { game
+                | enemies = List.reverse newEnemiesRev
+                , hero = acc.hero
+                , seed = acc.seed
+                , log = acc.log
+            }
+
+
+type alias TurnAcc =
+    { hero : Hero
+    , seed : Seed
+    , log : List String
+    , occupied : Set ( Int, Int )
+    , level : Level
+    }
+
+
+stepEnemy : Enemy -> ( List Enemy, TurnAcc ) -> ( List Enemy, TurnAcc )
+stepEnemy enemy ( done, acc ) =
+    let
+        heroPos =
+            acc.hero.pos
+
+        adjacent =
+            Grid.chebyshev enemy.pos heroPos == 1
+
+        aware =
+            Grid.chebyshev enemy.pos heroPos <= aggroRange && Fov.visibleFrom enemy.pos heroPos acc.level
+    in
+    if adjacent then
+        let
+            ( dmg, seed1 ) =
+                rollDamage enemy.def.damage acc.hero.defense acc.seed
+
+            hero =
+                acc.hero
+
+            hurt =
+                { hero | hp = hero.hp - dmg }
+        in
+        ( enemy :: done
+        , { acc
+            | hero = hurt
+            , seed = seed1
+            , log = ("The " ++ enemy.def.name ++ " hits you (" ++ String.fromInt dmg ++ ").") :: acc.log
+          }
+        )
+
+    else if aware then
+        case stepToward enemy.pos heroPos acc.level acc.occupied of
+            Just next ->
+                ( { enemy | pos = next } :: done
+                , { acc
+                    | occupied =
+                        acc.occupied
+                            |> Set.remove ( enemy.pos.x, enemy.pos.y )
+                            |> Set.insert ( next.x, next.y )
+                  }
+                )
+
+            Nothing ->
+                ( enemy :: done, acc )
+
+    else
+        ( enemy :: done, acc )
+
+
+{-| Greedy chase: of the passable, unoccupied neighbours, the one that most reduces Chebyshev
+distance to the target. `Nothing` if boxed in. -}
+stepToward : Pos -> Pos -> Level -> Set ( Int, Int ) -> Maybe Pos
+stepToward from to level occupied =
+    Grid.eightDirs
+        |> List.map (Grid.move from)
+        |> List.filter (\p -> Level.isPassableAt p level && not (Set.member ( p.x, p.y ) occupied))
+        |> minimumBy (\p -> Grid.chebyshev p to)
+
+
+checkHeroDeath : Game -> Game
+checkHeroDeath game =
+    if game.hero.hp <= 0 && not game.gameOver then
+        { game | gameOver = True } |> addLog "You die. Press R to restart."
+
+    else
+        game
+
+
 enemyAt : Pos -> Game -> Maybe Enemy
 enemyAt p game =
     listFind (\e -> e.pos == p) game.enemies
+
+
+updateEnemyAt : Pos -> (Enemy -> Enemy) -> List Enemy -> List Enemy
+updateEnemyAt p f enemies =
+    List.map
+        (\e ->
+            if e.pos == p then
+                f e
+
+            else
+                e
+        )
+        enemies
 
 
 refreshFov : Game -> Game
@@ -286,9 +463,24 @@ refreshFov game =
     { game | visible = vis, explored = Set.union game.explored vis }
 
 
+{-| Close out a turn-consuming hero action: run the monsters, then tick the counter. -}
 endTurn : Game -> Game
 endTurn game =
-    { game | turn = game.turn + 1 }
+    let
+        afterMonsters =
+            enemiesTurn game
+    in
+    { afterMonsters | turn = afterMonsters.turn + 1 }
+
+
+minimumBy : (a -> comparable) -> List a -> Maybe a
+minimumBy f xs =
+    case xs of
+        [] ->
+            Nothing
+
+        first :: rest ->
+            Just (List.foldl (\x best -> if f x < f best then x else best) first rest)
 
 
 addLog : String -> Game -> Game
@@ -319,30 +511,37 @@ toScene game =
     { level = game.level
     , visible = game.visible
     , explored = game.explored
-    , glyphs = heroGlyph game.hero :: List.map enemyGlyph game.enemies
+    , glyphs = heroGlyph game :: List.map enemyGlyph game.enemies
     , hud =
         { title = "elm-rouge"
         , depth = game.depth
         , hp = game.hero.hp
         , maxHp = game.hero.maxHp
         , turn = game.turn
-        , log = List.take 6 game.log
+        , log = List.take 7 game.log
         , gameOver = game.gameOver
-        , status =
-            if Level.at game.hero.pos game.level == StairsDown then
-                "Press > to descend"
-
-            else
-                ""
+        , status = statusLine game
         }
     }
 
 
-heroGlyph : Hero -> Render.Glyph
-heroGlyph hero =
-    { pos = hero.pos
-    , char = "@"
-    , color = "#ffe08a"
+statusLine : Game -> String
+statusLine game =
+    if game.gameOver then
+        "You have died at depth " ++ String.fromInt game.depth ++ " — press R to restart"
+
+    else if Level.at game.hero.pos game.level == StairsDown then
+        "Press > to descend"
+
+    else
+        String.fromInt (List.length game.enemies) ++ " monsters · " ++ String.fromInt game.kills ++ " slain"
+
+
+heroGlyph : Game -> Render.Glyph
+heroGlyph game =
+    { pos = game.hero.pos
+    , char = game.ruleset.hero.glyph
+    , color = game.ruleset.hero.color
     , layer = Render.layerHero
     , heavy = True
     }
