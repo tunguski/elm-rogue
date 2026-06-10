@@ -3,6 +3,8 @@ module Rogue.Dungeon exposing
     , defaultConfig
     , Generated
     , Room
+    , Feature
+    , FeatureKind(..)
     , generate
     , roomCenter
     )
@@ -63,7 +65,21 @@ type alias Generated =
     , stairsDown : Pos
     , vaultDoor : Maybe Pos
     , vaultCells : List Pos
+    , features : List Feature
     , seed : Seed
+    }
+
+
+{-| A tagged special room the engine populates: a `Treasure` room with extra loot, or a `Nest` packed
+with extra monsters. -}
+type FeatureKind
+    = Treasure
+    | Nest
+
+
+type alias Feature =
+    { kind : FeatureKind
+    , cells : List Pos
     }
 
 
@@ -111,6 +127,9 @@ generate cfg seed0 =
 
         ( vaultDoor, vaultCells, level6, seed3 ) =
             placeVault cfg rooms level5 seed2
+
+        ( features, seed4 ) =
+            pickFeatures rooms seed3
     in
     { level = level6
     , rooms = rooms
@@ -118,8 +137,37 @@ generate cfg seed0 =
     , stairsDown = downPos
     , vaultDoor = vaultDoor
     , vaultCells = vaultCells
-    , seed = seed3
+    , features = features
+    , seed = seed4
     }
+
+
+{-| Tag up to two "middle" rooms (not the start or the stair room) as a treasure room and a monster
+nest, returning the cells the engine should fill. -}
+pickFeatures : List Room -> Seed -> ( List Feature, Seed )
+pickFeatures rooms seed =
+    let
+        -- Eligible: drop the first (start) and last (down-stairs) rooms.
+        middle =
+            rooms |> List.drop 1 |> dropLast
+
+        ( shuffled, seed1 ) =
+            Rng.shuffle middle seed
+    in
+    case shuffled of
+        treasure :: nest :: _ ->
+            ( [ { kind = Treasure, cells = roomCells treasure }, { kind = Nest, cells = roomCells nest } ], seed1 )
+
+        [ treasure ] ->
+            ( [ { kind = Treasure, cells = roomCells treasure } ], seed1 )
+
+        [] ->
+            ( [], seed1 )
+
+
+dropLast : List a -> List a
+dropLast xs =
+    List.take (max 0 (List.length xs - 1)) xs
 
 
 {-| Drop `Door` tiles at corridor pinch-points (a floor cell walled on one axis and open on the

@@ -300,6 +300,9 @@ enterLevel ruleset depth kills idents seed gen hero log =
         ( vaultItems, seed5 ) =
             spawnVault ruleset depth gen keySpots seed4
 
+        ( featureEnemies, featureItems, seed6 ) =
+            spawnFeatures ruleset depth gen.features seed5
+
         vis =
             Fov.compute heroAt.fovRadius heroAt.pos gen.level
     in
@@ -307,14 +310,14 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , level = gen.level
     , rooms = gen.rooms
     , hero = heroAt
-    , enemies = enemies
-    , items = items ++ vaultItems
+    , enemies = enemies ++ featureEnemies
+    , items = items ++ vaultItems ++ featureItems
     , traps = traps
     , idents = idents
     , depth = depth
     , turn = 0
     , kills = kills
-    , seed = seed5
+    , seed = seed6
     , visible = vis
     , explored = vis
     , log = log
@@ -400,6 +403,31 @@ rollTrapKind depth seed =
                    )
     in
     Rng.pickWeighted DartTrap candidates seed
+
+
+{-| Populate the tagged special rooms: a treasure room gets extra loot, a nest gets an extra monster
+pack. Returns the added enemies, items, and advanced seed. -}
+spawnFeatures : Ruleset -> Int -> List Dungeon.Feature -> Seed -> ( List Enemy, List ItemOnFloor, Seed )
+spawnFeatures ruleset depth features seed =
+    List.foldl
+        (\feature ( accE, accI, s ) ->
+            case feature.kind of
+                Dungeon.Treasure ->
+                    let
+                        ( items, s2 ) =
+                            spawnItems ruleset depth (List.take 3 feature.cells) s
+                    in
+                    ( accE, items ++ accI, s2 )
+
+                Dungeon.Nest ->
+                    let
+                        ( enemies, s2 ) =
+                            spawnEnemies ruleset depth (List.take 4 feature.cells) s
+                    in
+                    ( enemies ++ accE, accI, s2 )
+        )
+        ( [], [], seed )
+        features
 
 
 {-| Stock a generated vault (if any): a couple of bonus items inside, plus a guaranteed key dropped on
