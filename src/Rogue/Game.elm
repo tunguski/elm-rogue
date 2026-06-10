@@ -45,7 +45,36 @@ type alias Hero =
     , defense : Int
     , inventory : List ItemDef
     , gold : Int
+    , weapon : Maybe ItemDef
+    , armour : Maybe ItemDef
     }
+
+
+{-| The hero's attack power including the worn weapon's bonus. -}
+heroDamage : Hero -> Int
+heroDamage hero =
+    hero.damage + equipBonus .damage hero.weapon
+
+
+{-| The hero's defense including the worn armour's bonus. -}
+heroDefense : Hero -> Int
+heroDefense hero =
+    hero.defense + equipBonus .defense hero.armour
+
+
+equipBonus : (Content.EquipBonus -> Int) -> Maybe ItemDef -> Int
+equipBonus field maybeItem =
+    case maybeItem of
+        Just item ->
+            case item.kind of
+                Content.Equipment _ bonus ->
+                    field bonus
+
+                _ ->
+                    0
+
+        Nothing ->
+            0
 
 
 {-| A monster in play: a copy of its `EnemyDef` (so the modded stats are the live stats) plus its
@@ -121,6 +150,8 @@ newGame ruleset rawSeed =
             , defense = ruleset.hero.defense
             , inventory = []
             , gold = 0
+            , weapon = Nothing
+            , armour = Nothing
             }
     in
     enterLevel ruleset 1 0 gen.seed gen hero [ "You enter the dungeon." ]
@@ -360,8 +391,8 @@ pickUp game =
 
 pickUpOne : ItemOnFloor -> Game -> Game
 pickUpOne it game =
-    case it.def.effect of
-        Gold amount ->
+    case it.def.kind of
+        Content.Consumable (Gold amount) ->
             let
                 hero =
                     game.hero
@@ -378,8 +409,9 @@ pickUpOne it game =
                 |> addLog ("You pick up a " ++ it.def.name ++ ".")
 
 
-{-| Use the inventory item at `index` (0-based): apply its effect, drop it if consumable, and let the
-monsters act. Out-of-range indices are ignored (no turn spent). -}
+{-| Use the inventory item at `index` (0-based): drink a consumable (apply effect, remove it) or wear
+a piece of equipment (swap it into its slot, the displaced gear back to the pack). Either way the
+monsters then act. Out-of-range indices are ignored (no turn spent). -}
 tryUse : Int -> Game -> Game
 tryUse index game =
     case nth index game.hero.inventory of
@@ -387,32 +419,69 @@ tryUse index game =
             game
 
         Just def ->
-            let
-                applied =
-                    applyEffect def game
+            case def.kind of
+                Content.Consumable _ ->
+                    let
+                        applied =
+                            applyEffect def game
 
-                hero =
-                    applied.hero
+                        hero =
+                            applied.hero
+                    in
+                    endTurn { applied | hero = { hero | inventory = removeAt index hero.inventory } }
 
-                afterRemove =
-                    if def.consumable then
-                        { applied | hero = { hero | inventory = removeAt index hero.inventory } }
-
-                    else
-                        applied
-            in
-            endTurn afterRemove
+                Content.Equipment slot _ ->
+                    endTurn (equip index slot def game)
 
 
-{-| Interpret an `ItemEffect` on the game — the engine half of the moddable item DSL. A new effect
-constructor in `Rogue.Content.ItemEffect` is wired up here. -}
+{-| Wear `def` (at inventory `index`) in `slot`: pull it from the pack and put whatever was in the
+slot back into the pack. -}
+equip : Int -> Content.EquipSlot -> ItemDef -> Game -> Game
+equip index slot def game =
+    let
+        hero =
+            game.hero
+
+        previous =
+            case slot of
+                Content.WeaponSlot ->
+                    hero.weapon
+
+                Content.ArmourSlot ->
+                    hero.armour
+
+        packWithoutNew =
+            removeAt index hero.inventory
+
+        pack =
+            case previous of
+                Just old ->
+                    packWithoutNew ++ [ old ]
+
+                Nothing ->
+                    packWithoutNew
+
+        equippedHero =
+            case slot of
+                Content.WeaponSlot ->
+                    { hero | inventory = pack, weapon = Just def }
+
+                Content.ArmourSlot ->
+                    { hero | inventory = pack, armour = Just def }
+    in
+    { game | hero = equippedHero }
+        |> addLog ("You equip the " ++ def.name ++ ".")
+
+
+{-| Interpret a consumable's `ItemEffect` on the game — the engine half of the moddable item DSL. A
+new effect constructor in `Rogue.Content.ItemEffect` is wired up here. Non-consumables are a no-op. -}
 applyEffect : ItemDef -> Game -> Game
 applyEffect def game =
     let
         hero =
             game.hero
     in
-    case def.effect of
+    case effectOf def of
         HealHp n ->
             { game | hero = { hero | hp = min hero.maxHp (hero.hp + n) } }
                 |> addLog ("You drink the " ++ def.name ++ ". (+" ++ String.fromInt n ++ " HP)")
@@ -438,6 +507,16 @@ applyEffect def game =
                 |> addLog ("You gain " ++ String.fromInt amount ++ " gold.")
 
 
+effectOf : ItemDef -> ItemEffect
+effectOf def =
+    case def.kind of
+        Content.Consumable eff ->
+            eff
+
+        _ ->
+            HealHp 0
+
+
 
 -- COMBAT -----------------------------------------------------------------------------------------
 
@@ -457,7 +536,7 @@ heroAttack : Enemy -> Game -> Game
 heroAttack enemy game =
     let
         ( dmg, seed1 ) =
-            rollDamage game.hero.damage enemy.def.defense game.seed
+            rollDamage (heroDamage game.hero) enemy.def.defense game.seed
 
         remaining =
             enemy.hp - dmg
@@ -531,7 +610,7 @@ stepEnemy enemy ( done, acc ) =
     if adjacent then
         let
             ( dmg, seed1 ) =
-                rollDamage enemy.def.damage acc.hero.defense acc.seed
+                rollDamage enemy.def.damage (heroDefense acc.hero) acc.seed
 
             hero =
                 acc.hero
@@ -685,6 +764,8 @@ toScene game =
         , maxHp = game.hero.maxHp
         , turn = game.turn
         , gold = game.hero.gold
+        , weapon = equippedName game.hero.weapon (heroDamage game.hero) "dmg"
+        , armour = equippedName game.hero.armour (heroDefense game.hero) "def"
         , inventory = List.map .name game.hero.inventory
         , log = List.take 7 game.log
         , gameOver = game.gameOver
@@ -727,6 +808,21 @@ enemyGlyph enemy =
     , layer = Render.layerActor
     , heavy = False
     }
+
+
+{-| A HUD label for an equipped slot: the item's name (or a dash) plus the resulting total stat. -}
+equippedName : Maybe ItemDef -> Int -> String -> String
+equippedName maybeItem total label =
+    let
+        prefix =
+            case maybeItem of
+                Just item ->
+                    item.name
+
+                Nothing ->
+                    "—"
+    in
+    prefix ++ " (" ++ label ++ " " ++ String.fromInt total ++ ")"
 
 
 itemGlyph : ItemOnFloor -> Render.Glyph

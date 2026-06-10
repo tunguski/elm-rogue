@@ -8,7 +8,7 @@ tweak the numbers (or add/remove `EnemyDef`s) and hand the resulting `Ruleset` t
 Pixel Dungeon's early floors (rats and gnolls up top, tougher crabs and skeletons deeper).
 -}
 
-import Rogue.Content exposing (EnemyDef, HeroDef, ItemDef, ItemEffect(..), Ruleset)
+import Rogue.Content exposing (EnemyDef, EquipSlot(..), HeroDef, ItemDef, ItemEffect(..), ItemKind(..), Ruleset)
 
 
 ruleset : Ruleset
@@ -29,6 +29,12 @@ ruleset =
         , potionOfStrength
         , potionOfShielding
         , goldPile
+        , dagger
+        , shortSword
+        , mace
+        , leatherArmour
+        , mailArmour
+        , plateArmour
         ]
     }
 
@@ -156,8 +162,7 @@ healingPotion =
     , name = "potion of healing"
     , glyph = "!"
     , color = "#e0564b"
-    , effect = HealHp 10
-    , consumable = True
+    , kind = Consumable (HealHp 10)
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 10
@@ -170,8 +175,7 @@ greaterHealingPotion =
     , name = "potion of full healing"
     , glyph = "!"
     , color = "#ff8aa0"
-    , effect = HealFull
-    , consumable = True
+    , kind = Consumable HealFull
     , minDepth = 3
     , maxDepth = 99
     , spawnWeight = 4
@@ -184,8 +188,7 @@ potionOfStrength =
     , name = "potion of strength"
     , glyph = "!"
     , color = "#caa472"
-    , effect = DamageBonus 1
-    , consumable = True
+    , kind = Consumable (DamageBonus 1)
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 5
@@ -198,8 +201,7 @@ potionOfShielding =
     , name = "potion of shielding"
     , glyph = "!"
     , color = "#4f8bff"
-    , effect = MaxHpBonus 5
-    , consumable = True
+    , kind = Consumable (MaxHpBonus 5)
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 4
@@ -212,9 +214,90 @@ goldPile =
     , name = "gold"
     , glyph = "$"
     , color = "#d8b24c"
-    , effect = Gold 15
-    , consumable = True
+    , kind = Consumable (Gold 15)
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 12
+    }
+
+
+
+-- WEAPONS & ARMOUR (Equipment) -------------------------------------------------------------------
+
+
+dagger : ItemDef
+dagger =
+    { id = "dagger"
+    , name = "dagger"
+    , glyph = "/"
+    , color = "#b9c2d0"
+    , kind = Equipment WeaponSlot { damage = 2, defense = 0, maxHp = 0 }
+    , minDepth = 1
+    , maxDepth = 4
+    , spawnWeight = 6
+    }
+
+
+shortSword : ItemDef
+shortSword =
+    { id = "short-sword"
+    , name = "short sword"
+    , glyph = "/"
+    , color = "#d6deea"
+    , kind = Equipment WeaponSlot { damage = 4, defense = 0, maxHp = 0 }
+    , minDepth = 2
+    , maxDepth = 6
+    , spawnWeight = 5
+    }
+
+
+mace : ItemDef
+mace =
+    { id = "mace"
+    , name = "mace"
+    , glyph = "/"
+    , color = "#e8b06a"
+    , kind = Equipment WeaponSlot { damage = 6, defense = 0, maxHp = 0 }
+    , minDepth = 4
+    , maxDepth = 99
+    , spawnWeight = 4
+    }
+
+
+leatherArmour : ItemDef
+leatherArmour =
+    { id = "leather-armour"
+    , name = "leather armour"
+    , glyph = "["
+    , color = "#b08968"
+    , kind = Equipment ArmourSlot { damage = 0, defense = 1, maxHp = 0 }
+    , minDepth = 1
+    , maxDepth = 4
+    , spawnWeight = 6
+    }
+
+
+mailArmour : ItemDef
+mailArmour =
+    { id = "mail-armour"
+    , name = "mail armour"
+    , glyph = "["
+    , color = "#9aa7ba"
+    , kind = Equipment ArmourSlot { damage = 0, defense = 3, maxHp = 0 }
+    , minDepth = 3
+    , maxDepth = 7
+    , spawnWeight = 5
+    }
+
+
+plateArmour : ItemDef
+plateArmour =
+    { id = "plate-armour"
+    , name = "plate armour"
+    , glyph = "["
+    , color = "#cfd8e6"
+    , kind = Equipment ArmourSlot { damage = 0, defense = 5, maxHp = 0 }
+    , minDepth = 5
+    , maxDepth = 99
+    , spawnWeight = 3
     }

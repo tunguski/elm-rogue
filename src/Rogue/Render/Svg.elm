@@ -253,6 +253,8 @@ hudView hud =
         , statLine "Turn" (String.fromInt hud.turn)
         , statLine "Gold" (String.fromInt hud.gold)
         , hpBar hud
+        , statLine "Weapon" hud.weapon
+        , statLine "Armour" hud.armour
         , if hud.status /= "" then
             Html.div [ HA.style "color" "#f0c674", HA.style "font-size" "13px" ] [ Html.text hud.status ]
 

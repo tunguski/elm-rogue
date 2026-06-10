@@ -2,6 +2,9 @@ module Rogue.Content exposing
     ( EnemyDef
     , ItemDef
     , ItemEffect(..)
+    , ItemKind(..)
+    , EquipSlot(..)
+    , EquipBonus
     , Ruleset
     , HeroDef
     , enemiesForDepth
@@ -56,15 +59,36 @@ type ItemEffect
     | Gold Int
 
 
+{-| Which body slot a piece of equipment occupies. -}
+type EquipSlot
+    = WeaponSlot
+    | ArmourSlot
+
+
+{-| The passive stat bonuses a piece of equipment confers while worn. -}
+type alias EquipBonus =
+    { damage : Int
+    , defense : Int
+    , maxHp : Int
+    }
+
+
+{-| What kind of item this is. A `Consumable` is used up for an instant `ItemEffect`; `Equipment` is
+worn in a slot for a passive `EquipBonus` until swapped out. Adding a new kind is an engine change
+(a case in `Rogue.Game`); adding new *items* of an existing kind is pure data. -}
+type ItemKind
+    = Consumable ItemEffect
+    | Equipment EquipSlot EquipBonus
+
+
 {-| A pickup archetype — defined as data, exactly like `EnemyDef`. Instances on the floor carry a
-copy, so the stats/effect a mod sets here are what the player actually gets. -}
+copy, so the stats a mod sets here are what the player actually gets. -}
 type alias ItemDef =
     { id : String
     , name : String
     , glyph : String
     , color : String
-    , effect : ItemEffect
-    , consumable : Bool
+    , kind : ItemKind
     , minDepth : Int
     , maxDepth : Int
     , spawnWeight : Int

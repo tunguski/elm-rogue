@@ -177,6 +177,8 @@ hudView hud =
         ([ Html.div [ HA.style "font-size" "20px", HA.style "font-weight" "700" ] [ Html.text hud.title ]
          , line ("Depth " ++ String.fromInt hud.depth ++ "   Turn " ++ String.fromInt hud.turn)
          , line ("HP " ++ String.fromInt (max 0 hud.hp) ++ "/" ++ String.fromInt hud.maxHp ++ "   Gold " ++ String.fromInt hud.gold)
+         , line ("Wpn " ++ hud.weapon)
+         , line ("Arm " ++ hud.armour)
          , if hud.status /= "" then
             Html.div [ HA.style "color" "#f0c674" ] [ Html.text hud.status ]
 
