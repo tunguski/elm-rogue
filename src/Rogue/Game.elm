@@ -51,7 +51,40 @@ type alias Hero =
     , glyph : String
     , color : String
     , fovRadius : Int
+    , statuses : List Status
     }
+
+
+{-| A timed condition on the hero. `magnitude` is HP per turn (drained for `Poison`/`Burn`, restored
+for `Regen`); `turns` is how many turns remain. -}
+type StatusKind
+    = Poison
+    | Burn
+    | Regen
+
+
+type alias Status =
+    { kind : StatusKind
+    , magnitude : Int
+    , turns : Int
+    }
+
+
+statusLabel : Status -> String
+statusLabel status =
+    let
+        name =
+            case status.kind of
+                Poison ->
+                    "Poison"
+
+                Burn ->
+                    "Burn"
+
+                Regen ->
+                    "Regen"
+    in
+    name ++ " (" ++ String.fromInt status.turns ++ ")"
 
 
 {-| The hero's attack power including the worn weapon's bonus. -}
@@ -183,6 +216,7 @@ newGame ruleset class rawSeed =
             , glyph = class.glyph
             , color = class.color
             , fovRadius = class.fovRadius
+            , statuses = []
             }
     in
     enterLevel ruleset 1 0 gen.seed gen hero [ "You enter the dungeon as " ++ withArticle class.name ++ "." ]
@@ -596,6 +630,10 @@ applyEffect def game =
             { game | hero = { hero | gold = hero.gold + amount } }
                 |> addLog ("You gain " ++ String.fromInt amount ++ " gold.")
 
+        Regenerate perTurn turns ->
+            addStatus Regen perTurn turns game
+                |> addLog ("You drink the " ++ def.name ++ ". You begin to mend.")
+
 
 effectOf : ItemDef -> ItemEffect
 effectOf def =
@@ -635,11 +673,8 @@ trapEffect kind game =
             checkHeroDeath (damageHero dmg { game | seed = s1 } |> addLog ("A dart shoots out! (" ++ String.fromInt dmg ++ ")"))
 
         PoisonTrap ->
-            let
-                ( dmg, s1 ) =
-                    Rng.range game.depth (game.depth + 2) game.seed
-            in
-            checkHeroDeath (damageHero dmg { game | seed = s1 } |> addLog ("Poison gas hisses out! (" ++ String.fromInt dmg ++ ")"))
+            addStatus Poison 2 5 game
+                |> addLog "Poison gas hisses out! You are poisoned."
 
         TeleportTrap ->
             teleportHero game |> addLog "A teleport trap! You are flung across the floor."
@@ -906,10 +941,65 @@ refreshFov game =
 endTurn : Game -> Game
 endTurn game =
     let
+        afterStatuses =
+            tickStatuses game
+
         afterMonsters =
-            enemiesTurn game
+            enemiesTurn afterStatuses
     in
     { afterMonsters | turn = afterMonsters.turn + 1 }
+
+
+{-| Apply each active status to the hero (poison/burn drain HP, regen restores it, capped at max),
+count it down, and drop the expired ones. Runs once per turn-consuming action. -}
+tickStatuses : Game -> Game
+tickStatuses game =
+    let
+        hero =
+            game.hero
+
+        ( hpDelta, logs ) =
+            List.foldl
+                (\status ( dhp, ls ) ->
+                    case status.kind of
+                        Regen ->
+                            ( dhp + status.magnitude, ls )
+
+                        Poison ->
+                            ( dhp - status.magnitude, ("Poison gnaws at you (" ++ String.fromInt status.magnitude ++ ").") :: ls )
+
+                        Burn ->
+                            ( dhp - status.magnitude, ("Flames sear you (" ++ String.fromInt status.magnitude ++ ").") :: ls )
+                )
+                ( 0, [] )
+                hero.statuses
+
+        ticked =
+            hero.statuses
+                |> List.map (\s -> { s | turns = s.turns - 1 })
+                |> List.filter (\s -> s.turns > 0)
+
+        newHp =
+            min hero.maxHp (hero.hp + hpDelta)
+    in
+    checkHeroDeath
+        { game
+            | hero = { hero | hp = newHp, statuses = ticked }
+            , log = logs ++ game.log
+        }
+
+
+{-| Add a status, or refresh the duration of one already active of the same kind. -}
+addStatus : StatusKind -> Int -> Int -> Game -> Game
+addStatus kind magnitude turns game =
+    let
+        hero =
+            game.hero
+
+        others =
+            List.filter (\s -> s.kind /= kind) hero.statuses
+    in
+    { game | hero = { hero | statuses = { kind = kind, magnitude = magnitude, turns = turns } :: others } }
 
 
 nth : Int -> List a -> Maybe a
@@ -980,6 +1070,7 @@ toScene game =
         , gold = game.hero.gold
         , weapon = equippedName game.hero.weapon (heroDamage game.hero) "dmg"
         , armour = equippedName game.hero.armour (heroDefense game.hero) "def"
+        , statuses = List.map statusLabel game.hero.statuses
         , inventory = List.map .name game.hero.inventory
         , log = List.take 7 game.log
         , gameOver = game.gameOver

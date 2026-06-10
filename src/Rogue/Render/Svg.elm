@@ -255,6 +255,12 @@ hudView hud =
         , hpBar hud
         , statLine "Weapon" hud.weapon
         , statLine "Armour" hud.armour
+        , if List.isEmpty hud.statuses then
+            Html.text ""
+
+          else
+            Html.div [ HA.style "font-size" "12.5px", HA.style "color" "#8fd14f" ]
+                [ Html.text ("Status: " ++ String.join ", " hud.statuses) ]
         , if hud.status /= "" then
             Html.div [ HA.style "color" "#f0c674", HA.style "font-size" "13px" ] [ Html.text hud.status ]
 

@@ -34,6 +34,7 @@ ruleset =
         , greaterHealingPotion
         , potionOfStrength
         , potionOfShielding
+        , potionOfRegeneration
         , goldPile
         , dagger
         , shortSword
@@ -290,6 +291,19 @@ potionOfShielding =
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 4
+    }
+
+
+potionOfRegeneration : ItemDef
+potionOfRegeneration =
+    { id = "potion-regeneration"
+    , name = "potion of regeneration"
+    , glyph = "!"
+    , color = "#5dd47a"
+    , kind = Consumable (Regenerate 2 8)
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 5
     }
 
 

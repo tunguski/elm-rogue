@@ -179,6 +179,11 @@ hudView hud =
          , line ("HP " ++ String.fromInt (max 0 hud.hp) ++ "/" ++ String.fromInt hud.maxHp ++ "   Gold " ++ String.fromInt hud.gold)
          , line ("Wpn " ++ hud.weapon)
          , line ("Arm " ++ hud.armour)
+         , if List.isEmpty hud.statuses then
+            Html.text ""
+
+           else
+            Html.div [ HA.style "color" "#8fd14f" ] [ Html.text ("Status: " ++ String.join ", " hud.statuses) ]
          , if hud.status /= "" then
             Html.div [ HA.style "color" "#f0c674" ] [ Html.text hud.status ]
 

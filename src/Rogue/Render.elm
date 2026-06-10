@@ -80,6 +80,7 @@ type alias Hud =
     , gold : Int
     , weapon : String
     , armour : String
+    , statuses : List String
     , inventory : List String
     , log : List String
     , gameOver : Bool
@@ -99,6 +100,7 @@ emptyHud =
     , gold = 0
     , weapon = ""
     , armour = ""
+    , statuses = []
     , inventory = []
     , log = []
     , gameOver = False

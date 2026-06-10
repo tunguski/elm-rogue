@@ -61,6 +61,7 @@ type ItemEffect
     | DamageBonus Int
     | DefenseBonus Int
     | Gold Int
+    | Regenerate Int Int
 
 
 {-| Which body slot a piece of equipment occupies. -}
