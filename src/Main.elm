@@ -1,11 +1,14 @@
 module Main exposing (main)
 
-{-| The app shell: a class-selection screen, then the game, drawn through a selectable
-`Rogue.Render.Renderer`. A toolbar switches the active **mod** (`Ruleset`) and **rendering engine**;
-nothing in `Rogue.Game` knows which is chosen — the whole point of the seams.
+{-| The app shell: a class-selection screen (with a persistent run-history table), then the game,
+drawn through a selectable `Rogue.Render.Renderer`. A toolbar switches the active **mod** (`Ruleset`)
+and **rendering engine**; nothing in `Rogue.Game` knows which is chosen — the point of the seams.
 
-Controls: arrows / WASD / HJKL move, Y U B N diagonals, `.` wait, `>` descend, `1`-`9` use/equip an
-item, `R` restart (re-pick class).
+Finished runs (death or victory) are persisted to `localStorage` via `Storage` and reloaded on start,
+so your last few delves survive a page reload.
+
+Controls: arrows / WASD / HJKL move, Y U B N diagonals, `.` wait, `Z` search, `>` descend, `1`-`9`
+use/equip an item, `R` restart.
 -}
 
 import Browser
@@ -22,6 +25,7 @@ import Rogue.Grid as Grid
 import Rogue.Render exposing (Renderer)
 import Rogue.Render.Ascii as AsciiRenderer
 import Rogue.Render.Svg as SvgRenderer
+import Storage
 
 
 type Screen
@@ -34,7 +38,19 @@ type alias Model =
     , screen : Screen
     , modName : String
     , rendererName : String
+    , currentClass : String
+    , history : List Run
     , seedBump : Int
+    }
+
+
+{-| A persisted record of one finished delve. -}
+type alias Run =
+    { className : String
+    , depth : Int
+    , kills : Int
+    , turns : Int
+    , won : Bool
     }
 
 
@@ -43,11 +59,22 @@ type Msg
     | SelectMod String
     | SelectRenderer String
     | StartGame ClassDef
+    | Loaded (Maybe String)
 
 
 startSeed : Int
 startSeed =
     20260610
+
+
+storageKey : String
+storageKey =
+    "elm-rouge-history"
+
+
+maxHistory : Int
+maxHistory =
+    8
 
 
 mods : List ( String, Ruleset )
@@ -88,40 +115,134 @@ rendererNamed name =
     lookup name renderers |> Maybe.withDefault SvgRenderer.renderer
 
 
-init : Model
-init =
-    { game = Game.newGame Mod.Default.ruleset (Content.defaultClass Mod.Default.ruleset) startSeed
-    , screen = ClassSelect
-    , modName = "Default"
-    , rendererName = "SVG"
-    , seedBump = 0
-    }
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { game = Game.newGame Mod.Default.ruleset (Content.defaultClass Mod.Default.ruleset) startSeed
+      , screen = ClassSelect
+      , modName = "Default"
+      , rendererName = "SVG"
+      , currentClass = "Adventurer"
+      , history = []
+      , seedBump = 0
+      }
+    , Storage.load storageKey Loaded
+    )
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        Loaded stored ->
+            ( { model | history = parseHistory stored }, Cmd.none )
+
         SelectRenderer name ->
-            { model | rendererName = name }
+            ( { model | rendererName = name }, Cmd.none )
 
         SelectMod name ->
-            -- Classes differ per mod, so changing mod returns to the class picker.
-            { model | modName = name, screen = ClassSelect }
+            ( { model | modName = name, screen = ClassSelect }, Cmd.none )
 
         StartGame class ->
-            { model
+            ( { model
                 | game = Game.newGame (rulesetNamed model.modName) class (startSeed + model.seedBump)
-                , screen = ClassSelect
-            }
+                , currentClass = class.name
+                , screen = Playing
+              }
+            , Cmd.none
+            )
 
         GameMsg Game.Restart ->
-            { model
+            ( { model
                 | screen = ClassSelect
                 , seedBump = model.seedBump + model.game.turn + model.game.depth * 1009 + 1
-            }
+              }
+            , Cmd.none
+            )
 
         GameMsg gm ->
-            { model | game = Game.update gm model.game }
+            let
+                nextGame =
+                    Game.update gm model.game
+
+                justEnded =
+                    nextGame.gameOver && not model.game.gameOver
+            in
+            if justEnded then
+                let
+                    run =
+                        { className = model.currentClass
+                        , depth = nextGame.depth
+                        , kills = nextGame.kills
+                        , turns = nextGame.turn
+                        , won = nextGame.won
+                        }
+
+                    history =
+                        List.take maxHistory (run :: model.history)
+                in
+                ( { model | game = nextGame, history = history }
+                , Storage.save storageKey (encodeHistory history)
+                )
+
+            else
+                ( { model | game = nextGame }, Cmd.none )
+
+
+
+-- HISTORY PERSISTENCE ----------------------------------------------------------------------------
+
+
+{-| Records are stored one per line as `class|depth|kills|turns|W|D` — a tiny delimited format, so no
+JSON codecs are needed for this small amount of state. -}
+encodeHistory : List Run -> String
+encodeHistory runs =
+    String.join "\n" (List.map encodeRun runs)
+
+
+encodeRun : Run -> String
+encodeRun run =
+    String.join "|"
+        [ run.className
+        , String.fromInt run.depth
+        , String.fromInt run.kills
+        , String.fromInt run.turns
+        , if run.won then
+            "W"
+
+          else
+            "D"
+        ]
+
+
+parseHistory : Maybe String -> List Run
+parseHistory stored =
+    case stored of
+        Nothing ->
+            []
+
+        Just text ->
+            text
+                |> String.split "\n"
+                |> List.filterMap parseRun
+
+
+parseRun : String -> Maybe Run
+parseRun line =
+    case String.split "|" line of
+        [ name, d, k, t, result ] ->
+            Maybe.map3
+                (\depth kills turns ->
+                    { className = name, depth = depth, kills = kills, turns = turns, won = result == "W" }
+                )
+                (String.toInt d)
+                (String.toInt k)
+                (String.toInt t)
+
+        _ ->
+            Nothing
+
+
+
+-- VIEW -------------------------------------------------------------------------------------------
 
 
 view : Model -> Html Msg
@@ -206,22 +327,19 @@ chip label active msg =
 
 classSelectView : Model -> Html Msg
 classSelectView model =
-    let
-        classes =
-            (rulesetNamed model.modName).classes
-    in
     Html.div
-        [ HA.style "max-width" "780px"
-        , HA.style "margin" "5vh auto"
+        [ HA.style "max-width" "820px"
+        , HA.style "margin" "4vh auto"
         , HA.style "display" "flex"
         , HA.style "flex-direction" "column"
-        , HA.style "gap" "16px"
+        , HA.style "gap" "18px"
         ]
         [ Html.div [ HA.style "text-align" "center", HA.style "font-size" "16px", HA.style "color" "#9aa7ba" ]
             [ Html.text ("Choose your class — " ++ model.modName ++ " mod") ]
         , Html.div
             [ HA.style "display" "flex", HA.style "gap" "14px", HA.style "flex-wrap" "wrap", HA.style "justify-content" "center" ]
-            (List.map classCard classes)
+            (List.map classCard (rulesetNamed model.modName).classes)
+        , historyView model.history
         ]
 
 
@@ -249,6 +367,45 @@ classCard class =
         , Html.div [ HA.style "font-size" "12px", HA.style "color" "#7f8ba0" ]
             [ Html.text ("HP " ++ String.fromInt class.maxHp ++ " · DMG " ++ String.fromInt class.damage ++ " · DEF " ++ String.fromInt class.defense ++ " · FOV " ++ String.fromInt class.fovRadius) ]
         ]
+
+
+historyView : List Run -> Html Msg
+historyView runs =
+    if List.isEmpty runs then
+        Html.text ""
+
+    else
+        Html.div
+            [ HA.style "max-width" "520px"
+            , HA.style "margin" "8px auto 0"
+            , HA.style "width" "100%"
+            , HA.style "border-top" "1px solid #1b2433"
+            , HA.style "padding-top" "12px"
+            ]
+            (Html.div [ HA.style "color" "#5b6b82", HA.style "font-size" "12px", HA.style "margin-bottom" "8px", HA.style "text-align" "center" ]
+                [ Html.text "Recent delves (saved locally)" ]
+                :: List.map runRow runs
+            )
+
+
+runRow : Run -> Html Msg
+runRow run =
+    Html.div
+        [ HA.style "display" "flex"
+        , HA.style "justify-content" "space-between"
+        , HA.style "font-size" "12.5px"
+        , HA.style "padding" "3px 6px"
+        , HA.style "color" "#9aa7ba"
+        ]
+        [ Html.span [ HA.style "color" (if run.won then "#5dd47a" else "#e0564b"), HA.style "min-width" "60px" ]
+            [ Html.text (if run.won then "VICTORY" else "DIED") ]
+        , Html.span [ HA.style "flex" "1", HA.style "padding-left" "8px" ] [ Html.text run.className ]
+        , Html.span [] [ Html.text ("depth " ++ String.fromInt run.depth ++ " · " ++ String.fromInt run.kills ++ " slain · " ++ String.fromInt run.turns ++ "t") ]
+        ]
+
+
+
+-- INPUT ------------------------------------------------------------------------------------------
 
 
 keyToMsg : String -> Msg
@@ -340,8 +497,8 @@ subscriptions _ =
 main : Program () Model Msg
 main =
     Browser.element
-        { init = \_ -> ( init, Cmd.none )
-        , update = \msg model -> ( update msg model, Cmd.none )
+        { init = init
+        , update = update
         , view = view
         , subscriptions = subscriptions
         }

@@ -26,14 +26,21 @@ Reach depth 8 to win; die and you start a fresh dungeon. The toolbar switches th
 
 ## How it plays
 
+- **Pick a class** — Warrior, Mage or Rogue (or a mod's own), each with its own stats, FOV and opening
+  gear. Finished runs are saved to `localStorage` and listed on the class screen.
 - **Seeded dungeons** — rooms carved from rock, linked by L-corridors, walls auto-finished, up/down
-  stairs placed. The same seed always yields the same floor (so the engine is reproducible/testable).
+  stairs placed. The look changes by region (Sewers → Prison → Caves → Halls). The same seed always
+  yields the same floor (so the engine is reproducible/testable).
 - **Fog of war** — a raycast field of view lights the cells you can see; everything you have seen is
   remembered (dimmed) and the rest is black.
-- **Turn-based monsters** — each wakes on line of sight within range, chases (greedy step), and bumps
-  you for damage; you bump them back. HP, damage and defense come from the `Ruleset`.
-- **Items** — auto-picked up off the floor into an inventory; potions heal, buff strength/defense or
-  raise max HP; gold is counted. All defined as data with a small effect vocabulary.
+- **Turn-based monsters** — each wakes on line of sight, stays alert, and **BFS-paths** around corners
+  to reach you; melee bumps, archers shoot, the badly wounded flee. HP/damage/defense come from data.
+- **Items & gear** — auto-pick-up into an inventory; **equip** weapons and armour (derived
+  attack/defense), **drink** potions (heal, strength, shielding, regeneration), **read** scrolls
+  (teleport, magic mapping, identify), and **zap** a charged wand at the nearest visible monster.
+- **Roguelike systems** — hidden **traps** (dart/poison/teleport) you can **search** for; timed
+  **status effects** (poison/burn/regen) that tick each turn; **XP & leveling** (HP/damage growth on
+  level-up); and **unidentified potions** with per-run random appearances you learn by drinking.
 
 ## Architecture — the two mod seams
 
@@ -96,8 +103,13 @@ engine plays it.
 
 ## Status
 
-Milestone set 1 (this release) delivers the playable, moddable core: generation, FOV, combat, AI,
-items, depth/stairs, win/lose, two mods and two renderers. Planned next sets: richer level themes and
-traps, equipment (weapons/armour with the same data seam), character classes, smarter pathfinding
-AI, status effects, a bestiary/identification system, sound, and persistence — iterating toward
+- **Set 1 — playable moddable core:** generation, FOV, bump combat, monster AI, items, depth/stairs,
+  win/lose, two mods, two renderers.
+- **Set 2 — depth:** equipment, character classes, regional level themes, traps + search, BFS/ranged/
+  fleeing AI, status effects, XP & leveling, potion identification, scrolls & wands, and `localStorage`
+  run history.
+
+Every system above is data behind the same two seams — content is a `Ruleset`, rendering is a
+`Renderer` — so mods extend all of it. Planned next: locked vaults & keys, boss floors, the Amulet
+win, equipment enchantments, a wider bestiary, and a headless test suite. Iterating toward
 Pixel-Dungeon parity.
