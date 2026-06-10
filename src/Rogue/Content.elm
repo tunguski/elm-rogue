@@ -79,6 +79,7 @@ type ItemEffect
     | UpgradeGear
     | Feed Int
     | LightFor Int Int
+    | HasteFor Int
 
 
 {-| Which body slot a piece of equipment occupies. -}

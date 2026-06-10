@@ -42,6 +42,7 @@ ruleset =
         , potionOfStrength
         , potionOfShielding
         , potionOfRegeneration
+        , potionOfHaste
         , ration
         , torch
         , goldPile
@@ -427,6 +428,19 @@ potionOfRegeneration =
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 5
+    }
+
+
+potionOfHaste : ItemDef
+potionOfHaste =
+    { id = "potion-haste"
+    , name = "potion of haste"
+    , glyph = "!"
+    , color = "#ffd34d"
+    , kind = Consumable (HasteFor 20)
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 4
     }
 
 

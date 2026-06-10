@@ -71,6 +71,9 @@ type StatusKind
     | Burn
     | Regen
     | Lit
+    | Paralyzed
+    | Hasted
+    | Slowed
 
 
 type alias Status =
@@ -96,8 +99,22 @@ statusLabel status =
 
                 Lit ->
                     "Light"
+
+                Paralyzed ->
+                    "Paralyzed"
+
+                Hasted ->
+                    "Haste"
+
+                Slowed ->
+                    "Slow"
     in
     name ++ " (" ++ String.fromInt status.turns ++ ")"
+
+
+hasStatus : StatusKind -> Hero -> Bool
+hasStatus kind hero =
+    List.any (\s -> s.kind == kind) hero.statuses
 
 
 {-| The hero's attack power including the worn weapon's bonus. -}
@@ -150,6 +167,7 @@ type TrapKind
     = DartTrap
     | PoisonTrap
     | TeleportTrap
+    | ParalysisTrap
 
 
 type alias Trap =
@@ -185,6 +203,7 @@ type alias Game =
     , idents : Idents
     , depth : Int
     , turn : Int
+    , tempo : Int
     , kills : Int
     , seed : Seed
     , visible : Set ( Int, Int )
@@ -379,6 +398,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , idents = idents
     , depth = depth
     , turn = 0
+    , tempo = 0
     , kills = kills
     , seed = seed6
     , visible = vis
@@ -455,7 +475,7 @@ rollTrapKind depth seed =
         candidates =
             [ ( 5, DartTrap ), ( 4, PoisonTrap ) ]
                 ++ (if depth >= 3 then
-                        [ ( 3, TeleportTrap ) ]
+                        [ ( 3, TeleportTrap ), ( 3, ParalysisTrap ) ]
 
                     else
                         []
@@ -576,6 +596,10 @@ update msg game =
     if game.gameOver then
         game
 
+    else if hasStatus Paralyzed game.hero && isActionMsg msg then
+        -- Paralysed: the action is lost but time still passes (monsters act, the status counts down).
+        endTurn (addLog "You are paralysed and cannot move!" game)
+
     else
         case msg of
             Move dir ->
@@ -602,6 +626,20 @@ update msg game =
 
             NoOp ->
                 game
+
+
+{-| Does this message represent a turn-consuming hero action (the kind paralysis blocks)? -}
+isActionMsg : Msg -> Bool
+isActionMsg msg =
+    case msg of
+        Restart ->
+            False
+
+        NoOp ->
+            False
+
+        _ ->
+            True
 
 
 {-| The hero's intent for one cell: bumping a monster attacks it, an open cell is a step, a wall is a
@@ -984,6 +1022,10 @@ applyEffect def game =
                 |> refreshFov
                 |> addLog ("You light the " ++ name ++ ". The dark recedes.")
 
+        HasteFor turns ->
+            addStatus Hasted 1 turns game
+                |> addLog ("You drink the " ++ name ++ ". You move with quickened speed!")
+
 
 effectOf : ItemDef -> ItemEffect
 effectOf def =
@@ -1162,6 +1204,9 @@ trapEffect kind game =
 
         TeleportTrap ->
             teleportHero game |> addLog "A teleport trap! You are flung across the floor."
+
+        ParalysisTrap ->
+            addStatus Paralyzed 1 4 game |> addLog "A paralysis trap! Your limbs lock up."
 
 
 damageHero : Int -> Game -> Game
@@ -1567,8 +1612,26 @@ endTurn game =
         afterStatuses =
             tickStatuses game
 
+        tempo =
+            afterStatuses.tempo + 1
+
+        bumped =
+            { afterStatuses | tempo = tempo }
+
+        -- Haste lets the hero act on every tick while monsters act on every other; slow does the
+        -- reverse (monsters get a bonus turn). Neither → the usual one-for-one.
+        enemyPhases =
+            if hasStatus Hasted bumped.hero then
+                modBy 2 tempo
+
+            else if hasStatus Slowed bumped.hero then
+                2
+
+            else
+                1
+
         afterMonsters =
-            enemiesTurn afterStatuses
+            applyTimes enemyPhases enemiesTurn bumped
 
         afterPerception =
             passivePerception afterMonsters
@@ -1577,6 +1640,15 @@ endTurn game =
             tickHunger afterPerception
     in
     { afterHunger | turn = afterHunger.turn + 1 }
+
+
+applyTimes : Int -> (a -> a) -> a -> a
+applyTimes n f x =
+    if n <= 0 then
+        x
+
+    else
+        applyTimes (n - 1) f (f x)
 
 
 {-| Burn one point of nutrition per turn; at zero the hero starves for 1 HP a turn. -}
@@ -1640,7 +1712,7 @@ tickStatuses game =
                         Burn ->
                             ( dhp - status.magnitude, ("Flames sear you (" ++ String.fromInt status.magnitude ++ ").") :: ls )
 
-                        Lit ->
+                        _ ->
                             ( dhp, ls )
                 )
                 ( 0, [] )
