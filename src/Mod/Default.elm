@@ -8,7 +8,7 @@ tweak the numbers (or add/remove `EnemyDef`s) and hand the resulting `Ruleset` t
 Pixel Dungeon's early floors (rats and gnolls up top, tougher crabs and skeletons deeper).
 -}
 
-import Rogue.Content exposing (EnemyDef, HeroDef, Ruleset)
+import Rogue.Content exposing (EnemyDef, HeroDef, ItemDef, ItemEffect(..), Ruleset)
 
 
 ruleset : Ruleset
@@ -22,6 +22,13 @@ ruleset =
         , crab
         , skeleton
         , swarm
+        ]
+    , items =
+        [ healingPotion
+        , greaterHealingPotion
+        , potionOfStrength
+        , potionOfShielding
+        , goldPile
         ]
     }
 
@@ -136,4 +143,78 @@ swarm =
     , maxDepth = 7
     , spawnWeight = 4
     , xp = 2
+    }
+
+
+
+-- ITEMS ------------------------------------------------------------------------------------------
+
+
+healingPotion : ItemDef
+healingPotion =
+    { id = "potion-healing"
+    , name = "potion of healing"
+    , glyph = "!"
+    , color = "#e0564b"
+    , effect = HealHp 10
+    , consumable = True
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 10
+    }
+
+
+greaterHealingPotion : ItemDef
+greaterHealingPotion =
+    { id = "potion-greater-healing"
+    , name = "potion of full healing"
+    , glyph = "!"
+    , color = "#ff8aa0"
+    , effect = HealFull
+    , consumable = True
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 4
+    }
+
+
+potionOfStrength : ItemDef
+potionOfStrength =
+    { id = "potion-strength"
+    , name = "potion of strength"
+    , glyph = "!"
+    , color = "#caa472"
+    , effect = DamageBonus 1
+    , consumable = True
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 5
+    }
+
+
+potionOfShielding : ItemDef
+potionOfShielding =
+    { id = "potion-shielding"
+    , name = "potion of shielding"
+    , glyph = "!"
+    , color = "#4f8bff"
+    , effect = MaxHpBonus 5
+    , consumable = True
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 4
+    }
+
+
+goldPile : ItemDef
+goldPile =
+    { id = "gold"
+    , name = "gold"
+    , glyph = "$"
+    , color = "#d8b24c"
+    , effect = Gold 15
+    , consumable = True
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 12
     }

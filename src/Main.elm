@@ -4,8 +4,8 @@ module Main exposing (main)
 `Rogue.Render.Renderer` is selected (the SVG one for now). All the game logic lives in `Rogue.Game`;
 `Main` is only wiring — input in, `Scene` out.
 
-Controls: arrows / WASD / HJKL to move, Y U B N for diagonals, `.` to wait, `>` to descend, `R` to
-restart after death.
+Controls: arrows / WASD / HJKL to move, Y U B N for diagonals, `.` to wait, `>` to descend, `1`-`9`
+to use an inventory item, `R` to restart after death.
 -}
 
 import Browser
@@ -56,7 +56,7 @@ view model =
         ]
         [ Html.div
             [ HA.style "text-align" "center", HA.style "font-size" "12px", HA.style "color" "#5b6b82", HA.style "margin-bottom" "12px" ]
-            [ Html.text "move: arrows / WASD / HJKL · diagonals: Y U B N · wait: . · descend: > · restart: R" ]
+            [ Html.text "move: arrows / WASD / HJKL · diagonals: Y U B N · wait: . · descend: > · use item: 1-9 · restart: R" ]
         , SvgRenderer.renderer.view (Game.toScene model.game)
         ]
 
@@ -122,7 +122,16 @@ keyToMsg key =
             Game.Restart
 
         _ ->
-            Game.NoOp
+            case String.toInt key of
+                Just digit ->
+                    if digit >= 1 && digit <= 9 then
+                        Game.Use (digit - 1)
+
+                    else
+                        Game.NoOp
+
+                Nothing ->
+                    Game.NoOp
 
 
 subscriptions : Model -> Sub Game.Msg

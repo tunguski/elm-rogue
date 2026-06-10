@@ -73,6 +73,8 @@ type alias Hud =
     , hp : Int
     , maxHp : Int
     , turn : Int
+    , gold : Int
+    , inventory : List String
     , log : List String
     , gameOver : Bool
     , status : String
@@ -86,6 +88,8 @@ emptyHud =
     , hp = 0
     , maxHp = 0
     , turn = 0
+    , gold = 0
+    , inventory = []
     , log = []
     , gameOver = False
     , status = ""

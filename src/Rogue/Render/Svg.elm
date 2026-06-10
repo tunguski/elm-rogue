@@ -210,14 +210,43 @@ hudView hud =
         [ Html.div [ HA.style "font-size" "20px", HA.style "font-weight" "700" ] [ Html.text hud.title ]
         , statLine "Depth" (String.fromInt hud.depth)
         , statLine "Turn" (String.fromInt hud.turn)
+        , statLine "Gold" (String.fromInt hud.gold)
         , hpBar hud
         , if hud.status /= "" then
             Html.div [ HA.style "color" "#f0c674", HA.style "font-size" "13px" ] [ Html.text hud.status ]
 
           else
             Html.text ""
+        , inventoryView hud.inventory
         , logView hud.log
         ]
+
+
+inventoryView : List String -> Html msg
+inventoryView items =
+    Html.div
+        [ HA.style "border-top" "1px solid #1b2433"
+        , HA.style "padding-top" "8px"
+        , HA.style "font-size" "12.5px"
+        , HA.style "display" "flex"
+        , HA.style "flex-direction" "column"
+        , HA.style "gap" "2px"
+        ]
+        (Html.div [ HA.style "color" "#5b6b82", HA.style "margin-bottom" "2px" ] [ Html.text "Inventory (1-9 to use)" ]
+            :: (if List.isEmpty items then
+                    [ Html.div [ HA.style "color" "#3f4b5e" ] [ Html.text "— empty —" ] ]
+
+                else
+                    List.indexedMap
+                        (\i name ->
+                            Html.div []
+                                [ Html.span [ HA.style "color" "#7f8ba0" ] [ Html.text (String.fromInt (i + 1) ++ ". ") ]
+                                , Html.text name
+                                ]
+                        )
+                        (List.take 9 items)
+               )
+        )
 
 
 statLine : String -> String -> Html msg

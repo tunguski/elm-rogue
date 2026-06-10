@@ -1,9 +1,13 @@
 module Rogue.Content exposing
     ( EnemyDef
+    , ItemDef
+    , ItemEffect(..)
     , Ruleset
     , HeroDef
     , enemiesForDepth
+    , itemsForDepth
     , spawnCountForDepth
+    , itemCountForDepth
     )
 
 {-| The moddable content model — *data* that defines what fills a dungeon, kept separate from the
@@ -39,6 +43,34 @@ type alias EnemyDef =
     }
 
 
+{-| What an item does when used, expressed as data the engine interprets. This closed vocabulary is
+the seam mods build items from: a new *item* is a new `ItemDef` combining existing effects with its
+own name/value; a genuinely new *kind* of effect is the one thing that needs an engine change (a new
+constructor here plus its case in `Rogue.Game.applyEffect`). -}
+type ItemEffect
+    = HealHp Int
+    | HealFull
+    | MaxHpBonus Int
+    | DamageBonus Int
+    | DefenseBonus Int
+    | Gold Int
+
+
+{-| A pickup archetype — defined as data, exactly like `EnemyDef`. Instances on the floor carry a
+copy, so the stats/effect a mod sets here are what the player actually gets. -}
+type alias ItemDef =
+    { id : String
+    , name : String
+    , glyph : String
+    , color : String
+    , effect : ItemEffect
+    , consumable : Bool
+    , minDepth : Int
+    , maxDepth : Int
+    , spawnWeight : Int
+    }
+
+
 {-| The hero's starting profile (also moddable). -}
 type alias HeroDef =
     { maxHp : Int
@@ -56,6 +88,7 @@ type alias Ruleset =
     { name : String
     , hero : HeroDef
     , enemies : List EnemyDef
+    , items : List ItemDef
     }
 
 
@@ -68,9 +101,23 @@ enemiesForDepth depth ruleset =
         |> List.map (\e -> ( e.spawnWeight, e ))
 
 
+{-| The item archetypes eligible at a given depth, paired with spawn weight (for `pickWeighted`). -}
+itemsForDepth : Int -> Ruleset -> List ( Int, ItemDef )
+itemsForDepth depth ruleset =
+    ruleset.items
+        |> List.filter (\i -> depth >= i.minDepth && depth <= i.maxDepth)
+        |> List.map (\i -> ( i.spawnWeight, i ))
+
+
 {-| How many monsters to seed on a floor of the given depth — a gentle ramp. A mod that wants a
 denser or sparser dungeon can scale this by overriding generation config later; for now it is a
 shared default so all rulesets get a comparable population curve. -}
 spawnCountForDepth : Int -> Int
 spawnCountForDepth depth =
     min 12 (3 + depth)
+
+
+{-| How many floor items to seed on a floor of the given depth. -}
+itemCountForDepth : Int -> Int
+itemCountForDepth depth =
+    min 6 (1 + depth // 2)

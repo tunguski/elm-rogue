@@ -26,7 +26,7 @@ Milestones 4–6: hero movement, the turn counter, fog of war and a data-driven 
 Combat and AI arrive in M7.
 -}
 
-import Rogue.Content as Content exposing (EnemyDef, Ruleset)
+import Rogue.Content as Content exposing (EnemyDef, ItemDef, ItemEffect(..), Ruleset)
 import Rogue.Dungeon as Dungeon exposing (Generated, Room)
 import Rogue.Fov as Fov
 import Rogue.Grid as Grid exposing (Dir, Pos)
@@ -43,6 +43,8 @@ type alias Hero =
     , maxHp : Int
     , damage : Int
     , defense : Int
+    , inventory : List ItemDef
+    , gold : Int
     }
 
 
@@ -55,12 +57,20 @@ type alias Enemy =
     }
 
 
+{-| An item lying on the dungeon floor (a copy of its `ItemDef` and where it sits). -}
+type alias ItemOnFloor =
+    { def : ItemDef
+    , pos : Pos
+    }
+
+
 type alias Game =
     { ruleset : Ruleset
     , level : Level
     , rooms : List Room
     , hero : Hero
     , enemies : List Enemy
+    , items : List ItemOnFloor
     , depth : Int
     , turn : Int
     , kills : Int
@@ -85,6 +95,7 @@ type Msg
     = Move Dir
     | Descend
     | Wait
+    | Use Int
     | Restart
     | NoOp
 
@@ -102,6 +113,8 @@ newGame ruleset rawSeed =
             , maxHp = ruleset.hero.maxHp
             , damage = ruleset.hero.damage
             , defense = ruleset.hero.defense
+            , inventory = []
+            , gold = 0
             }
     in
     enterLevel ruleset 1 0 gen.seed gen hero [ "You enter the dungeon." ]
@@ -115,8 +128,18 @@ enterLevel ruleset depth kills seed gen hero log =
         heroAt =
             { hero | pos = gen.stairsUp }
 
+        -- One shuffled pool of floor cells feeds both populations so nothing shares a tile.
+        ( shuffledSpots, seed1 ) =
+            Rng.shuffle (eligibleSpots gen) seed
+
+        enemyCount =
+            Content.spawnCountForDepth depth
+
         ( enemies, seed2 ) =
-            spawnEnemies ruleset depth gen seed
+            spawnEnemies ruleset depth (List.take enemyCount shuffledSpots) seed1
+
+        ( items, seed3 ) =
+            spawnItems ruleset depth (List.drop enemyCount shuffledSpots |> List.take (Content.itemCountForDepth depth)) seed2
 
         vis =
             Fov.compute ruleset.hero.fovRadius heroAt.pos gen.level
@@ -126,10 +149,11 @@ enterLevel ruleset depth kills seed gen hero log =
     , rooms = gen.rooms
     , hero = heroAt
     , enemies = enemies
+    , items = items
     , depth = depth
     , turn = 0
     , kills = kills
-    , seed = seed2
+    , seed = seed3
     , visible = vis
     , explored = vis
     , log = log
@@ -144,44 +168,53 @@ enterLevel ruleset depth kills seed gen hero log =
 -- ENEMY SPAWNING ---------------------------------------------------------------------------------
 
 
-{-| Seed a floor with monsters: pick `spawnCountForDepth` distinct floor cells (never the start room
-or a stair), and at each drop a depth-appropriate, weight-chosen enemy from the ruleset. Returns the
-monsters and the advanced seed. Spawns nothing if the ruleset offers no enemies for this depth. -}
-spawnEnemies : Ruleset -> Int -> Generated -> Seed -> ( List Enemy, Seed )
-spawnEnemies ruleset depth gen seed =
+{-| Drop a depth-appropriate, weight-chosen enemy on each of the given floor cells. Nothing spawns if
+the ruleset offers no enemies for this depth. Returns the monsters and the advanced seed. -}
+spawnEnemies : Ruleset -> Int -> List Pos -> Seed -> ( List Enemy, Seed )
+spawnEnemies ruleset depth spots seed =
     let
         candidates =
             Content.enemiesForDepth depth ruleset
     in
-    if List.isEmpty candidates then
-        ( [], seed )
+    case candidates of
+        [] ->
+            ( [], seed )
 
-    else
-        let
-            spots =
-                eligibleSpots gen
+        ( _, firstDef ) :: _ ->
+            List.foldl
+                (\pos ( acc, s ) ->
+                    let
+                        ( def, s2 ) =
+                            Rng.pickWeighted firstDef candidates s
+                    in
+                    ( { def = def, pos = pos, hp = def.maxHp } :: acc, s2 )
+                )
+                ( [], seed )
+                spots
 
-            ( shuffled, seed1 ) =
-                Rng.shuffle spots seed
 
-            chosen =
-                List.take (Content.spawnCountForDepth depth) shuffled
-        in
-        List.foldl
-            (\pos ( acc, s ) ->
-                case candidates of
-                    ( _, firstDef ) :: _ ->
-                        let
-                            ( def, s2 ) =
-                                Rng.pickWeighted firstDef candidates s
-                        in
-                        ( { def = def, pos = pos, hp = def.maxHp } :: acc, s2 )
+{-| Drop a depth-appropriate, weight-chosen item on each of the given floor cells. -}
+spawnItems : Ruleset -> Int -> List Pos -> Seed -> ( List ItemOnFloor, Seed )
+spawnItems ruleset depth spots seed =
+    let
+        candidates =
+            Content.itemsForDepth depth ruleset
+    in
+    case candidates of
+        [] ->
+            ( [], seed )
 
-                    [] ->
-                        ( acc, s )
-            )
-            ( [], seed1 )
-            chosen
+        ( _, firstDef ) :: _ ->
+            List.foldl
+                (\pos ( acc, s ) ->
+                    let
+                        ( def, s2 ) =
+                            Rng.pickWeighted firstDef candidates s
+                    in
+                    ( { def = def, pos = pos } :: acc, s2 )
+                )
+                ( [], seed )
+                spots
 
 
 {-| Floor cells eligible to host a monster: any floor tile outside the first (start) room and not on
@@ -232,6 +265,9 @@ update msg game =
             Wait ->
                 endTurn game
 
+            Use index ->
+                tryUse index game
+
             Restart ->
                 -- The shell (Main) owns reseeding a new run; inside a game it's a no-op.
                 game
@@ -261,7 +297,7 @@ tryMove dir game =
                     moved =
                         { hero | pos = target }
                 in
-                endTurn (refreshFov { game | hero = moved })
+                endTurn (pickUp (refreshFov { game | hero = moved }))
 
             else
                 game
@@ -287,6 +323,101 @@ tryDescend game =
 
     else
         addLog "There are no stairs down here." game
+
+
+
+-- ITEMS ------------------------------------------------------------------------------------------
+
+
+{-| Auto-pick-up anything on the hero's cell (Shattered-Pixel style): gold is spent immediately,
+everything else lands in the inventory. Does not consume a turn beyond the move that triggered it. -}
+pickUp : Game -> Game
+pickUp game =
+    let
+        ( here, rest ) =
+            List.partition (\it -> it.pos == game.hero.pos) game.items
+    in
+    List.foldl pickUpOne { game | items = rest } here
+
+
+pickUpOne : ItemOnFloor -> Game -> Game
+pickUpOne it game =
+    case it.def.effect of
+        Gold amount ->
+            let
+                hero =
+                    game.hero
+            in
+            { game | hero = { hero | gold = hero.gold + amount } }
+                |> addLog ("You find " ++ String.fromInt amount ++ " gold.")
+
+        _ ->
+            let
+                hero =
+                    game.hero
+            in
+            { game | hero = { hero | inventory = hero.inventory ++ [ it.def ] } }
+                |> addLog ("You pick up a " ++ it.def.name ++ ".")
+
+
+{-| Use the inventory item at `index` (0-based): apply its effect, drop it if consumable, and let the
+monsters act. Out-of-range indices are ignored (no turn spent). -}
+tryUse : Int -> Game -> Game
+tryUse index game =
+    case nth index game.hero.inventory of
+        Nothing ->
+            game
+
+        Just def ->
+            let
+                applied =
+                    applyEffect def game
+
+                hero =
+                    applied.hero
+
+                afterRemove =
+                    if def.consumable then
+                        { applied | hero = { hero | inventory = removeAt index hero.inventory } }
+
+                    else
+                        applied
+            in
+            endTurn afterRemove
+
+
+{-| Interpret an `ItemEffect` on the game — the engine half of the moddable item DSL. A new effect
+constructor in `Rogue.Content.ItemEffect` is wired up here. -}
+applyEffect : ItemDef -> Game -> Game
+applyEffect def game =
+    let
+        hero =
+            game.hero
+    in
+    case def.effect of
+        HealHp n ->
+            { game | hero = { hero | hp = min hero.maxHp (hero.hp + n) } }
+                |> addLog ("You drink the " ++ def.name ++ ". (+" ++ String.fromInt n ++ " HP)")
+
+        HealFull ->
+            { game | hero = { hero | hp = hero.maxHp } }
+                |> addLog ("You drink the " ++ def.name ++ ". You feel restored.")
+
+        MaxHpBonus n ->
+            { game | hero = { hero | maxHp = hero.maxHp + n, hp = hero.hp + n } }
+                |> addLog ("You drink the " ++ def.name ++ ". (+" ++ String.fromInt n ++ " max HP)")
+
+        DamageBonus n ->
+            { game | hero = { hero | damage = hero.damage + n } }
+                |> addLog ("You drink the " ++ def.name ++ ". You feel stronger.")
+
+        DefenseBonus n ->
+            { game | hero = { hero | defense = hero.defense + n } }
+                |> addLog ("You drink the " ++ def.name ++ ". Your skin hardens.")
+
+        Gold amount ->
+            { game | hero = { hero | gold = hero.gold + amount } }
+                |> addLog ("You gain " ++ String.fromInt amount ++ " gold.")
 
 
 
@@ -473,6 +604,20 @@ endTurn game =
     { afterMonsters | turn = afterMonsters.turn + 1 }
 
 
+nth : Int -> List a -> Maybe a
+nth i xs =
+    if i < 0 then
+        Nothing
+
+    else
+        List.head (List.drop i xs)
+
+
+removeAt : Int -> List a -> List a
+removeAt i xs =
+    List.take i xs ++ List.drop (i + 1) xs
+
+
 minimumBy : (a -> comparable) -> List a -> Maybe a
 minimumBy f xs =
     case xs of
@@ -511,13 +656,18 @@ toScene game =
     { level = game.level
     , visible = game.visible
     , explored = game.explored
-    , glyphs = heroGlyph game :: List.map enemyGlyph game.enemies
+    , glyphs =
+        List.map itemGlyph game.items
+            ++ List.map enemyGlyph game.enemies
+            ++ [ heroGlyph game ]
     , hud =
         { title = "elm-rouge"
         , depth = game.depth
         , hp = game.hero.hp
         , maxHp = game.hero.maxHp
         , turn = game.turn
+        , gold = game.hero.gold
+        , inventory = List.map .name game.hero.inventory
         , log = List.take 7 game.log
         , gameOver = game.gameOver
         , status = statusLine game
@@ -553,5 +703,15 @@ enemyGlyph enemy =
     , char = enemy.def.glyph
     , color = enemy.def.color
     , layer = Render.layerActor
+    , heavy = False
+    }
+
+
+itemGlyph : ItemOnFloor -> Render.Glyph
+itemGlyph item =
+    { pos = item.pos
+    , char = item.def.glyph
+    , color = item.def.color
+    , layer = Render.layerItem
     , heavy = False
     }
