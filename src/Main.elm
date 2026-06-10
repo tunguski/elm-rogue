@@ -25,6 +25,7 @@ import Rogue.Grid as Grid
 import Rogue.Render exposing (Renderer)
 import Rogue.Render.Ascii as AsciiRenderer
 import Rogue.Render.Svg as SvgRenderer
+import Set exposing (Set)
 import Storage
 
 
@@ -41,6 +42,8 @@ type alias Model =
     , currentClass : String
     , history : List Run
     , showSheet : Bool
+    , showBestiary : Bool
+    , bestiary : Set String
     , seedInput : String
     , seedBump : Int
     }
@@ -62,6 +65,7 @@ type Msg
     | SelectRenderer String
     | StartGame ClassDef
     | ToggleSheet
+    | ToggleBestiary
     | SetSeed String
     | Loaded (Maybe String)
 
@@ -133,6 +137,8 @@ init _ =
       , currentClass = "Adventurer"
       , history = []
       , showSheet = False
+      , showBestiary = False
+      , bestiary = Set.empty
       , seedInput = ""
       , seedBump = 0
       }
@@ -149,6 +155,9 @@ update msg model =
         ToggleSheet ->
             ( { model | showSheet = not model.showSheet }, Cmd.none )
 
+        ToggleBestiary ->
+            ( { model | showBestiary = not model.showBestiary }, Cmd.none )
+
         SetSeed text ->
             ( { model | seedInput = text }, Cmd.none )
 
@@ -162,6 +171,7 @@ update msg model =
             ( { model
                 | game = Game.newGame (rulesetNamed model.modName) class (chosenSeed model)
                 , currentClass = class.name
+                , bestiary = Set.empty
                 , screen = Playing
               }
             , Cmd.none
@@ -182,6 +192,12 @@ update msg model =
 
                 justEnded =
                     nextGame.gameOver && not model.game.gameOver
+
+                bestiary =
+                    Set.union model.bestiary (seenMonsters nextGame)
+
+                base =
+                    { model | game = nextGame, bestiary = bestiary }
             in
             if justEnded then
                 let
@@ -196,12 +212,12 @@ update msg model =
                     history =
                         List.take maxHistory (run :: model.history)
                 in
-                ( { model | game = nextGame, history = history }
+                ( { base | history = history }
                 , Storage.save storageKey (encodeHistory history)
                 )
 
             else
-                ( { model | game = nextGame }, Cmd.none )
+                ( base, Cmd.none )
 
 
 
@@ -281,15 +297,81 @@ view model =
                 Html.div []
                     [ Html.div
                         [ HA.style "text-align" "center", HA.style "font-size" "12px", HA.style "color" "#5b6b82", HA.style "margin" "10px 0 14px" ]
-                        [ Html.text "move: arrows / WASD / HJKL · diagonals: Y U B N · wait: . · search: Z · throw: F · inventory: I · descend: > · use/equip: 1-9 · restart: R" ]
+                        [ Html.text "move: WASD/HJKL · diag: Y U B N · wait: . · search: Z · throw: F · inventory: I · bestiary: M · descend: > · use: 1-9 · restart: R" ]
                     , (rendererNamed model.rendererName).view (Game.toScene model.game)
                     , if model.showSheet then
                         sheetView model.game
 
                       else
                         Html.text ""
+                    , if model.showBestiary then
+                        bestiaryView model
+
+                      else
+                        Html.text ""
                     ]
         ]
+
+
+bestiaryView : Model -> Html Msg
+bestiaryView model =
+    let
+        roster =
+            (rulesetNamed model.modName).enemies ++ (rulesetNamed model.modName).bosses
+    in
+    Html.div
+        [ HA.style "position" "fixed"
+        , HA.style "inset" "0"
+        , HA.style "background" "rgba(3,5,9,0.82)"
+        , HA.style "display" "flex"
+        , HA.style "align-items" "center"
+        , HA.style "justify-content" "center"
+        , HA.style "z-index" "10"
+        ]
+        [ Html.div
+            [ HA.style "background" "#0e131d"
+            , HA.style "border" "1px solid #2a3550"
+            , HA.style "border-radius" "14px"
+            , HA.style "padding" "22px 26px"
+            , HA.style "min-width" "440px"
+            , HA.style "max-width" "560px"
+            , HA.style "max-height" "80vh"
+            , HA.style "overflow-y" "auto"
+            , HA.style "color" "#c7d0dd"
+            ]
+            (Html.div [ HA.style "font-size" "18px", HA.style "font-weight" "700", HA.style "margin-bottom" "10px" ] [ Html.text "Bestiary" ]
+                :: List.map (bestiaryRow model.bestiary) roster
+                ++ [ Html.button
+                        [ onClick ToggleBestiary
+                        , HA.style "margin-top" "14px"
+                        , HA.style "font" "inherit"
+                        , HA.style "font-size" "12.5px"
+                        , HA.style "cursor" "pointer"
+                        , HA.style "color" "#c7d0dd"
+                        , HA.style "background" "#161f38"
+                        , HA.style "border" "1px solid #2a3550"
+                        , HA.style "border-radius" "8px"
+                        , HA.style "padding" "6px 14px"
+                        ]
+                        [ Html.text "Close (M)" ]
+                   ]
+            )
+        ]
+
+
+bestiaryRow : Set String -> Content.EnemyDef -> Html Msg
+bestiaryRow seen def =
+    if Set.member def.id seen then
+        Html.div
+            [ HA.style "display" "flex", HA.style "justify-content" "space-between", HA.style "font-size" "13px", HA.style "padding" "3px 0" ]
+            [ Html.span [ HA.style "color" def.color ] [ Html.text (def.glyph ++ "  " ++ def.name) ]
+            , Html.span [ HA.style "color" "#7f8ba0", HA.style "font-size" "11.5px" ]
+                [ Html.text ("HP " ++ String.fromInt def.maxHp ++ " · DMG " ++ String.fromInt def.damage ++ " · DEF " ++ String.fromInt def.defense ++ " · " ++ String.fromInt def.xp ++ "xp") ]
+            ]
+
+    else
+        Html.div [ HA.style "font-size" "13px", HA.style "padding" "3px 0", HA.style "color" "#3f4b5e" ]
+            [ Html.text "????  — undiscovered" ]
 
 
 sheetView : Game -> Html Msg
@@ -549,13 +631,26 @@ runRow run =
 -- INPUT ------------------------------------------------------------------------------------------
 
 
+{-| Monster ids the hero can currently see — folded into the run's bestiary each step. -}
+seenMonsters : Game -> Set String
+seenMonsters game =
+    game.enemies
+        |> List.filter (\e -> Set.member ( e.pos.x, e.pos.y ) game.visible)
+        |> List.map (\e -> e.def.id)
+        |> Set.fromList
+
+
 keyToMsg : String -> Msg
 keyToMsg key =
-    if String.toLower key == "i" then
-        ToggleSheet
+    case String.toLower key of
+        "i" ->
+            ToggleSheet
 
-    else
-        GameMsg (keyToGameMsg key)
+        "m" ->
+            ToggleBestiary
+
+        _ ->
+            GameMsg (keyToGameMsg key)
 
 
 keyToGameMsg : String -> Game.Msg
