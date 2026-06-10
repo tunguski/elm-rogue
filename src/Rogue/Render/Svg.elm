@@ -74,7 +74,15 @@ view scene =
         , HA.style "justify-content" "center"
         ]
         [ animationStyles
-        , Html.div [ HA.style "position" "relative" ]
+        , Html.div
+            (HA.style "position" "relative"
+                :: (if scene.shake then
+                        [ HA.style "animation" "rg-shake 0.22s ease-in-out" ]
+
+                    else
+                        []
+                   )
+            )
             [ svg
                 [ SA.viewBox viewBoxStr
                 , SA.width (String.fromInt pxW)
@@ -90,6 +98,7 @@ view scene =
                 , g [] (List.map popupSvg (List.filter (\pp -> inWindow pp.pos) scene.popups))
                 , cursorSvg scene.cursor
                 ]
+            , lowHpVignette scene.hud
             , overlayView scene.hud
             ]
         , Html.div [ HA.style "display" "flex", HA.style "flex-direction" "column", HA.style "gap" "12px" ]
@@ -186,7 +195,27 @@ animationStyles =
         [ Html.text """
 @keyframes rg-float { from { transform: translateY(0px); opacity: 1; } to { transform: translateY(-12px); opacity: 0; } }
 @keyframes rg-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+@keyframes rg-shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+@keyframes rg-vignette { 0%,100% { opacity: 0.35; } 50% { opacity: 0.7; } }
 """ ]
+
+
+{-| A pulsing red edge-glow overlay when the hero is critically wounded (HP at or below a quarter). -}
+lowHpVignette : Rogue.Render.Hud -> Html.Html msg
+lowHpVignette hud =
+    if hud.maxHp > 0 && hud.hp > 0 && hud.hp * 4 <= hud.maxHp then
+        Html.div
+            [ HA.style "position" "absolute"
+            , HA.style "inset" "0"
+            , HA.style "pointer-events" "none"
+            , HA.style "border-radius" "8px"
+            , HA.style "box-shadow" "inset 0 0 38px 10px rgba(220,40,40,0.55)"
+            , HA.style "animation" "rg-vignette 1.1s ease-in-out infinite"
+            ]
+            []
+
+    else
+        Html.text ""
 
 
 cursorSvg : Maybe Pos -> Svg msg

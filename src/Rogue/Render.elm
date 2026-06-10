@@ -165,6 +165,7 @@ type alias Scene =
     , theme : Theme
     , camera : Pos
     , cursor : Maybe Pos
+    , shake : Bool
     , hud : Hud
     }
 

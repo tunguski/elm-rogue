@@ -45,6 +45,7 @@ type alias Model =
     , showBestiary : Bool
     , bestiary : Set String
     , targeting : Maybe Grid.Pos
+    , damaged : Bool
     , seedInput : String
     , seedBump : Int
     }
@@ -142,6 +143,7 @@ init _ =
       , showBestiary = False
       , bestiary = Set.empty
       , targeting = Nothing
+      , damaged = False
       , seedInput = ""
       , seedBump = 0
       }
@@ -212,7 +214,11 @@ runGame gm model =
                     Set.union model.bestiary (seenMonsters nextGame)
 
                 base =
-                    { model | game = nextGame, bestiary = bestiary }
+                    { model
+                        | game = nextGame
+                        , bestiary = bestiary
+                        , damaged = nextGame.hero.hp < model.game.hero.hp
+                    }
             in
             if justEnded then
                 let
@@ -557,7 +563,7 @@ sceneFor model =
         scene =
             Game.toScene model.game
     in
-    { scene | cursor = model.targeting }
+    { scene | cursor = model.targeting, shake = model.damaged }
 
 
 toolbar : Model -> Html Msg
