@@ -89,8 +89,85 @@ view scene =
                 ]
             , overlayView scene.hud
             ]
-        , hudView scene.hud
+        , Html.div [ HA.style "display" "flex", HA.style "flex-direction" "column", HA.style "gap" "12px" ]
+            [ minimapView scene
+            , hudView scene.hud
+            ]
         ]
+
+
+{-| A tiny whole-floor minimap: explored cells as dots (walls vs open), the hero as a bright marker. -}
+minimapView : Scene -> Html msg
+minimapView scene =
+    let
+        lvl =
+            scene.level
+
+        scale =
+            5
+
+        dot p =
+            let
+                key =
+                    ( p.x, p.y )
+
+                tile =
+                    Level.at p lvl
+            in
+            if not (Set.member key scene.explored) || tile == Empty then
+                Nothing
+
+            else
+                Just
+                    (rect
+                        [ SA.x (px (p.x * scale))
+                        , SA.y (px (p.y * scale))
+                        , SA.width (px scale)
+                        , SA.height (px scale)
+                        , SA.fill (minimapColor tile)
+                        ]
+                        []
+                    )
+
+        heroDot =
+            rect
+                [ SA.x (px (scene.camera.x * scale))
+                , SA.y (px (scene.camera.y * scale))
+                , SA.width (px scale)
+                , SA.height (px scale)
+                , SA.fill "#ffe08a"
+                ]
+                []
+    in
+    Html.div []
+        [ Html.div [ HA.style "color" "#5b6b82", HA.style "font-size" "11px", HA.style "margin-bottom" "4px" ] [ Html.text "Map" ]
+        , svg
+            [ SA.viewBox ("0 0 " ++ String.fromInt (lvl.width * scale) ++ " " ++ String.fromInt (lvl.height * scale))
+            , SA.width (String.fromInt (lvl.width * scale))
+            , SA.height (String.fromInt (lvl.height * scale))
+            , HA.style "background" "#05070b"
+            , HA.style "border" "1px solid #1b2433"
+            , HA.style "border-radius" "4px"
+            , HA.style "max-width" "100%"
+            ]
+            [ g [] (List.filterMap dot (Level.positions lvl)), heroDot ]
+        ]
+
+
+minimapColor : Tile -> String
+minimapColor tile =
+    case tile of
+        Wall ->
+            "#39455c"
+
+        StairsDown ->
+            "#d8b24c"
+
+        StairsUp ->
+            "#4f8bff"
+
+        _ ->
+            "#1a2434"
 
 
 {-| The inclusive cell window to draw, centred on `camera` and clamped to the map. -}
