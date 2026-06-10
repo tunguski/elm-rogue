@@ -189,29 +189,12 @@ bfs level goal frontier visited =
                     bfs level goal nextFrontier nextVisited
 
 
+{-| Traversable for solvability: any passable terrain (floor, doors, stairs, water, grass…) plus
+secret doors, which the player can search out. Derived from `Tile.isPassable` so it stays correct as
+new terrain is added. -}
 walkable : Tile -> Bool
 walkable tile =
-    case tile of
-        Floor ->
-            True
-
-        Door ->
-            True
-
-        OpenDoor ->
-            True
-
-        SecretDoor ->
-            True
-
-        StairsDown ->
-            True
-
-        StairsUp ->
-            True
-
-        _ ->
-            False
+    Tile.isPassable tile || tile == SecretDoor
 
 
 

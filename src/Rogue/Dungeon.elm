@@ -145,16 +145,75 @@ generate cfg seed0 =
         -- A vault's locked door must never sever the route to the stairs; if it would, leave it open.
         level7 =
             ensureSolvable vaultDoor upPos downPos level6
+
+        -- Scatter water pools and tall-grass patches (both passable, so connectivity is unaffected).
+        ( level8, seed5 ) =
+            decorateTerrain rooms level7 seed4
     in
-    { level = level7
+    { level = level8
     , rooms = rooms
     , stairsUp = upPos
     , stairsDown = downPos
     , vaultDoor = vaultDoor
     , vaultCells = vaultCells
     , features = features
-    , seed = seed4
+    , seed = seed5
     }
+
+
+{-| Paint a few water/grass blobs onto room floors. Only `Floor` cells are converted (never stairs,
+doors or walls), and both tiles are passable, so this never affects connectivity. -}
+decorateTerrain : List Room -> Level -> Seed -> ( Level, Seed )
+decorateTerrain rooms level seed =
+    List.foldl decorateRoom ( level, seed ) rooms
+
+
+decorateRoom : Room -> ( Level, Seed ) -> ( Level, Seed )
+decorateRoom room ( level, seed ) =
+    let
+        ( roll, s1 ) =
+            Rng.int 100 seed
+    in
+    if roll >= 38 || room.w < 4 || room.h < 4 then
+        ( level, s1 )
+
+    else
+        let
+            ( isGrass, s2 ) =
+                Rng.chance 55 s1
+
+            tile =
+                if isGrass then
+                    Grass
+
+                else
+                    Water
+
+            ( cx, s3 ) =
+                Rng.range (room.x + 1) (room.x + room.w - 2) s2
+
+            ( cy, s4 ) =
+                Rng.range (room.y + 1) (room.y + room.h - 2) s3
+
+            blob =
+                List.concatMap
+                    (\dy -> List.map (\dx -> { x = cx + dx, y = cy + dy }) (List.range -2 2))
+                    (List.range -2 2)
+                    |> List.filter (\p -> Grid.chebyshev p { x = cx, y = cy } <= 2)
+
+            painted =
+                List.foldl
+                    (\p lv ->
+                        if Level.at p lv == Floor then
+                            Level.set p tile lv
+
+                        else
+                            lv
+                    )
+                    level
+                    blob
+        in
+        ( painted, s4 )
 
 
 {-| If the only `LockedDoor` (a vault's) blocks the path from up- to down-stairs, downgrade it to an

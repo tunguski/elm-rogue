@@ -181,6 +181,12 @@ tileColor theme tile dim =
                 Tile.StairsUp ->
                     "#4f8bff"
 
+                Tile.Water ->
+                    "#3a6e96"
+
+                Tile.Grass ->
+                    "#4a8a4d"
+
                 _ ->
                     "#1b2433"
     in

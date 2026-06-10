@@ -25,6 +25,8 @@ type Tile
     | StairsDown
     | StairsUp
     | Chasm
+    | Water
+    | Grass
       -- An empty, never-generated cell (outside the level / unallocated).
     | Empty
 
@@ -46,6 +48,12 @@ isPassable tile =
             True
 
         StairsUp ->
+            True
+
+        Water ->
+            True
+
+        Grass ->
             True
 
         Wall ->
@@ -99,6 +107,13 @@ blocksSight tile =
         Chasm ->
             False
 
+        Water ->
+            False
+
+        Grass ->
+            -- Tall grass gives cover: it blocks line of sight until trampled to floor.
+            True
+
 
 isStairs : Tile -> Bool
 isStairs tile =
@@ -137,6 +152,12 @@ glyph tile =
         Chasm ->
             " "
 
+        Water ->
+            "~"
+
+        Grass ->
+            "\""
+
         Empty ->
             " "
 
@@ -170,6 +191,12 @@ name tile =
 
         Chasm ->
             "chasm"
+
+        Water ->
+            "water"
+
+        Grass ->
+            "tall grass"
 
         Empty ->
             "void"

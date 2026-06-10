@@ -807,13 +807,18 @@ tryMove dir game =
                     moved =
                         { hero | pos = target }
 
-                    -- Stepping into a closed door opens it (so it stops blocking sight).
+                    -- Stepping into a closed door opens it; trampling tall grass flattens it — both
+                    -- stop the cell from blocking sight once you've passed through.
                     opened =
-                        if Level.at target game.level == Door then
-                            Level.set target OpenDoor game.level
+                        case Level.at target game.level of
+                            Door ->
+                                Level.set target OpenDoor game.level
 
-                        else
-                            game.level
+                            Grass ->
+                                Level.set target Floor game.level
+
+                            _ ->
+                                game.level
                 in
                 endTurn (triggerTrap (tryBuy (pickUp (refreshFov { game | hero = moved, level = opened }))))
 

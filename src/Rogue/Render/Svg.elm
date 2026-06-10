@@ -180,6 +180,12 @@ minimapColor tile =
         StairsUp ->
             "#4f8bff"
 
+        Water ->
+            "#274b6b"
+
+        Grass ->
+            "#2f5a32"
+
         _ ->
             "#1a2434"
 
@@ -327,6 +333,12 @@ tileColor theme tile dim =
 
                 Chasm ->
                     ( "#04050a", "#04050a" )
+
+                Water ->
+                    ( "#274b6b", "#16293a" )
+
+                Grass ->
+                    ( "#2f5a32", "#1a3019" )
 
                 Empty ->
                     ( "#05070b", "#05070b" )
