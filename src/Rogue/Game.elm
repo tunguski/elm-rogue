@@ -1639,7 +1639,54 @@ endTurn game =
         afterHunger =
             tickHunger afterPerception
     in
-    { afterHunger | turn = afterHunger.turn + 1 }
+    maybeWander { afterHunger | turn = afterHunger.turn + 1 }
+
+
+{-| Every so often a fresh monster wanders onto the floor — out of the hero's sight — so camping isn't
+free. Capped a little above the floor's normal population. -}
+maybeWander : Game -> Game
+maybeWander game =
+    if game.gameOver || modBy 40 game.turn /= 0 || List.length game.enemies >= Content.spawnCountForDepth game.depth + 3 then
+        game
+
+    else
+        let
+            candidates =
+                Content.enemiesForDepth game.depth game.ruleset
+
+            occupied =
+                Set.insert ( game.hero.pos.x, game.hero.pos.y ) (Set.fromList (List.map (\e -> ( e.pos.x, e.pos.y )) game.enemies))
+
+            spots =
+                Level.positions game.level
+                    |> List.filter
+                        (\p ->
+                            Level.at p game.level
+                                == Floor
+                                && not (Set.member ( p.x, p.y ) game.visible)
+                                && not (Set.member ( p.x, p.y ) occupied)
+                        )
+        in
+        case ( candidates, spots ) of
+            ( ( _, firstDef ) :: _, _ ) ->
+                let
+                    ( spot, s1 ) =
+                        Rng.pick game.hero.pos spots game.seed
+
+                    ( def, s2 ) =
+                        Rng.pickWeighted firstDef candidates s1
+                in
+                if List.isEmpty spots then
+                    game
+
+                else
+                    { game
+                        | enemies = { def = def, pos = spot, hp = def.maxHp, alerted = False, fleeing = False } :: game.enemies
+                        , seed = s2
+                    }
+
+            _ ->
+                game
 
 
 applyTimes : Int -> (a -> a) -> a -> a
