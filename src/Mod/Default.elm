@@ -43,6 +43,7 @@ ruleset =
         , potionOfShielding
         , potionOfRegeneration
         , ration
+        , torch
         , goldPile
         , dagger
         , shortSword
@@ -439,6 +440,19 @@ ration =
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 6
+    }
+
+
+torch : ItemDef
+torch =
+    { id = "torch"
+    , name = "torch"
+    , glyph = "!"
+    , color = "#ffb347"
+    , kind = Consumable (LightFor 4 60)
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 5
     }
 
 

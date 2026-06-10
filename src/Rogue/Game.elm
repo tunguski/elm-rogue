@@ -70,6 +70,7 @@ type StatusKind
     = Poison
     | Burn
     | Regen
+    | Lit
 
 
 type alias Status =
@@ -92,6 +93,9 @@ statusLabel status =
 
                 Regen ->
                     "Regen"
+
+                Lit ->
+                    "Light"
     in
     name ++ " (" ++ String.fromInt status.turns ++ ")"
 
@@ -197,6 +201,29 @@ type alias Game =
 aggroRange : Int
 aggroRange =
     8
+
+
+{-| Deep floors are gloomy, shrinking sight; a lit torch (a `Lit` status) pushes it back out. The
+effective view radius is the hero's base FOV minus the floor's darkness plus any active light, floored
+at 2. -}
+fovRadiusFor : Hero -> Int -> Int
+fovRadiusFor hero depth =
+    let
+        darkPenalty =
+            if depth >= 5 then
+                3
+
+            else
+                0
+
+        litBonus =
+            hero.statuses
+                |> List.filter (\s -> s.kind == Lit)
+                |> List.map .magnitude
+                |> List.maximum
+                |> Maybe.withDefault 0
+    in
+    max 2 (hero.fovRadius - darkPenalty + litBonus)
 
 
 {-| Reaching this depth wins the run (the bottom of the dungeon). -}
@@ -340,7 +367,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
                 []
 
         vis =
-            Fov.compute heroAt.fovRadius heroAt.pos gen.level
+            Fov.compute (fovRadiusFor heroAt depth) heroAt.pos gen.level
     in
     { ruleset = ruleset
     , level = gen.level
@@ -952,6 +979,11 @@ applyEffect def game =
             { game | hero = { hero | nutrition = min maxNutrition (hero.nutrition + n) } }
                 |> addLog ("You eat the " ++ name ++ ". You feel sated.")
 
+        LightFor radius turns ->
+            addStatus Lit radius turns game
+                |> refreshFov
+                |> addLog ("You light the " ++ name ++ ". The dark recedes.")
+
 
 effectOf : ItemDef -> ItemEffect
 effectOf def =
@@ -1523,7 +1555,7 @@ refreshFov : Game -> Game
 refreshFov game =
     let
         vis =
-            Fov.compute game.hero.fovRadius game.hero.pos game.level
+            Fov.compute (fovRadiusFor game.hero game.depth) game.hero.pos game.level
     in
     { game | visible = vis, explored = Set.union game.explored vis }
 
@@ -1607,6 +1639,9 @@ tickStatuses game =
 
                         Burn ->
                             ( dhp - status.magnitude, ("Flames sear you (" ++ String.fromInt status.magnitude ++ ").") :: ls )
+
+                        Lit ->
+                            ( dhp, ls )
                 )
                 ( 0, [] )
                 hero.statuses
