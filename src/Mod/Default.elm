@@ -8,13 +8,18 @@ tweak the numbers (or add/remove `EnemyDef`s) and hand the resulting `Ruleset` t
 Pixel Dungeon's early floors (rats and gnolls up top, tougher crabs and skeletons deeper).
 -}
 
-import Rogue.Content exposing (EnemyDef, EquipSlot(..), HeroDef, ItemDef, ItemEffect(..), ItemKind(..), Ruleset)
+import Rogue.Content exposing (ClassDef, EnemyDef, EquipSlot(..), HeroDef, ItemDef, ItemEffect(..), ItemKind(..), Ruleset)
 
 
 ruleset : Ruleset
 ruleset =
     { name = "Default"
     , hero = hero
+    , classes =
+        [ warrior
+        , mage
+        , rogue
+        ]
     , enemies =
         [ rat
         , marsupialRat
@@ -47,6 +52,61 @@ hero =
     , glyph = "@"
     , color = "#ffe08a"
     , fovRadius = 7
+    }
+
+
+
+-- CLASSES ----------------------------------------------------------------------------------------
+
+
+warrior : ClassDef
+warrior =
+    { id = "warrior"
+    , name = "Warrior"
+    , description = "Tough and well-armed. High HP and defense; opens with a short sword."
+    , glyph = "@"
+    , color = "#ffcf6a"
+    , maxHp = 26
+    , damage = 5
+    , defense = 2
+    , fovRadius = 7
+    , startingWeapon = Just "short-sword"
+    , startingArmour = Just "leather-armour"
+    , startingItems = [ "potion-healing" ]
+    }
+
+
+mage : ClassDef
+mage =
+    { id = "mage"
+    , name = "Mage"
+    , description = "Fragile but hits hard and sees far. Opens with two healing potions."
+    , glyph = "@"
+    , color = "#7fb0ff"
+    , maxHp = 16
+    , damage = 6
+    , defense = 0
+    , fovRadius = 9
+    , startingWeapon = Nothing
+    , startingArmour = Nothing
+    , startingItems = [ "potion-healing", "potion-healing" ]
+    }
+
+
+rogue : ClassDef
+rogue =
+    { id = "rogue"
+    , name = "Rogue"
+    , description = "Balanced and quick. Opens with a dagger and a potion of strength."
+    , glyph = "@"
+    , color = "#9be08a"
+    , maxHp = 20
+    , damage = 4
+    , defense = 1
+    , fovRadius = 8
+    , startingWeapon = Just "dagger"
+    , startingArmour = Nothing
+    , startingItems = [ "potion-strength" ]
     }
 
 

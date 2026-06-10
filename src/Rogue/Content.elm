@@ -5,12 +5,15 @@ module Rogue.Content exposing
     , ItemKind(..)
     , EquipSlot(..)
     , EquipBonus
+    , ClassDef
     , Ruleset
     , HeroDef
     , enemiesForDepth
     , itemsForDepth
     , spawnCountForDepth
     , itemCountForDepth
+    , findItem
+    , defaultClass
     )
 
 {-| The moddable content model — *data* that defines what fills a dungeon, kept separate from the
@@ -106,11 +109,31 @@ type alias HeroDef =
     }
 
 
-{-| Everything a mod provides. Grows over milestones (items, generation config…); the engine only
-ever reads it. -}
+{-| A playable character class — a starting profile the player picks before a run. It overrides the
+hero's stats and seeds opening gear (referenced by item `id` so a class never duplicates an
+`ItemDef`). Classes live in the `Ruleset`, so a mod ships its own roster. -}
+type alias ClassDef =
+    { id : String
+    , name : String
+    , description : String
+    , glyph : String
+    , color : String
+    , maxHp : Int
+    , damage : Int
+    , defense : Int
+    , fovRadius : Int
+    , startingWeapon : Maybe String
+    , startingArmour : Maybe String
+    , startingItems : List String
+    }
+
+
+{-| Everything a mod provides. Grows over milestones (generation config…); the engine only ever
+reads it. -}
 type alias Ruleset =
     { name : String
     , hero : HeroDef
+    , classes : List ClassDef
     , enemies : List EnemyDef
     , items : List ItemDef
     }
@@ -145,3 +168,47 @@ spawnCountForDepth depth =
 itemCountForDepth : Int -> Int
 itemCountForDepth depth =
     min 6 (1 + depth // 2)
+
+
+{-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}
+findItem : String -> Ruleset -> Maybe ItemDef
+findItem id ruleset =
+    findHelp (\i -> i.id == id) ruleset.items
+
+
+{-| A fallback class synthesised from the ruleset's `hero` stats — used when a ruleset defines no
+classes, so the engine always has something to start with. -}
+defaultClass : Ruleset -> ClassDef
+defaultClass ruleset =
+    case ruleset.classes of
+        first :: _ ->
+            first
+
+        [] ->
+            { id = "adventurer"
+            , name = "Adventurer"
+            , description = "A plain delver."
+            , glyph = ruleset.hero.glyph
+            , color = ruleset.hero.color
+            , maxHp = ruleset.hero.maxHp
+            , damage = ruleset.hero.damage
+            , defense = ruleset.hero.defense
+            , fovRadius = ruleset.hero.fovRadius
+            , startingWeapon = Nothing
+            , startingArmour = Nothing
+            , startingItems = []
+            }
+
+
+findHelp : (a -> Bool) -> List a -> Maybe a
+findHelp pred xs =
+    case xs of
+        [] ->
+            Nothing
+
+        x :: rest ->
+            if pred x then
+                Just x
+
+            else
+                findHelp pred rest

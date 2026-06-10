@@ -47,6 +47,9 @@ type alias Hero =
     , gold : Int
     , weapon : Maybe ItemDef
     , armour : Maybe ItemDef
+    , glyph : String
+    , color : String
+    , fovRadius : Int
     }
 
 
@@ -135,26 +138,49 @@ type Msg
     | NoOp
 
 
-{-| Start a fresh run at depth 1 from a ruleset and a numeric seed. -}
-newGame : Ruleset -> Int -> Game
-newGame ruleset rawSeed =
+{-| Start a fresh run at depth 1 from a ruleset, a chosen class and a numeric seed. The class sets
+the hero's stats and opening gear (resolved against the ruleset's item list). -}
+newGame : Ruleset -> Content.ClassDef -> Int -> Game
+newGame ruleset class rawSeed =
     let
         gen =
             Dungeon.generate Dungeon.defaultConfig (Rng.seed rawSeed)
 
+        resolve maybeId =
+            Maybe.andThen (\id -> Content.findItem id ruleset) maybeId
+
+        startingInventory =
+            List.filterMap (\id -> Content.findItem id ruleset) class.startingItems
+
         hero =
             { pos = gen.stairsUp
-            , hp = ruleset.hero.maxHp
-            , maxHp = ruleset.hero.maxHp
-            , damage = ruleset.hero.damage
-            , defense = ruleset.hero.defense
-            , inventory = []
+            , hp = class.maxHp
+            , maxHp = class.maxHp
+            , damage = class.damage
+            , defense = class.defense
+            , inventory = startingInventory
             , gold = 0
-            , weapon = Nothing
-            , armour = Nothing
+            , weapon = resolve class.startingWeapon
+            , armour = resolve class.startingArmour
+            , glyph = class.glyph
+            , color = class.color
+            , fovRadius = class.fovRadius
             }
     in
-    enterLevel ruleset 1 0 gen.seed gen hero [ "You enter the dungeon." ]
+    enterLevel ruleset 1 0 gen.seed gen hero [ "You enter the dungeon as " ++ withArticle class.name ++ "." ]
+
+
+withArticle : String -> String
+withArticle word =
+    let
+        starts c =
+            String.startsWith c (String.toLower word)
+    in
+    if starts "a" || starts "e" || starts "i" || starts "o" || starts "u" then
+        "an " ++ word
+
+    else
+        "a " ++ word
 
 
 {-| Place the hero on a freshly generated level, spawn its monster population, recompute fog, and keep
@@ -179,7 +205,7 @@ enterLevel ruleset depth kills seed gen hero log =
             spawnItems ruleset depth (List.drop enemyCount shuffledSpots |> List.take (Content.itemCountForDepth depth)) seed2
 
         vis =
-            Fov.compute ruleset.hero.fovRadius heroAt.pos gen.level
+            Fov.compute heroAt.fovRadius heroAt.pos gen.level
     in
     { ruleset = ruleset
     , level = gen.level
@@ -686,7 +712,7 @@ refreshFov : Game -> Game
 refreshFov game =
     let
         vis =
-            Fov.compute game.ruleset.hero.fovRadius game.hero.pos game.level
+            Fov.compute game.hero.fovRadius game.hero.pos game.level
     in
     { game | visible = vis, explored = Set.union game.explored vis }
 
@@ -793,8 +819,8 @@ statusLine game =
 heroGlyph : Game -> Render.Glyph
 heroGlyph game =
     { pos = game.hero.pos
-    , char = game.ruleset.hero.glyph
-    , color = game.ruleset.hero.color
+    , char = game.hero.glyph
+    , color = game.hero.color
     , layer = Render.layerHero
     , heavy = True
     }

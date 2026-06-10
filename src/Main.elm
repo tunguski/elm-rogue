@@ -1,12 +1,11 @@
 module Main exposing (main)
 
-{-| The app shell: holds a `Rogue.Game`, feeds it keyboard input, and draws it through a *selectable*
-`Rogue.Render.Renderer`. A toolbar switches both the active **mod** (a `Rogue.Content.Ruleset` — the
-default bestiary or the Hardcore transform) and the active **rendering engine** (SVG tiles or ASCII)
-at runtime. Nothing in `Rogue.Game` knows which is chosen: that is the whole point of the seams.
+{-| The app shell: a class-selection screen, then the game, drawn through a selectable
+`Rogue.Render.Renderer`. A toolbar switches the active **mod** (`Ruleset`) and **rendering engine**;
+nothing in `Rogue.Game` knows which is chosen — the whole point of the seams.
 
-Controls: arrows / WASD / HJKL to move, Y U B N for diagonals, `.` wait, `>` descend, `1`-`9` use an
-item, `R` restart.
+Controls: arrows / WASD / HJKL move, Y U B N diagonals, `.` wait, `>` descend, `1`-`9` use/equip an
+item, `R` restart (re-pick class).
 -}
 
 import Browser
@@ -17,7 +16,7 @@ import Html.Events exposing (onClick)
 import Json.Decode as Decode
 import Mod.Default
 import Mod.Hard
-import Rogue.Content exposing (Ruleset)
+import Rogue.Content as Content exposing (ClassDef, Ruleset)
 import Rogue.Game as Game exposing (Game)
 import Rogue.Grid as Grid
 import Rogue.Render exposing (Renderer)
@@ -25,8 +24,14 @@ import Rogue.Render.Ascii as AsciiRenderer
 import Rogue.Render.Svg as SvgRenderer
 
 
+type Screen
+    = ClassSelect
+    | Playing
+
+
 type alias Model =
     { game : Game
+    , screen : Screen
     , modName : String
     , rendererName : String
     , seedBump : Int
@@ -37,6 +42,7 @@ type Msg
     = GameMsg Game.Msg
     | SelectMod String
     | SelectRenderer String
+    | StartGame ClassDef
 
 
 startSeed : Int
@@ -44,7 +50,6 @@ startSeed =
     20260610
 
 
-{-| The installed mods — each is just a named `Ruleset`. Add a mod by adding a row here. -}
 mods : List ( String, Ruleset )
 mods =
     [ ( "Default", Mod.Default.ruleset )
@@ -52,7 +57,6 @@ mods =
     ]
 
 
-{-| The installed rendering engines — each a named `Renderer`. They consume the identical `Scene`. -}
 renderers : List ( String, Renderer Msg )
 renderers =
     [ ( "SVG", SvgRenderer.renderer )
@@ -86,7 +90,8 @@ rendererNamed name =
 
 init : Model
 init =
-    { game = Game.newGame Mod.Default.ruleset startSeed
+    { game = Game.newGame Mod.Default.ruleset (Content.defaultClass Mod.Default.ruleset) startSeed
+    , screen = ClassSelect
     , modName = "Default"
     , rendererName = "SVG"
     , seedBump = 0
@@ -100,17 +105,20 @@ update msg model =
             { model | rendererName = name }
 
         SelectMod name ->
+            -- Classes differ per mod, so changing mod returns to the class picker.
+            { model | modName = name, screen = ClassSelect }
+
+        StartGame class ->
             { model
-                | modName = name
-                , game = Game.newGame (rulesetNamed name) (startSeed + model.seedBump)
+                | game = Game.newGame (rulesetNamed model.modName) class (startSeed + model.seedBump)
+                , screen = ClassSelect
             }
 
         GameMsg Game.Restart ->
-            let
-                bump =
-                    model.seedBump + model.game.turn + model.game.depth * 1009 + 1
-            in
-            { model | seedBump = bump, game = Game.newGame (rulesetNamed model.modName) (startSeed + bump) }
+            { model
+                | screen = ClassSelect
+                , seedBump = model.seedBump + model.game.turn + model.game.depth * 1009 + 1
+            }
 
         GameMsg gm ->
             { model | game = Game.update gm model.game }
@@ -127,10 +135,17 @@ view model =
         , HA.style "box-sizing" "border-box"
         ]
         [ toolbar model
-        , Html.div
-            [ HA.style "text-align" "center", HA.style "font-size" "12px", HA.style "color" "#5b6b82", HA.style "margin" "10px 0 14px" ]
-            [ Html.text "move: arrows / WASD / HJKL · diagonals: Y U B N · wait: . · descend: > · use item: 1-9 · restart: R" ]
-        , (rendererNamed model.rendererName).view (Game.toScene model.game)
+        , case model.screen of
+            ClassSelect ->
+                classSelectView model
+
+            Playing ->
+                Html.div []
+                    [ Html.div
+                        [ HA.style "text-align" "center", HA.style "font-size" "12px", HA.style "color" "#5b6b82", HA.style "margin" "10px 0 14px" ]
+                        [ Html.text "move: arrows / WASD / HJKL · diagonals: Y U B N · wait: . · descend: > · use/equip: 1-9 · restart: R" ]
+                    , (rendererNamed model.rendererName).view (Game.toScene model.game)
+                    ]
         ]
 
 
@@ -167,10 +182,73 @@ chip label active msg =
         , HA.style "padding" "4px 10px"
         , HA.style "border-radius" "7px"
         , HA.style "border" "1px solid #2a3550"
-        , HA.style "color" (if active then "#0b0e14" else "#c7d0dd")
-        , HA.style "background" (if active then "#7fae5a" else "#161f38")
+        , HA.style "color"
+            (if active then
+                "#0b0e14"
+
+             else
+                "#c7d0dd"
+            )
+        , HA.style "background"
+            (if active then
+                "#7fae5a"
+
+             else
+                "#161f38"
+            )
         ]
         [ Html.text label ]
+
+
+
+-- CLASS SELECT -----------------------------------------------------------------------------------
+
+
+classSelectView : Model -> Html Msg
+classSelectView model =
+    let
+        classes =
+            (rulesetNamed model.modName).classes
+    in
+    Html.div
+        [ HA.style "max-width" "780px"
+        , HA.style "margin" "5vh auto"
+        , HA.style "display" "flex"
+        , HA.style "flex-direction" "column"
+        , HA.style "gap" "16px"
+        ]
+        [ Html.div [ HA.style "text-align" "center", HA.style "font-size" "16px", HA.style "color" "#9aa7ba" ]
+            [ Html.text ("Choose your class — " ++ model.modName ++ " mod") ]
+        , Html.div
+            [ HA.style "display" "flex", HA.style "gap" "14px", HA.style "flex-wrap" "wrap", HA.style "justify-content" "center" ]
+            (List.map classCard classes)
+        ]
+
+
+classCard : ClassDef -> Html Msg
+classCard class =
+    Html.button
+        [ onClick (StartGame class)
+        , HA.style "width" "230px"
+        , HA.style "text-align" "left"
+        , HA.style "cursor" "pointer"
+        , HA.style "font" "inherit"
+        , HA.style "color" "#c7d0dd"
+        , HA.style "background" "#11161f"
+        , HA.style "border" "1px solid #2a3550"
+        , HA.style "border-radius" "12px"
+        , HA.style "padding" "16px 18px"
+        , HA.style "display" "flex"
+        , HA.style "flex-direction" "column"
+        , HA.style "gap" "8px"
+        ]
+        [ Html.div [ HA.style "font-size" "18px", HA.style "font-weight" "700", HA.style "color" class.color ]
+            [ Html.text (class.glyph ++ "  " ++ class.name) ]
+        , Html.div [ HA.style "font-size" "12.5px", HA.style "color" "#9aa7ba", HA.style "line-height" "1.45", HA.style "min-height" "54px" ]
+            [ Html.text class.description ]
+        , Html.div [ HA.style "font-size" "12px", HA.style "color" "#7f8ba0" ]
+            [ Html.text ("HP " ++ String.fromInt class.maxHp ++ " · DMG " ++ String.fromInt class.damage ++ " · DEF " ++ String.fromInt class.defense ++ " · FOV " ++ String.fromInt class.fovRadius) ]
+        ]
 
 
 keyToMsg : String -> Msg
