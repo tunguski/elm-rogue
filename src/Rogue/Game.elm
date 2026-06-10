@@ -205,6 +205,7 @@ type Msg
     | Wait
     | Use Int
     | Search
+    | Fire
     | Restart
     | NoOp
 
@@ -558,6 +559,9 @@ update msg game =
             Search ->
                 endTurn (searchTraps game)
 
+            Fire ->
+                tryFire game
+
             Restart ->
                 -- The shell (Main) owns reseeding a new run; inside a game it's a no-op.
                 game
@@ -786,6 +790,34 @@ zapWand index spec game =
                         afterHit
             in
             endTurn { drained | hero = { hero | inventory = newInventory } }
+
+
+{-| A thrown attack at the nearest visible monster for half the hero's melee power (a sling/dagger
+toss). Free to use but weak; costs a turn. No visible target → no turn spent. -}
+tryFire : Game -> Game
+tryFire game =
+    case nearestVisibleEnemy game of
+        Nothing ->
+            addLog "You ready a throw, but see no target." game
+
+        Just target ->
+            let
+                power =
+                    max 1 (heroDamage game.hero // 2)
+
+                ( dmg, seed1 ) =
+                    rollDamage power target.def.defense game.seed
+            in
+            endTurn
+                (if target.hp - dmg <= 0 then
+                    { game | enemies = List.filter (\e -> e.pos /= target.pos) game.enemies, seed = seed1, kills = game.kills + 1 }
+                        |> addLog ("Your throw fells the " ++ target.def.name ++ "!")
+                        |> gainXp target.def.xp
+
+                 else
+                    { game | enemies = updateEnemyAt target.pos (\e -> { e | hp = e.hp - dmg, alerted = True }) game.enemies, seed = seed1 }
+                        |> addLog ("You throw at the " ++ target.def.name ++ " (" ++ String.fromInt dmg ++ ").")
+                )
 
 
 {-| The nearest monster the hero can currently see (within the visible set), if any. -}

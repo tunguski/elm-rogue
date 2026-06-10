@@ -264,7 +264,7 @@ view model =
                 Html.div []
                     [ Html.div
                         [ HA.style "text-align" "center", HA.style "font-size" "12px", HA.style "color" "#5b6b82", HA.style "margin" "10px 0 14px" ]
-                        [ Html.text "move: arrows / WASD / HJKL · diagonals: Y U B N · wait: . · search: Z · descend: > · use/equip: 1-9 · restart: R" ]
+                        [ Html.text "move: arrows / WASD / HJKL · diagonals: Y U B N · wait: . · search: Z · throw: F · descend: > · use/equip: 1-9 · restart: R" ]
                     , (rendererNamed model.rendererName).view (Game.toScene model.game)
                     ]
         ]
@@ -469,6 +469,9 @@ keyToGameMsg key =
 
         "z" ->
             Game.Search
+
+        "f" ->
+            Game.Fire
 
         ">" ->
             Game.Descend
