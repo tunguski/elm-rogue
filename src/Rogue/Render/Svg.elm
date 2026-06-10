@@ -104,8 +104,13 @@ minimapView scene =
         lvl =
             scene.level
 
+        -- Adapt the minimap cell size to the floor so a large map still fits the HUD column crisply.
         scale =
-            5
+            if lvl.width > 56 then
+                3
+
+            else
+                4
 
         -- Iterate only the explored cells (a Set), not the whole map, so the minimap's cost scales
         -- with what you've seen rather than the floor size.

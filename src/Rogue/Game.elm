@@ -355,14 +355,18 @@ enterLevel ruleset depth kills idents seed gen hero log =
         ( shuffledSpots, seed1 ) =
             Rng.shuffle (eligibleSpots gen) seed
 
+        -- Scale populations with the floor's actual size so big floors / caves aren't empty.
+        floorCount =
+            List.length shuffledSpots
+
         enemyCount =
-            Content.spawnCountForDepth depth
+            min (floorCount // 5) (Content.spawnCountForDepth depth + floorCount // 45)
 
         ( enemies, seed2 ) =
             spawnEnemies ruleset depth (List.take enemyCount shuffledSpots) seed1
 
         itemCount =
-            Content.itemCountForDepth depth
+            Content.itemCountForDepth depth + floorCount // 120
 
         ( items, seed3 ) =
             spawnItems ruleset depth (List.drop enemyCount shuffledSpots |> List.take itemCount) seed2
