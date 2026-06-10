@@ -19,10 +19,18 @@ mkdir -p "$OUT"
 echo "Compiling elm-rogue with: $ELM"
 $ELM make "$P/src/Main.elm" --project="$P/elm.json" -o "$P/$OUT/elm-rogue.html" --no-check
 
-# The compiler's HTML <head> omits a viewport meta, so phones render at desktop width. Inject one so
-# the responsive layout / touch controls engage on mobile.
+# The compiler owns the output's <head> (just charset + title), so we post-process it: inject a
+# viewport meta (else phones render at desktop width) and inline src/app.css as a <style> (the app's
+# styling lives in that file as classes; the page stays a single self-contained HTML).
 HTML="$P/$OUT/elm-rogue.html"
-if ! grep -q 'name="viewport"' "$HTML"; then
-  perl -0pi -e 's#<meta charset="utf-8">#<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">#' "$HTML"
-fi
+CSSFILE="$P/src/app.css" perl -0pi -e '
+  if (index($_, q{name="viewport"}) < 0) {
+    s#<meta charset="utf-8">#<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">#;
+  }
+  if (index($_, q{id="rg-app-css"}) < 0) {
+    open(my $f, "<", $ENV{CSSFILE}) or die "no app.css: $!";
+    local $/; my $css = <$f>; close($f);
+    s#</head>#"<style id=\"rg-app-css\">".$css."</style></head>"#e;
+  }
+' "$HTML"
 echo "Done -> $OUT/elm-rogue.html"

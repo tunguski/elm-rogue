@@ -66,25 +66,16 @@ view scene =
         inWindow p =
             p.x >= win.x0 && p.x <= win.x1 && p.y >= win.y0 && p.y <= win.y1
     in
-    Html.div
-        [ HA.class "rg-gamewrap"
-        , HA.style "display" "flex"
-        , HA.style "gap" "18px"
-        , HA.style "align-items" "flex-start"
-        , HA.style "flex-wrap" "wrap"
-        , HA.style "justify-content" "center"
-        ]
-        [ animationStyles
-        , Html.div
-            (HA.class "rg-mapwrap"
-                :: HA.style "position" "relative"
-                :: (if scene.shake then
-                        [ HA.style "animation" "rg-shake 0.22s ease-in-out" ]
+    Html.div [ HA.class "rg-gamewrap" ]
+        [ Html.div
+            [ HA.class
+                (if scene.shake then
+                    "rg-mapwrap rg-shake-on"
 
-                    else
-                        []
-                   )
-            )
+                 else
+                    "rg-mapwrap"
+                )
+            ]
             [ svg
                 [ SA.viewBox viewBoxStr
                 , SA.width (String.fromInt pxW)
@@ -158,7 +149,7 @@ minimapView scene =
                 []
     in
     Html.div []
-        [ Html.div [ HA.style "color" "#5b6b82", HA.style "font-size" "11px", HA.style "margin-bottom" "4px" ] [ Html.text "Map" ]
+        [ Html.div [ HA.class "rg-minimap-label" ] [ Html.text "Map" ]
         , svg
             [ SA.viewBox ("0 0 " ++ String.fromInt (lvl.width * scale) ++ " " ++ String.fromInt (lvl.height * scale))
             , SA.width (String.fromInt (lvl.width * scale))
@@ -187,34 +178,12 @@ popupSvg pp =
         [ Svg.text pp.text ]
 
 
-{-| Injected CSS keyframes — combat numbers drift up and fade; the targeting cursor pulses. The game
-is turn-based (renders only on input), so these one-shot/looping CSS animations are the cheap, correct
-way to add motion without an idle render loop. -}
-animationStyles : Html.Html msg
-animationStyles =
-    Html.node "style"
-        []
-        [ Html.text """
-@keyframes rg-float { from { transform: translateY(0px); opacity: 1; } to { transform: translateY(-12px); opacity: 0; } }
-@keyframes rg-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-@keyframes rg-shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
-@keyframes rg-vignette { 0%,100% { opacity: 0.35; } 50% { opacity: 0.7; } }
-""" ]
-
-
-{-| A pulsing red edge-glow overlay when the hero is critically wounded (HP at or below a quarter). -}
+{-| A pulsing red edge-glow overlay when the hero is critically wounded (HP at or below a quarter).
+The keyframes/styling live in app.css; this just toggles the `.rg-vignette` element on. -}
 lowHpVignette : Rogue.Render.Hud -> Html.Html msg
 lowHpVignette hud =
     if hud.maxHp > 0 && hud.hp > 0 && hud.hp * 4 <= hud.maxHp then
-        Html.div
-            [ HA.style "position" "absolute"
-            , HA.style "inset" "0"
-            , HA.style "pointer-events" "none"
-            , HA.style "border-radius" "8px"
-            , HA.style "box-shadow" "inset 0 0 38px 10px rgba(220,40,40,0.55)"
-            , HA.style "animation" "rg-vignette 1.1s ease-in-out infinite"
-            ]
-            []
+        Html.div [ HA.class "rg-vignette" ] []
 
     else
         Html.text ""
@@ -300,25 +269,10 @@ overlayView hud =
                 else
                     ( "YOU DIED", "#e0564b" )
         in
-        Html.div
-            [ HA.style "position" "absolute"
-            , HA.style "inset" "0"
-            , HA.style "display" "flex"
-            , HA.style "flex-direction" "column"
-            , HA.style "align-items" "center"
-            , HA.style "justify-content" "center"
-            , HA.style "gap" "10px"
-            , HA.style "background" "rgba(3,5,9,0.7)"
-            , HA.style "border-radius" "8px"
-            ]
-            [ Html.div
-                [ HA.style "font-size" "44px"
-                , HA.style "font-weight" "800"
-                , HA.style "letter-spacing" "4px"
-                , HA.style "color" color
-                ]
+        Html.div [ HA.class "rg-banner" ]
+            [ Html.div [ HA.class "rg-banner-title", HA.style "color" color ]
                 [ Html.text title ]
-            , Html.div [ HA.style "font-size" "14px", HA.style "color" "#c7d0dd" ]
+            , Html.div [ HA.class "rg-banner-sub" ]
                 [ Html.text "press R to play again" ]
             ]
 
@@ -460,16 +414,8 @@ glyphSvg scene glyph =
 
 hudView : Hud -> Html msg
 hudView hud =
-    Html.div
-        [ HA.style "min-width" "210px"
-        , HA.style "max-width" "260px"
-        , HA.style "display" "flex"
-        , HA.style "flex-direction" "column"
-        , HA.style "gap" "12px"
-        , HA.style "color" "#c7d0dd"
-        , HA.style "font-family" "ui-monospace, Menlo, Consolas, monospace"
-        ]
-        [ Html.div [ HA.style "font-size" "20px", HA.style "font-weight" "700" ] [ Html.text hud.title ]
+    Html.div [ HA.class "rg-hud" ]
+        [ Html.div [ HA.class "rg-hud-title" ] [ Html.text hud.title ]
         , statLine "Depth" (String.fromInt hud.depth ++ "  " ++ hud.region)
         , statLine "Level" (String.fromInt hud.level ++ "  (xp " ++ String.fromInt hud.xp ++ "/" ++ String.fromInt hud.xpNext ++ ")")
         , statLine "Turn" (String.fromInt hud.turn)
@@ -491,10 +437,10 @@ hudView hud =
             Html.text ""
 
           else
-            Html.div [ HA.style "font-size" "12.5px", HA.style "color" "#8fd14f" ]
+            Html.div [ HA.class "rg-status-good" ]
                 [ Html.text ("Status: " ++ String.join ", " hud.statuses) ]
         , if hud.status /= "" then
-            Html.div [ HA.style "color" "#f0c674", HA.style "font-size" "13px" ] [ Html.text hud.status ]
+            Html.div [ HA.class "rg-status-note" ] [ Html.text hud.status ]
 
           else
             Html.text ""
@@ -505,23 +451,16 @@ hudView hud =
 
 inventoryView : List String -> Html msg
 inventoryView items =
-    Html.div
-        [ HA.style "border-top" "1px solid #1b2433"
-        , HA.style "padding-top" "8px"
-        , HA.style "font-size" "12.5px"
-        , HA.style "display" "flex"
-        , HA.style "flex-direction" "column"
-        , HA.style "gap" "2px"
-        ]
-        (Html.div [ HA.style "color" "#5b6b82", HA.style "margin-bottom" "2px" ] [ Html.text "Inventory (1-9 to use)" ]
+    Html.div [ HA.class "rg-inv" ]
+        (Html.div [ HA.class "rg-inv-label" ] [ Html.text "Inventory (1-9 to use)" ]
             :: (if List.isEmpty items then
-                    [ Html.div [ HA.style "color" "#3f4b5e" ] [ Html.text "— empty —" ] ]
+                    [ Html.div [ HA.class "rg-inv-empty" ] [ Html.text "— empty —" ] ]
 
                 else
                     List.indexedMap
                         (\i name ->
                             Html.div []
-                                [ Html.span [ HA.style "color" "#7f8ba0" ] [ Html.text (String.fromInt (i + 1) ++ ". ") ]
+                                [ Html.span [ HA.class "rg-inv-num" ] [ Html.text (String.fromInt (i + 1) ++ ". ") ]
                                 , Html.text name
                                 ]
                         )
@@ -532,8 +471,8 @@ inventoryView items =
 
 statLine : String -> String -> Html msg
 statLine label value =
-    Html.div [ HA.style "display" "flex", HA.style "justify-content" "space-between", HA.style "font-size" "13px" ]
-        [ Html.span [ HA.style "color" "#5b6b82" ] [ Html.text label ]
+    Html.div [ HA.class "rg-statline" ]
+        [ Html.span [ HA.class "rg-statlabel" ] [ Html.text label ]
         , Html.span [] [ Html.text value ]
         ]
 
@@ -563,15 +502,9 @@ hpBar hud =
     in
     Html.div []
         [ statLine "HP" (String.fromInt (max 0 hud.hp) ++ " / " ++ String.fromInt hud.maxHp)
-        , Html.div
-            [ HA.style "height" "10px"
-            , HA.style "background" "#10151f"
-            , HA.style "border-radius" "5px"
-            , HA.style "overflow" "hidden"
-            , HA.style "margin-top" "4px"
-            ]
+        , Html.div [ HA.class "rg-hpbar-track" ]
             [ Html.div
-                [ HA.style "height" "100%"
+                [ HA.class "rg-hpbar-fill"
                 , HA.style "width" pct
                 , HA.style "background" color
                 ]
@@ -582,18 +515,8 @@ hpBar hud =
 
 logView : List String -> Html msg
 logView entries =
-    Html.div
-        [ HA.style "margin-top" "6px"
-        , HA.style "border-top" "1px solid #1b2433"
-        , HA.style "padding-top" "8px"
-        , HA.style "font-size" "12.5px"
-        , HA.style "line-height" "1.5"
-        , HA.style "display" "flex"
-        , HA.style "flex-direction" "column"
-        , HA.style "gap" "2px"
-        , HA.style "min-height" "90px"
-        ]
-        (List.map (\e -> Html.div [ HA.style "color" "#9aa7ba" ] [ Html.text e ]) entries)
+    Html.div [ HA.class "rg-log" ]
+        (List.map (\e -> Html.div [ HA.class "rg-log-entry" ] [ Html.text e ]) entries)
 
 
 px : Int -> String

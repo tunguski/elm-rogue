@@ -62,23 +62,8 @@ renderWith scene =
         glyphs =
             topGlyphs scene
     in
-    Html.div
-        [ HA.style "display" "flex"
-        , HA.style "gap" "20px"
-        , HA.style "align-items" "flex-start"
-        , HA.style "flex-wrap" "wrap"
-        , HA.style "justify-content" "center"
-        ]
-        [ Html.div
-            [ HA.style "position" "relative"
-            , HA.style "background" "#05070b"
-            , HA.style "border" "1px solid #1b2433"
-            , HA.style "border-radius" "8px"
-            , HA.style "padding" "10px 14px"
-            , HA.style "line-height" "1.05"
-            , HA.style "font-size" "18px"
-            , HA.style "letter-spacing" "3px"
-            ]
+    Html.div [ HA.class "rg-gamewrap" ]
+        [ Html.div [ HA.class "rg-ascii-map" ]
             (let
                 win =
                     asciiWindow scene.camera scene.level.width scene.level.height
@@ -115,7 +100,7 @@ asciiWindow camera width height =
 
 rowView : Scene -> Dict ( Int, Int ) Glyph -> { x0 : Int, y0 : Int, x1 : Int, y1 : Int } -> Int -> Html msg
 rowView scene glyphs win y =
-    Html.div [ HA.style "display" "flex" ]
+    Html.div [ HA.class "rg-ascii-row" ]
         (List.map (\x -> cellView scene glyphs { x = x, y = y }) (List.range win.x0 win.x1))
 
 
@@ -147,10 +132,8 @@ cellView scene glyphs p =
                 ( " ", "#05070b" )
     in
     Html.span
-        [ HA.style "color" color
-        , HA.style "width" "12px"
-        , HA.style "display" "inline-block"
-        , HA.style "text-align" "center"
+        [ HA.class "rg-ascii-cell"
+        , HA.style "color" color
         ]
         [ Html.text ch ]
 
@@ -203,17 +186,8 @@ tileColor theme tile dim =
 
 hudView : Hud -> Html msg
 hudView hud =
-    Html.div
-        [ HA.style "min-width" "210px"
-        , HA.style "max-width" "260px"
-        , HA.style "display" "flex"
-        , HA.style "flex-direction" "column"
-        , HA.style "gap" "8px"
-        , HA.style "color" "#c7d0dd"
-        , HA.style "font-family" "ui-monospace, Menlo, Consolas, monospace"
-        , HA.style "font-size" "13px"
-        ]
-        ([ Html.div [ HA.style "font-size" "20px", HA.style "font-weight" "700" ] [ Html.text hud.title ]
+    Html.div [ HA.class "rg-hud rg-hud--ascii" ]
+        ([ Html.div [ HA.class "rg-hud-title" ] [ Html.text hud.title ]
          , line ("Depth " ++ String.fromInt hud.depth ++ " " ++ hud.region ++ "   Turn " ++ String.fromInt hud.turn)
          , line ("Level " ++ String.fromInt hud.level ++ "  xp " ++ String.fromInt hud.xp ++ "/" ++ String.fromInt hud.xpNext)
          , line ("HP " ++ String.fromInt (max 0 hud.hp) ++ "/" ++ String.fromInt hud.maxHp ++ "   Gold " ++ String.fromInt hud.gold ++ (if hud.hunger /= "" then "   " ++ hud.hunger else ""))
@@ -228,24 +202,24 @@ hudView hud =
             Html.text ""
 
            else
-            Html.div [ HA.style "color" "#8fd14f" ] [ Html.text ("Status: " ++ String.join ", " hud.statuses) ]
+            Html.div [ HA.class "rg-status-good" ] [ Html.text ("Status: " ++ String.join ", " hud.statuses) ]
          , if hud.status /= "" then
-            Html.div [ HA.style "color" "#f0c674" ] [ Html.text hud.status ]
+            Html.div [ HA.class "rg-status-note" ] [ Html.text hud.status ]
 
            else
             Html.text ""
-         , Html.div [ HA.style "color" "#5b6b82", HA.style "margin-top" "4px" ] [ Html.text "Inventory (1-9):" ]
+         , Html.div [ HA.class "rg-inv-label", HA.style "margin-top" "4px" ] [ Html.text "Inventory (1-9):" ]
          ]
             ++ inventoryLines hud.inventory
-            ++ [ Html.div [ HA.style "color" "#5b6b82", HA.style "margin-top" "6px" ] [ Html.text "Log:" ] ]
-            ++ List.map (\e -> Html.div [ HA.style "color" "#9aa7ba" ] [ Html.text e ]) hud.log
+            ++ [ Html.div [ HA.class "rg-inv-label", HA.style "margin-top" "6px" ] [ Html.text "Log:" ] ]
+            ++ List.map (\e -> Html.div [ HA.class "rg-log-entry" ] [ Html.text e ]) hud.log
         )
 
 
 inventoryLines : List String -> List (Html msg)
 inventoryLines items =
     if List.isEmpty items then
-        [ Html.div [ HA.style "color" "#3f4b5e" ] [ Html.text "  — empty —" ] ]
+        [ Html.div [ HA.class "rg-inv-empty" ] [ Html.text "  — empty —" ] ]
 
     else
         List.indexedMap
@@ -273,13 +247,7 @@ overlayView hud =
                     ( "*** YOU DIED ***", "#e0564b" )
         in
         Html.div
-            [ HA.style "position" "absolute"
-            , HA.style "inset" "0"
-            , HA.style "display" "flex"
-            , HA.style "align-items" "center"
-            , HA.style "justify-content" "center"
-            , HA.style "background" "rgba(3,5,9,0.72)"
-            , HA.style "border-radius" "8px"
+            [ HA.class "rg-banner"
             , HA.style "color" color
             , HA.style "font-size" "26px"
             , HA.style "font-weight" "800"

@@ -58,9 +58,15 @@ jobs:
           mkdir -p public
           java -jar elm-lang/target/elm.jar make \
             src/Main.elm --project=elm.json -o public/index.html --no-check
-          # The compiler's HTML head omits a viewport meta; inject one so phones use the responsive
-          # layout and on-screen touch controls instead of rendering at desktop width.
-          perl -0pi -e 's#<meta charset="utf-8">#<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">#' public/index.html
+          # The compiler owns the output <head>; inject a viewport meta (so phones use the responsive
+          # layout / touch controls) and inline src/app.css as a <style> (the app's styling lives there
+          # as classes; the page stays a single self-contained file).
+          CSSFILE=src/app.css perl -0pi -e '
+            s#<meta charset="utf-8">#<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">#;
+            open(my $f, "<", $ENV{CSSFILE}) or die "no app.css: $!";
+            local $/; my $css = <$f>; close($f);
+            s#</head>#"<style id=\"rg-app-css\">".$css."</style></head>"#e;
+          ' public/index.html
           ls -la public
 
       - name: Upload Pages artifact

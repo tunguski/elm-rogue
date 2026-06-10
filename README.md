@@ -17,12 +17,19 @@ names SVG, ASCII, a specific monster or a specific potion — it reads everythin
 Build a standalone HTML file with the elm-lang CLI and open it:
 
 ```sh
-ELM=../../elm.sh ./build.sh          # or: elm make src/Main.elm --project=elm.json -o build/elm-rogue.html --no-check
+ELM=../../elm.sh ./build.sh
 # then open build/elm-rogue.html
 ```
 
+`build.sh` compiles `src/Main.elm` and then post-processes the output HTML, injecting a mobile viewport
+meta and inlining [`src/app.css`](src/app.css) into the `<head>` (the compiler owns the document head,
+so styling is added afterwards — the page stays a single self-contained file). The app's look lives in
+that one stylesheet as classes; the Elm view code carries semantic class names, with only data-driven
+styling (item/class colours, the HP-bar width, SVG fills) inline.
+
 **Controls** — arrows / `WASD` / `HJKL` to move, `Y U B N` for diagonals, `.` to wait, `>` to
-descend stairs, `1`–`9` to use an inventory item, `R` to restart. Walk into a monster to attack it.
+descend stairs, `1`–`9` to use an inventory item, `R` to restart. On a phone, an on-screen D-pad and
+action buttons appear instead. Walk into a monster to attack it.
 Reach depth 8 to win; die and you start a fresh dungeon. The toolbar switches the **Mod** and the
 **Renderer** live.
 

@@ -494,25 +494,15 @@ parseRun line =
 
 view : Model -> Html Msg
 view model =
-    Html.div
-        [ HA.class "rg-root"
-        , HA.style "font-family" "ui-monospace, Menlo, Consolas, monospace"
-        , HA.style "background" "#0b0e14"
-        , HA.style "color" "#c7d0dd"
-        , HA.style "min-height" "100vh"
-        , HA.style "padding" "16px 20px"
-        , HA.style "box-sizing" "border-box"
-        ]
-        [ mobileHead
-        , toolbar model
+    Html.div [ HA.class "rg-root" ]
+        [ toolbar model
         , case model.screen of
             ClassSelect ->
                 classSelectView model
 
             Playing ->
                 Html.div []
-                    [ Html.div
-                        [ HA.class "rg-keyhint", HA.style "text-align" "center", HA.style "font-size" "12px", HA.style "color" "#5b6b82", HA.style "margin" "10px 0 14px" ]
+                    [ Html.div [ HA.class "rg-keyhint" ]
                         [ Html.text "move: WASD/HJKL · diag: Y U B N · wait: . · search: Z · aim: F (Tab cycle, F throw) · brew: C · inventory: I · bestiary: M · descend: > · use: 1-9 · restart: R" ]
                     , (rendererNamed model.rendererName).view (sceneFor model)
                     , touchControls model
@@ -530,76 +520,17 @@ view model =
         ]
 
 
-{-| A viewport meta (the compiler's HTML head omits one, so we inject it from the body — dynamically
-added viewport metas are honoured by mobile browsers) plus responsive CSS: shrink padding on small
-screens, swap the keyboard hint for the on-screen control pad, and reveal that pad on touch devices. -}
-mobileHead : Html Msg
-mobileHead =
-    Html.div []
-        [ Html.node "meta"
-            [ HA.attribute "name" "viewport"
-            , HA.attribute "content" "width=device-width, initial-scale=1, viewport-fit=cover"
-            ]
-            []
-        , Html.node "style"
-            []
-            [ Html.text """
-* { -webkit-tap-highlight-color: rgba(0,0,0,0); box-sizing: border-box; }
-html, body { margin: 0; }
-.rg-touch { display: none; }
-.rg-btn { -webkit-user-select: none; user-select: none; touch-action: manipulation; cursor: pointer; }
-@media (pointer: coarse), (max-width: 820px) {
-  .rg-touch { display: flex; }
-  .rg-keyhint { display: none; }
-  .rg-root { padding: 8px 8px 16px !important; overflow-x: hidden; }
-  .rg-gamewrap { flex-direction: column !important; align-items: center !important; gap: 10px !important; }
-  .rg-mapwrap { width: 100% !important; min-width: 0 !important; max-width: 520px; }
-  .rg-mapwrap svg { width: 100% !important; height: auto !important; }
-}
-""" ]
-        ]
-
-
 bestiaryView : Model -> Html Msg
 bestiaryView model =
     let
         roster =
             (rulesetNamed model.modName).enemies ++ (rulesetNamed model.modName).bosses
     in
-    Html.div
-        [ HA.style "position" "fixed"
-        , HA.style "inset" "0"
-        , HA.style "background" "rgba(3,5,9,0.82)"
-        , HA.style "display" "flex"
-        , HA.style "align-items" "center"
-        , HA.style "justify-content" "center"
-        , HA.style "z-index" "10"
-        ]
-        [ Html.div
-            [ HA.style "background" "#0e131d"
-            , HA.style "border" "1px solid #2a3550"
-            , HA.style "border-radius" "14px"
-            , HA.style "padding" "22px 26px"
-            , HA.style "width" "min(92vw, 560px)"
-            , HA.style "box-sizing" "border-box"
-            , HA.style "max-height" "80vh"
-            , HA.style "overflow-y" "auto"
-            , HA.style "color" "#c7d0dd"
-            ]
-            (Html.div [ HA.style "font-size" "18px", HA.style "font-weight" "700", HA.style "margin-bottom" "10px" ] [ Html.text "Bestiary" ]
+    Html.div [ HA.class "rg-overlay" ]
+        [ Html.div [ HA.class "rg-modal" ]
+            (Html.div [ HA.class "rg-modal-title" ] [ Html.text "Bestiary" ]
                 :: List.map (bestiaryRow model.bestiary) roster
-                ++ [ Html.button
-                        [ onClick ToggleBestiary
-                        , HA.style "margin-top" "14px"
-                        , HA.style "font" "inherit"
-                        , HA.style "font-size" "12.5px"
-                        , HA.style "cursor" "pointer"
-                        , HA.style "color" "#c7d0dd"
-                        , HA.style "background" "#161f38"
-                        , HA.style "border" "1px solid #2a3550"
-                        , HA.style "border-radius" "8px"
-                        , HA.style "padding" "6px 14px"
-                        ]
+                ++ [ Html.button [ onClick ToggleBestiary, HA.class "rg-modal-close" ]
                         [ Html.text "Close (M)" ]
                    ]
             )
@@ -609,15 +540,14 @@ bestiaryView model =
 bestiaryRow : Set String -> Content.EnemyDef -> Html Msg
 bestiaryRow seen def =
     if Set.member def.id seen then
-        Html.div
-            [ HA.style "display" "flex", HA.style "justify-content" "space-between", HA.style "font-size" "13px", HA.style "padding" "3px 0" ]
+        Html.div [ HA.class "rg-bestiary-row" ]
             [ Html.span [ HA.style "color" def.color ] [ Html.text (def.glyph ++ "  " ++ def.name) ]
-            , Html.span [ HA.style "color" "#7f8ba0", HA.style "font-size" "11.5px" ]
+            , Html.span [ HA.class "rg-item-desc" ]
                 [ Html.text ("HP " ++ String.fromInt def.maxHp ++ " · DMG " ++ String.fromInt def.damage ++ " · DEF " ++ String.fromInt def.defense ++ " · " ++ String.fromInt def.xp ++ "xp") ]
             ]
 
     else
-        Html.div [ HA.style "font-size" "13px", HA.style "padding" "3px 0", HA.style "color" "#3f4b5e" ]
+        Html.div [ HA.class "rg-bestiary-row", HA.style "color" "#3f4b5e" ]
             [ Html.text "????  — undiscovered" ]
 
 
@@ -627,50 +557,21 @@ sheetView game =
         hero =
             game.hero
     in
-    Html.div
-        [ HA.style "position" "fixed"
-        , HA.style "inset" "0"
-        , HA.style "background" "rgba(3,5,9,0.82)"
-        , HA.style "display" "flex"
-        , HA.style "align-items" "center"
-        , HA.style "justify-content" "center"
-        , HA.style "z-index" "10"
-        ]
-        [ Html.div
-            [ HA.style "background" "#0e131d"
-            , HA.style "border" "1px solid #2a3550"
-            , HA.style "border-radius" "14px"
-            , HA.style "padding" "22px 26px"
-            , HA.style "width" "min(92vw, 560px)"
-            , HA.style "box-sizing" "border-box"
-            , HA.style "max-height" "88vh"
-            , HA.style "overflow-y" "auto"
-            , HA.style "color" "#c7d0dd"
-            ]
-            [ Html.div [ HA.style "font-size" "18px", HA.style "font-weight" "700", HA.style "margin-bottom" "10px" ]
+    Html.div [ HA.class "rg-overlay" ]
+        [ Html.div [ HA.class "rg-modal" ]
+            [ Html.div [ HA.class "rg-modal-title" ]
                 [ Html.text "Character" ]
             , sheetStat "Level" (String.fromInt hero.level)
             , sheetStat "HP" (String.fromInt (max 0 hero.hp) ++ " / " ++ String.fromInt hero.maxHp)
             , sheetStat "Gold" (String.fromInt hero.gold)
-            , Html.div [ HA.style "color" "#5b6b82", HA.style "font-size" "12px", HA.style "margin" "14px 0 6px" ]
+            , Html.div [ HA.class "rg-inv-hint" ]
                 [ Html.text "Inventory (tap to use · ✕ to drop)" ]
             , if List.isEmpty hero.inventory then
-                Html.div [ HA.style "color" "#3f4b5e", HA.style "font-size" "13px" ] [ Html.text "— empty —" ]
+                Html.div [ HA.class "rg-inv-empty" ] [ Html.text "— empty —" ]
 
               else
                 Html.div [] (List.indexedMap sheetItem hero.inventory)
-            , Html.button
-                [ onClick ToggleSheet
-                , HA.style "margin-top" "14px"
-                , HA.style "font" "inherit"
-                , HA.style "font-size" "12.5px"
-                , HA.style "cursor" "pointer"
-                , HA.style "color" "#c7d0dd"
-                , HA.style "background" "#161f38"
-                , HA.style "border" "1px solid #2a3550"
-                , HA.style "border-radius" "8px"
-                , HA.style "padding" "6px 14px"
-                ]
+            , Html.button [ onClick ToggleSheet, HA.class "rg-modal-close" ]
                 [ Html.text "Close (I)" ]
             ]
         ]
@@ -678,51 +579,20 @@ sheetView game =
 
 sheetStat : String -> String -> Html Msg
 sheetStat label value =
-    Html.div [ HA.style "display" "flex", HA.style "justify-content" "space-between", HA.style "font-size" "13px", HA.style "padding" "2px 0" ]
-        [ Html.span [ HA.style "color" "#7f8ba0" ] [ Html.text label ]
+    Html.div [ HA.class "rg-stat" ]
+        [ Html.span [ HA.class "rg-stat-label" ] [ Html.text label ]
         , Html.span [] [ Html.text value ]
         ]
 
 
 sheetItem : Int -> Content.ItemDef -> Html Msg
 sheetItem i def =
-    Html.div
-        [ HA.style "display" "flex"
-        , HA.style "align-items" "stretch"
-        , HA.style "gap" "4px"
-        , HA.style "margin-bottom" "4px"
-        ]
-        [ Html.button
-            [ onClick (GameMsg (Game.Use i))
-            , HA.class "rg-btn"
-            , HA.style "display" "flex"
-            , HA.style "justify-content" "space-between"
-            , HA.style "align-items" "center"
-            , HA.style "gap" "10px"
-            , HA.style "flex" "1"
-            , HA.style "text-align" "left"
-            , HA.style "font" "inherit"
-            , HA.style "font-size" "13px"
-            , HA.style "color" "#c7d0dd"
-            , HA.style "background" "#141b29"
-            , HA.style "border" "1px solid #20304d"
-            , HA.style "border-radius" "8px"
-            , HA.style "padding" "8px 10px"
-            ]
+    Html.div [ HA.class "rg-item-row" ]
+        [ Html.button [ onClick (GameMsg (Game.Use i)), HA.class "rg-btn rg-item-use" ]
             [ Html.span [ HA.style "color" def.color ] [ Html.text (String.fromInt (i + 1) ++ ". " ++ def.name) ]
-            , Html.span [ HA.style "color" "#7f8ba0", HA.style "font-size" "11.5px" ] [ Html.text (Content.describe def) ]
+            , Html.span [ HA.class "rg-item-desc" ] [ Html.text (Content.describe def) ]
             ]
-        , Html.button
-            [ onClick (GameMsg (Game.Drop i))
-            , HA.class "rg-btn"
-            , HA.style "font" "inherit"
-            , HA.style "font-size" "13px"
-            , HA.style "color" "#9aa7ba"
-            , HA.style "background" "#141b29"
-            , HA.style "border" "1px solid #20304d"
-            , HA.style "border-radius" "8px"
-            , HA.style "padding" "0 12px"
-            ]
+        , Html.button [ onClick (GameMsg (Game.Drop i)), HA.class "rg-btn rg-item-drop" ]
             [ Html.text "✕" ]
         ]
 
@@ -735,20 +605,8 @@ touchControls model =
         aiming =
             model.targeting /= Nothing
     in
-    Html.div
-        [ HA.class "rg-touch"
-        , HA.style "gap" "16px"
-        , HA.style "justify-content" "center"
-        , HA.style "align-items" "center"
-        , HA.style "flex-wrap" "wrap"
-        , HA.style "margin" "14px auto 4px"
-        ]
-        [ Html.div
-            [ HA.style "display" "grid"
-            , HA.style "grid-template-columns" "repeat(3, 58px)"
-            , HA.style "grid-auto-rows" "58px"
-            , HA.style "gap" "6px"
-            ]
+    Html.div [ HA.class "rg-touch" ]
+        [ Html.div [ HA.class "rg-padgrid" ]
             [ padBtn "↖" (GameMsg (Game.Move Grid.dirNW))
             , padBtn "↑" (GameMsg (Game.Move Grid.dirN))
             , padBtn "↗" (GameMsg (Game.Move Grid.dirNE))
@@ -759,12 +617,7 @@ touchControls model =
             , padBtn "↓" (GameMsg (Game.Move Grid.dirS))
             , padBtn "↘" (GameMsg (Game.Move Grid.dirSE))
             ]
-        , Html.div
-            [ HA.style "display" "grid"
-            , HA.style "grid-template-columns" "repeat(2, minmax(78px, 1fr))"
-            , HA.style "gap" "6px"
-            , HA.style "max-width" "200px"
-            ]
+        , Html.div [ HA.class "rg-actgrid" ]
             [ actBtn
                 (if aiming then
                     "✦ Throw"
@@ -786,33 +639,12 @@ touchControls model =
 
 padBtn : String -> Msg -> Html Msg
 padBtn label msg =
-    Html.button
-        [ onClick msg
-        , HA.class "rg-btn"
-        , HA.style "font" "inherit"
-        , HA.style "font-size" "24px"
-        , HA.style "color" "#c7d0dd"
-        , HA.style "background" "#161f38"
-        , HA.style "border" "1px solid #2a3550"
-        , HA.style "border-radius" "10px"
-        ]
-        [ Html.text label ]
+    Html.button [ onClick msg, HA.class "rg-btn rg-pad" ] [ Html.text label ]
 
 
 actBtn : String -> Msg -> Html Msg
 actBtn label msg =
-    Html.button
-        [ onClick msg
-        , HA.class "rg-btn"
-        , HA.style "font" "inherit"
-        , HA.style "font-size" "13px"
-        , HA.style "padding" "11px 8px"
-        , HA.style "color" "#c7d0dd"
-        , HA.style "background" "#141b29"
-        , HA.style "border" "1px solid #2a3550"
-        , HA.style "border-radius" "10px"
-        ]
-        [ Html.text label ]
+    Html.button [ onClick msg, HA.class "rg-btn rg-act" ] [ Html.text label ]
 
 
 {-| The render scene for the current frame, with the targeting cursor overlaid when aiming. -}
@@ -827,14 +659,8 @@ sceneFor model =
 
 toolbar : Model -> Html Msg
 toolbar model =
-    Html.div
-        [ HA.style "display" "flex"
-        , HA.style "gap" "24px"
-        , HA.style "justify-content" "center"
-        , HA.style "align-items" "center"
-        , HA.style "flex-wrap" "wrap"
-        ]
-        [ Html.div [ HA.style "font-size" "20px", HA.style "font-weight" "800", HA.style "letter-spacing" "1px" ] [ Html.text "elm-rogue" ]
+    Html.div [ HA.class "rg-toolbar" ]
+        [ Html.div [ HA.class "rg-title" ] [ Html.text "elm-rogue" ]
         , chipGroup "Mod" (List.map Tuple.first mods) model.modName SelectMod
         , chipGroup "Renderer" (List.map Tuple.first renderers) model.rendererName SelectRenderer
         ]
@@ -842,8 +668,8 @@ toolbar model =
 
 chipGroup : String -> List String -> String -> (String -> Msg) -> Html Msg
 chipGroup label names active toMsg =
-    Html.div [ HA.style "display" "flex", HA.style "gap" "6px", HA.style "align-items" "center" ]
-        (Html.span [ HA.style "color" "#5b6b82", HA.style "font-size" "12px" ] [ Html.text label ]
+    Html.div [ HA.class "rg-chipgroup" ]
+        (Html.span [ HA.class "rg-chiplabel" ] [ Html.text label ]
             :: List.map (\name -> chip name (name == active) (toMsg name)) names
         )
 
@@ -852,25 +678,12 @@ chip : String -> Bool -> Msg -> Html Msg
 chip label active msg =
     Html.button
         [ onClick msg
-        , HA.style "font" "inherit"
-        , HA.style "font-size" "12.5px"
-        , HA.style "cursor" "pointer"
-        , HA.style "padding" "4px 10px"
-        , HA.style "border-radius" "7px"
-        , HA.style "border" "1px solid #2a3550"
-        , HA.style "color"
+        , HA.class
             (if active then
-                "#0b0e14"
+                "rg-chip is-active"
 
              else
-                "#c7d0dd"
-            )
-        , HA.style "background"
-            (if active then
-                "#7fae5a"
-
-             else
-                "#161f38"
+                "rg-chip"
             )
         ]
         [ Html.text label ]
@@ -892,19 +705,12 @@ chosenSeed model =
 
 classSelectView : Model -> Html Msg
 classSelectView model =
-    Html.div
-        [ HA.style "max-width" "820px"
-        , HA.style "margin" "4vh auto"
-        , HA.style "display" "flex"
-        , HA.style "flex-direction" "column"
-        , HA.style "gap" "18px"
-        ]
-        [ Html.div [ HA.style "text-align" "center", HA.style "font-size" "16px", HA.style "color" "#9aa7ba" ]
+    Html.div [ HA.class "rg-classselect" ]
+        [ Html.div [ HA.class "rg-subtitle" ]
             [ Html.text ("Choose your class — " ++ model.modName ++ " mod") ]
         , continueRow model
         , seedRow model
-        , Html.div
-            [ HA.style "display" "flex", HA.style "gap" "14px", HA.style "flex-wrap" "wrap", HA.style "justify-content" "center" ]
+        , Html.div [ HA.class "rg-cards" ]
             (List.map classCard (rulesetNamed model.modName).classes)
         , historyView model.history
         ]
@@ -915,17 +721,8 @@ continueRow : Model -> Html Msg
 continueRow model =
     case model.resumeSave of
         Just ( savedMod, save ) ->
-            Html.div [ HA.style "display" "flex", HA.style "justify-content" "center" ]
-                [ Html.button
-                    [ onClick Continue
-                    , HA.style "font" "inherit"
-                    , HA.style "cursor" "pointer"
-                    , HA.style "padding" "9px 18px"
-                    , HA.style "border-radius" "8px"
-                    , HA.style "border" "1px solid #3f7a4f"
-                    , HA.style "background" "#16361f"
-                    , HA.style "color" "#9be08a"
-                    ]
+            Html.div [ HA.class "rg-continue-row" ]
+                [ Html.button [ onClick Continue, HA.class "rg-continue-btn" ]
                     [ Html.text ("▶ Continue saved run — depth " ++ String.fromInt save.depth ++ " (" ++ savedMod ++ ")") ]
                 ]
 
@@ -935,21 +732,13 @@ continueRow model =
 
 seedRow : Model -> Html Msg
 seedRow model =
-    Html.div
-        [ HA.style "display" "flex", HA.style "gap" "8px", HA.style "justify-content" "center", HA.style "align-items" "center", HA.style "font-size" "12.5px" ]
-        [ Html.span [ HA.style "color" "#5b6b82" ] [ Html.text "Seed" ]
+    Html.div [ HA.class "rg-seedrow" ]
+        [ Html.span [ HA.class "rg-seed-label" ] [ Html.text "Seed" ]
         , Html.input
             [ HA.value model.seedInput
             , onInput SetSeed
             , HA.placeholder "random"
-            , HA.style "font" "inherit"
-            , HA.style "font-size" "12.5px"
-            , HA.style "width" "130px"
-            , HA.style "padding" "5px 9px"
-            , HA.style "border-radius" "7px"
-            , HA.style "border" "1px solid #2a3550"
-            , HA.style "background" "#0e131d"
-            , HA.style "color" "#c7d0dd"
+            , HA.class "rg-seed-input"
             ]
             []
         , chip ("Daily " ++ String.fromInt dailySeed) (String.trim model.seedInput == String.fromInt dailySeed) (SetSeed (String.fromInt dailySeed))
@@ -959,26 +748,12 @@ seedRow model =
 
 classCard : ClassDef -> Html Msg
 classCard class =
-    Html.button
-        [ onClick (StartGame class)
-        , HA.style "width" "230px"
-        , HA.style "text-align" "left"
-        , HA.style "cursor" "pointer"
-        , HA.style "font" "inherit"
-        , HA.style "color" "#c7d0dd"
-        , HA.style "background" "#11161f"
-        , HA.style "border" "1px solid #2a3550"
-        , HA.style "border-radius" "12px"
-        , HA.style "padding" "16px 18px"
-        , HA.style "display" "flex"
-        , HA.style "flex-direction" "column"
-        , HA.style "gap" "8px"
-        ]
-        [ Html.div [ HA.style "font-size" "18px", HA.style "font-weight" "700", HA.style "color" class.color ]
+    Html.button [ onClick (StartGame class), HA.class "rg-card" ]
+        [ Html.div [ HA.class "rg-card-name", HA.style "color" class.color ]
             [ Html.text (class.glyph ++ "  " ++ class.name) ]
-        , Html.div [ HA.style "font-size" "12.5px", HA.style "color" "#9aa7ba", HA.style "line-height" "1.45", HA.style "min-height" "54px" ]
+        , Html.div [ HA.class "rg-card-desc" ]
             [ Html.text class.description ]
-        , Html.div [ HA.style "font-size" "12px", HA.style "color" "#7f8ba0" ]
+        , Html.div [ HA.class "rg-card-stats" ]
             [ Html.text ("HP " ++ String.fromInt class.maxHp ++ " · DMG " ++ String.fromInt class.damage ++ " · DEF " ++ String.fromInt class.defense ++ " · FOV " ++ String.fromInt class.fovRadius) ]
         ]
 
@@ -989,14 +764,8 @@ historyView runs =
         Html.text ""
 
     else
-        Html.div
-            [ HA.style "max-width" "520px"
-            , HA.style "margin" "8px auto 0"
-            , HA.style "width" "100%"
-            , HA.style "border-top" "1px solid #1b2433"
-            , HA.style "padding-top" "12px"
-            ]
-            (Html.div [ HA.style "color" "#5b6b82", HA.style "font-size" "12px", HA.style "margin-bottom" "8px", HA.style "text-align" "center" ]
+        Html.div [ HA.class "rg-history" ]
+            (Html.div [ HA.class "rg-history-title" ]
                 [ Html.text "Recent delves (saved locally)" ]
                 :: List.map runRow runs
             )
@@ -1004,16 +773,26 @@ historyView runs =
 
 runRow : Run -> Html Msg
 runRow run =
-    Html.div
-        [ HA.style "display" "flex"
-        , HA.style "justify-content" "space-between"
-        , HA.style "font-size" "12.5px"
-        , HA.style "padding" "3px 6px"
-        , HA.style "color" "#9aa7ba"
-        ]
-        [ Html.span [ HA.style "color" (if run.won then "#5dd47a" else "#e0564b"), HA.style "min-width" "60px" ]
-            [ Html.text (if run.won then "VICTORY" else "DIED") ]
-        , Html.span [ HA.style "flex" "1", HA.style "padding-left" "8px" ] [ Html.text run.className ]
+    Html.div [ HA.class "rg-run" ]
+        [ Html.span
+            [ HA.class "rg-run-result"
+            , HA.style "color"
+                (if run.won then
+                    "#5dd47a"
+
+                 else
+                    "#e0564b"
+                )
+            ]
+            [ Html.text
+                (if run.won then
+                    "VICTORY"
+
+                 else
+                    "DIED"
+                )
+            ]
+        , Html.span [ HA.class "rg-run-class" ] [ Html.text run.className ]
         , Html.span [] [ Html.text ("depth " ++ String.fromInt run.depth ++ " · " ++ String.fromInt run.kills ++ " slain · " ++ String.fromInt run.turns ++ "t") ]
         ]
 
