@@ -162,6 +162,14 @@ type alias ItemOnFloor =
     }
 
 
+{-| A transient floating combat number, shown for the frame after the action that produced it. -}
+type alias Popup =
+    { pos : Pos
+    , text : String
+    , color : String
+    }
+
+
 {-| An item for sale in a shop: stepping onto its cell buys it if the hero can afford the price. -}
 type alias ShopEntry =
     { def : ItemDef
@@ -214,6 +222,7 @@ type alias Game =
     , enemies : List Enemy
     , items : List ItemOnFloor
     , shop : List ShopEntry
+    , popups : List Popup
     , traps : List Trap
     , idents : Idents
     , depth : Int
@@ -418,6 +427,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , enemies = enemies ++ featureEnemies ++ bossEnemy
     , items = items ++ vaultItems ++ featureItems ++ amuletItems
     , shop = shop
+    , popups = []
     , traps = traps
     , idents = idents
     , depth = depth
@@ -696,7 +706,19 @@ inRoom p maybeRoom =
 
 
 update : Msg -> Game -> Game
-update msg game =
+update rawMsg rawGame =
+    let
+        -- Each new action starts with a clean set of floating numbers.
+        game =
+            if isActionMsg rawMsg then
+                { rawGame | popups = [] }
+
+            else
+                rawGame
+
+        msg =
+            rawMsg
+    in
     if game.gameOver then
         game
 
@@ -956,11 +978,13 @@ zapWand index spec game =
                     if target.hp - dmg <= 0 then
                         { game | enemies = List.filter (\e -> e.pos /= target.pos) game.enemies, seed = seed1, kills = game.kills + 1 }
                             |> addLog ("Your magic missile destroys the " ++ target.def.name ++ "!")
+                            |> addPopup target.pos (String.fromInt dmg) "#82aaff"
                             |> gainXp target.def.xp
 
                     else
                         { game | enemies = updateEnemyAt target.pos (\e -> { e | hp = e.hp - dmg, alerted = True }) game.enemies, seed = seed1 }
                             |> addLog ("Your magic missile hits the " ++ target.def.name ++ " (" ++ String.fromInt dmg ++ ").")
+                            |> addPopup target.pos (String.fromInt dmg) "#82aaff"
 
                 spent =
                     spec.charges - 1
@@ -1013,11 +1037,13 @@ tryFire game =
                 (if target.hp - dmg <= 0 then
                     { game | enemies = List.filter (\e -> e.pos /= target.pos) game.enemies, seed = seed1, kills = game.kills + 1 }
                         |> addLog ("Your throw fells the " ++ target.def.name ++ "!")
+                        |> addPopup target.pos (String.fromInt dmg) "#9be0ff"
                         |> gainXp target.def.xp
 
                  else
                     { game | enemies = updateEnemyAt target.pos (\e -> { e | hp = e.hp - dmg, alerted = True }) game.enemies, seed = seed1 }
                         |> addLog ("You throw at the " ++ target.def.name ++ " (" ++ String.fromInt dmg ++ ").")
+                        |> addPopup target.pos (String.fromInt dmg) "#9be0ff"
                 )
 
 
@@ -1447,6 +1473,7 @@ heroAttack enemy game =
             , kills = game.kills + 1
         }
             |> addLog ("You kill the " ++ enemy.def.name ++ ".")
+            |> addPopup enemy.pos (String.fromInt dmg) "#ffd166"
             |> gainXp enemy.def.xp
 
     else
@@ -1455,6 +1482,7 @@ heroAttack enemy game =
             , seed = seed1
         }
             |> addLog ("You hit the " ++ enemy.def.name ++ " (" ++ String.fromInt dmg ++ ").")
+            |> addPopup enemy.pos (String.fromInt dmg) "#ffd166"
             |> maybeSplit enemy remaining
 
 
@@ -1951,6 +1979,11 @@ addLog line game =
     { game | log = line :: game.log }
 
 
+addPopup : Pos -> String -> String -> Game -> Game
+addPopup pos text color game =
+    { game | popups = { pos = pos, text = text, color = color } :: game.popups }
+
+
 listFind : (a -> Bool) -> List a -> Maybe a
 listFind pred xs =
     case xs of
@@ -1980,6 +2013,7 @@ toScene game =
             ++ List.map (itemGlyph game.idents) game.items
             ++ List.map enemyGlyph game.enemies
             ++ [ heroGlyph game ]
+    , popups = List.map (\p -> { pos = p.pos, text = p.text, color = p.color }) game.popups
     , theme = Render.themeForDepth game.depth
     , camera = game.hero.pos
     , hud =

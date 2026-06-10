@@ -4,6 +4,7 @@ module Rogue.Render exposing
     , Hud
     , Renderer
     , Theme
+    , Popup
     , Visibility(..)
     , emptyHud
     , themeForDepth
@@ -158,9 +159,18 @@ type alias Scene =
     , visible : Set ( Int, Int )
     , explored : Set ( Int, Int )
     , glyphs : List Glyph
+    , popups : List Popup
     , theme : Theme
     , camera : Pos
     , hud : Hud
+    }
+
+
+{-| A transient floating label (e.g. a combat number) drawn above a cell for one frame. -}
+type alias Popup =
+    { pos : Pos
+    , text : String
+    , color : String
     }
 
 

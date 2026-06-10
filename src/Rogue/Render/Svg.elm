@@ -86,6 +86,7 @@ view scene =
                 ]
                 [ g [] (List.map (cellSvg scene) cells)
                 , g [] (List.filterMap (glyphSvg scene) (List.sortBy .layer (List.filter (\gl -> inWindow gl.pos) scene.glyphs)))
+                , g [] (List.map popupSvg (List.filter (\pp -> inWindow pp.pos) scene.popups))
                 ]
             , overlayView scene.hud
             ]
@@ -152,6 +153,20 @@ minimapView scene =
             ]
             [ g [] (List.filterMap dot (Level.positions lvl)), heroDot ]
         ]
+
+
+popupSvg : Rogue.Render.Popup -> Svg msg
+popupSvg pp =
+    text_
+        [ SA.x (px (pp.pos.x * cellSize + cellSize // 2))
+        , SA.y (px (pp.pos.y * cellSize - 2))
+        , SA.fill pp.color
+        , SA.fontSize (px (cellSize - 8))
+        , SA.fontFamily "ui-monospace, Menlo, Consolas, monospace"
+        , SA.textAnchor "middle"
+        , SA.dominantBaseline "central"
+        ]
+        [ Svg.text pp.text ]
 
 
 minimapColor : Tile -> String
