@@ -443,19 +443,114 @@ roomCells room =
 
 
 {-| Link each room to the previous one with an L-shaped corridor. -}
+{-| Wire the rooms into a *graph*, not a chain: a minimum spanning tree (Prim's, short corridors,
+guaranteed fully connected) plus each room's nearest-neighbour edge. The MST guarantees solvability;
+the extra nearest-neighbour edges add loops, so floors have several routes instead of one snake. -}
 connectRooms : List Room -> Level -> Level
 connectRooms rooms level =
-    case rooms of
-        [] ->
+    let
+        centers =
+            List.map roomCenter rooms
+
+        n =
+            List.length centers
+    in
+    if n <= 1 then
+        level
+
+    else
+        let
+            edges =
+                dedupeEdges (primMst centers ++ nearestEdges centers)
+        in
+        List.foldl
+            (\( i, j ) lv -> carveCorridor (centerAt i centers) (centerAt j centers) lv)
             level
+            edges
+
+
+centerAt : Int -> List Pos -> Pos
+centerAt i centers =
+    List.head (List.drop i centers) |> Maybe.withDefault { x = 0, y = 0 }
+
+
+{-| Prim's MST over room centres (Manhattan distance), as `( i, j )` index edges. O(n³) but n is tiny. -}
+primMst : List Pos -> List ( Int, Int )
+primMst centers =
+    let
+        n =
+            List.length centers
+    in
+    primStep centers n (Set.singleton 0) []
+
+
+primStep : List Pos -> Int -> Set Int -> List ( Int, Int ) -> List ( Int, Int )
+primStep centers n inTree edges =
+    if Set.size inTree >= n then
+        edges
+
+    else
+        let
+            -- The shortest edge from a tree node to a non-tree node.
+            best =
+                List.range 0 (n - 1)
+                    |> List.filter (\i -> Set.member i inTree)
+                    |> List.concatMap
+                        (\i ->
+                            List.range 0 (n - 1)
+                                |> List.filter (\j -> not (Set.member j inTree))
+                                |> List.map (\j -> ( edgeDist centers i j, ( i, j ) ))
+                        )
+                    |> minimumByFirst
+        in
+        case best of
+            Just ( _, ( i, j ) ) ->
+                primStep centers n (Set.insert j inTree) (( i, j ) :: edges)
+
+            Nothing ->
+                edges
+
+
+{-| Each room's nearest-other-room edge (these create the loops on top of the MST). -}
+nearestEdges : List Pos -> List ( Int, Int )
+nearestEdges centers =
+    let
+        n =
+            List.length centers
+    in
+    List.range 0 (n - 1)
+        |> List.filterMap
+            (\i ->
+                List.range 0 (n - 1)
+                    |> List.filter (\j -> j /= i)
+                    |> List.map (\j -> ( edgeDist centers i j, ( i, j ) ))
+                    |> minimumByFirst
+                    |> Maybe.map Tuple.second
+            )
+
+
+edgeDist : List Pos -> Int -> Int -> Int
+edgeDist centers i j =
+    Grid.manhattan (centerAt i centers) (centerAt j centers)
+
+
+{-| Normalise edges to `( min, max )` and drop duplicates. -}
+dedupeEdges : List ( Int, Int ) -> List ( Int, Int )
+dedupeEdges edges =
+    edges
+        |> List.map (\( a, b ) -> ( min a b, max a b ))
+        |> Set.fromList
+        |> Set.toList
+
+
+minimumByFirst : List ( Int, a ) -> Maybe ( Int, a )
+minimumByFirst xs =
+    case xs of
+        [] ->
+            Nothing
 
         first :: rest ->
-            Tuple.second (List.foldl connectStep ( first, level ) rest)
-
-
-connectStep : Room -> ( Room, Level ) -> ( Room, Level )
-connectStep room ( prev, level ) =
-    ( room, carveCorridor (roomCenter prev) (roomCenter room) level )
+            Just (List.foldl (\x best -> if Tuple.first x < Tuple.first best then x else best) first rest)
 
 
 {-| Carve an L-shaped corridor between two points (horizontal leg then vertical leg). Cells that were
