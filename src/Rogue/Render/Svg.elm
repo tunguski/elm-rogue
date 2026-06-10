@@ -52,21 +52,62 @@ view scene =
         , HA.style "flex-wrap" "wrap"
         , HA.style "justify-content" "center"
         ]
-        [ svg
-            [ SA.viewBox ("0 0 " ++ String.fromInt w ++ " " ++ String.fromInt h)
-            , SA.width (String.fromInt w)
-            , SA.height (String.fromInt h)
-            , HA.style "background" "#05070b"
-            , HA.style "border" "1px solid #1b2433"
-            , HA.style "border-radius" "8px"
-            , HA.style "max-width" "100%"
-            , HA.style "height" "auto"
-            ]
-            [ g [] (List.map (cellSvg scene) (Level.positions lvl))
-            , g [] (List.filterMap (glyphSvg scene) (List.sortBy .layer scene.glyphs))
+        [ Html.div [ HA.style "position" "relative" ]
+            [ svg
+                [ SA.viewBox ("0 0 " ++ String.fromInt w ++ " " ++ String.fromInt h)
+                , SA.width (String.fromInt w)
+                , SA.height (String.fromInt h)
+                , HA.style "background" "#05070b"
+                , HA.style "border" "1px solid #1b2433"
+                , HA.style "border-radius" "8px"
+                , HA.style "max-width" "100%"
+                , HA.style "height" "auto"
+                ]
+                [ g [] (List.map (cellSvg scene) (Level.positions lvl))
+                , g [] (List.filterMap (glyphSvg scene) (List.sortBy .layer scene.glyphs))
+                ]
+            , overlayView scene.hud
             ]
         , hudView scene.hud
         ]
+
+
+{-| A translucent end-of-game banner over the map: green for victory, red for death. -}
+overlayView : Hud -> Html msg
+overlayView hud =
+    if not hud.gameOver then
+        Html.text ""
+
+    else
+        let
+            ( title, color ) =
+                if hud.won then
+                    ( "VICTORY", "#5dd47a" )
+
+                else
+                    ( "YOU DIED", "#e0564b" )
+        in
+        Html.div
+            [ HA.style "position" "absolute"
+            , HA.style "inset" "0"
+            , HA.style "display" "flex"
+            , HA.style "flex-direction" "column"
+            , HA.style "align-items" "center"
+            , HA.style "justify-content" "center"
+            , HA.style "gap" "10px"
+            , HA.style "background" "rgba(3,5,9,0.7)"
+            , HA.style "border-radius" "8px"
+            ]
+            [ Html.div
+                [ HA.style "font-size" "44px"
+                , HA.style "font-weight" "800"
+                , HA.style "letter-spacing" "4px"
+                , HA.style "color" color
+                ]
+                [ Html.text title ]
+            , Html.div [ HA.style "font-size" "14px", HA.style "color" "#c7d0dd" ]
+                [ Html.text "press R to play again" ]
+            ]
 
 
 

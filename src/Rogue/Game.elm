@@ -91,6 +91,12 @@ aggroRange =
     8
 
 
+{-| Reaching this depth wins the run (the bottom of the dungeon). -}
+victoryDepth : Int
+victoryDepth =
+    8
+
+
 type Msg
     = Move Dir
     | Descend
@@ -162,6 +168,18 @@ enterLevel ruleset depth kills seed gen hero log =
     , gameOver = False
     , won = False
     }
+        |> checkVictory
+
+
+{-| Arriving at `victoryDepth` ends the run in victory. -}
+checkVictory : Game -> Game
+checkVictory game =
+    if game.depth >= victoryDepth && not game.won then
+        { game | won = True, gameOver = True }
+            |> addLog ("You reach depth " ++ String.fromInt game.depth ++ " — the bottom of the dungeon. You win!")
+
+    else
+        game
 
 
 
@@ -670,6 +688,7 @@ toScene game =
         , inventory = List.map .name game.hero.inventory
         , log = List.take 7 game.log
         , gameOver = game.gameOver
+        , won = game.won
         , status = statusLine game
         }
     }
@@ -677,7 +696,10 @@ toScene game =
 
 statusLine : Game -> String
 statusLine game =
-    if game.gameOver then
+    if game.won then
+        "Victory! Press R to play again"
+
+    else if game.gameOver then
         "You have died at depth " ++ String.fromInt game.depth ++ " — press R to restart"
 
     else if Level.at game.hero.pos game.level == StairsDown then

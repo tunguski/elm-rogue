@@ -77,6 +77,7 @@ type alias Hud =
     , inventory : List String
     , log : List String
     , gameOver : Bool
+    , won : Bool
     , status : String
     }
 
@@ -92,6 +93,7 @@ emptyHud =
     , inventory = []
     , log = []
     , gameOver = False
+    , won = False
     , status = ""
     }
 
