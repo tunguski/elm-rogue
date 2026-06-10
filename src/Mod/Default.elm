@@ -54,6 +54,7 @@ ruleset =
         , scrollOfIdentify
         , wandMagicMissile
         , ironKey
+        , amulet
         ]
     }
 
@@ -585,6 +586,21 @@ ironKey =
     , name = "iron key"
     , glyph = "k"
     , color = "#e8c75a"
+    , kind = Key
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 0
+    }
+
+
+{-| The goal: claiming the Amulet on the deepest floor wins the run. The engine places exactly one
+(weight 0, so never random) and intercepts its pickup. -}
+amulet : ItemDef
+amulet =
+    { id = "amulet"
+    , name = "Amulet of Yendor"
+    , glyph = "*"
+    , color = "#ffe066"
     , kind = Key
     , minDepth = 1
     , maxDepth = 99

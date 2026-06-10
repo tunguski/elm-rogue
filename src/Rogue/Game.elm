@@ -319,6 +319,18 @@ enterLevel ruleset depth kills idents seed gen hero log =
             else
                 "A powerful presence guards this floor!" :: log
 
+        amuletItems =
+            if depth >= victoryDepth then
+                case Content.findItem "amulet" ruleset of
+                    Just amuletDef ->
+                        [ { def = amuletDef, pos = bossSpot gen } ]
+
+                    Nothing ->
+                        []
+
+            else
+                []
+
         vis =
             Fov.compute heroAt.fovRadius heroAt.pos gen.level
     in
@@ -327,7 +339,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , rooms = gen.rooms
     , hero = heroAt
     , enemies = enemies ++ featureEnemies ++ bossEnemy
-    , items = items ++ vaultItems ++ featureItems
+    , items = items ++ vaultItems ++ featureItems ++ amuletItems
     , traps = traps
     , idents = idents
     , depth = depth
@@ -345,15 +357,11 @@ enterLevel ruleset depth kills idents seed gen hero log =
         |> checkVictory
 
 
-{-| Arriving at `victoryDepth` ends the run in victory. -}
+{-| The deepest floor carries the Amulet of Yendor; the run is won by claiming it (see `pickUpOne`),
+not merely by arriving. -}
 checkVictory : Game -> Game
 checkVictory game =
-    if game.depth >= victoryDepth && not game.won then
-        { game | won = True, gameOver = True }
-            |> addLog ("You reach depth " ++ String.fromInt game.depth ++ " — the bottom of the dungeon. You win!")
-
-    else
-        game
+    game
 
 
 
@@ -667,6 +675,16 @@ pickUp game =
 
 pickUpOne : ItemOnFloor -> Game -> Game
 pickUpOne it game =
+    if it.def.id == "amulet" then
+        { game | won = True, gameOver = True }
+            |> addLog "You claim the Amulet of Yendor! Victory is yours!"
+
+    else
+        pickUpItem it game
+
+
+pickUpItem : ItemOnFloor -> Game -> Game
+pickUpItem it game =
     case it.def.kind of
         Content.Consumable (Gold amount) ->
             let
