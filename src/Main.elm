@@ -297,7 +297,7 @@ view model =
                 Html.div []
                     [ Html.div
                         [ HA.style "text-align" "center", HA.style "font-size" "12px", HA.style "color" "#5b6b82", HA.style "margin" "10px 0 14px" ]
-                        [ Html.text "move: WASD/HJKL · diag: Y U B N · wait: . · search: Z · throw: F · inventory: I · bestiary: M · descend: > · use: 1-9 · restart: R" ]
+                        [ Html.text "move: WASD/HJKL · diag: Y U B N · wait: . · search: Z · throw: F · brew: C · inventory: I · bestiary: M · descend: > · use: 1-9 · restart: R" ]
                     , (rendererNamed model.rendererName).view (Game.toScene model.game)
                     , if model.showSheet then
                         sheetView model.game
@@ -712,6 +712,9 @@ keyToGameMsg key =
 
         "f" ->
             Game.Fire
+
+        "c" ->
+            Game.Brew
 
         ">" ->
             Game.Descend

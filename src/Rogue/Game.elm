@@ -283,6 +283,7 @@ type Msg
     | Use Int
     | Search
     | Fire
+    | Brew
     | Drop Int
     | Restart
     | NoOp
@@ -803,6 +804,9 @@ update rawMsg rawGame =
             Fire ->
                 tryFire game
 
+            Brew ->
+                tryBrew game
+
             Drop index ->
                 dropItem index game
 
@@ -1042,6 +1046,39 @@ pickUpItem it game =
             in
             { game | hero = { hero | inventory = hero.inventory ++ [ it.def ] } }
                 |> addLog ("You pick up a " ++ displayName game.idents it.def ++ ".")
+
+
+{-| Alchemy: brew two potions from the pack into one fresh, depth-appropriate potion (a sink for
+surplus potions, with a chance of something better). Needs at least two potions. -}
+tryBrew : Game -> Game
+tryBrew game =
+    let
+        hero =
+            game.hero
+
+        ( potions, others ) =
+            List.partition isPotion hero.inventory
+    in
+    case potions of
+        p1 :: p2 :: rest ->
+            let
+                candidates =
+                    Content.itemsForDepth game.depth game.ruleset
+                        |> List.filter (\( _, def ) -> isPotion def)
+
+                ( brewed, seed1 ) =
+                    Rng.pickWeighted p1 candidates game.seed
+            in
+            { game
+                | hero = { hero | inventory = others ++ (brewed :: rest) }
+                , seed = seed1
+            }
+                |> identify brewed
+                |> addLog ("You brew " ++ withArticle (displayName game.idents brewed) ++ " from two potions.")
+                |> endTurn
+
+        _ ->
+            addLog "You need two potions to brew something." game
 
 
 {-| Drop the inventory item at `index` onto the hero's cell. Instant (no turn spent). -}
