@@ -67,7 +67,8 @@ view scene =
             p.x >= win.x0 && p.x <= win.x1 && p.y >= win.y0 && p.y <= win.y1
     in
     Html.div
-        [ HA.style "display" "flex"
+        [ HA.class "rg-gamewrap"
+        , HA.style "display" "flex"
         , HA.style "gap" "18px"
         , HA.style "align-items" "flex-start"
         , HA.style "flex-wrap" "wrap"
@@ -75,7 +76,8 @@ view scene =
         ]
         [ animationStyles
         , Html.div
-            (HA.style "position" "relative"
+            (HA.class "rg-mapwrap"
+                :: HA.style "position" "relative"
                 :: (if scene.shake then
                         [ HA.style "animation" "rg-shake 0.22s ease-in-out" ]
 

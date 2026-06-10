@@ -495,14 +495,16 @@ parseRun line =
 view : Model -> Html Msg
 view model =
     Html.div
-        [ HA.style "font-family" "ui-monospace, Menlo, Consolas, monospace"
+        [ HA.class "rg-root"
+        , HA.style "font-family" "ui-monospace, Menlo, Consolas, monospace"
         , HA.style "background" "#0b0e14"
         , HA.style "color" "#c7d0dd"
         , HA.style "min-height" "100vh"
         , HA.style "padding" "16px 20px"
         , HA.style "box-sizing" "border-box"
         ]
-        [ toolbar model
+        [ mobileHead
+        , toolbar model
         , case model.screen of
             ClassSelect ->
                 classSelectView model
@@ -510,9 +512,10 @@ view model =
             Playing ->
                 Html.div []
                     [ Html.div
-                        [ HA.style "text-align" "center", HA.style "font-size" "12px", HA.style "color" "#5b6b82", HA.style "margin" "10px 0 14px" ]
+                        [ HA.class "rg-keyhint", HA.style "text-align" "center", HA.style "font-size" "12px", HA.style "color" "#5b6b82", HA.style "margin" "10px 0 14px" ]
                         [ Html.text "move: WASD/HJKL · diag: Y U B N · wait: . · search: Z · aim: F (Tab cycle, F throw) · brew: C · inventory: I · bestiary: M · descend: > · use: 1-9 · restart: R" ]
                     , (rendererNamed model.rendererName).view (sceneFor model)
+                    , touchControls model
                     , if model.showSheet then
                         sheetView model.game
 
@@ -524,6 +527,36 @@ view model =
                       else
                         Html.text ""
                     ]
+        ]
+
+
+{-| A viewport meta (the compiler's HTML head omits one, so we inject it from the body — dynamically
+added viewport metas are honoured by mobile browsers) plus responsive CSS: shrink padding on small
+screens, swap the keyboard hint for the on-screen control pad, and reveal that pad on touch devices. -}
+mobileHead : Html Msg
+mobileHead =
+    Html.div []
+        [ Html.node "meta"
+            [ HA.attribute "name" "viewport"
+            , HA.attribute "content" "width=device-width, initial-scale=1, viewport-fit=cover"
+            ]
+            []
+        , Html.node "style"
+            []
+            [ Html.text """
+* { -webkit-tap-highlight-color: rgba(0,0,0,0); box-sizing: border-box; }
+html, body { margin: 0; }
+.rg-touch { display: none; }
+.rg-btn { -webkit-user-select: none; user-select: none; touch-action: manipulation; cursor: pointer; }
+@media (pointer: coarse), (max-width: 820px) {
+  .rg-touch { display: flex; }
+  .rg-keyhint { display: none; }
+  .rg-root { padding: 8px 8px 16px !important; overflow-x: hidden; }
+  .rg-gamewrap { flex-direction: column !important; align-items: center !important; gap: 10px !important; }
+  .rg-mapwrap { width: 100% !important; min-width: 0 !important; max-width: 520px; }
+  .rg-mapwrap svg { width: 100% !important; height: auto !important; }
+}
+""" ]
         ]
 
 
@@ -547,8 +580,8 @@ bestiaryView model =
             , HA.style "border" "1px solid #2a3550"
             , HA.style "border-radius" "14px"
             , HA.style "padding" "22px 26px"
-            , HA.style "min-width" "440px"
-            , HA.style "max-width" "560px"
+            , HA.style "width" "min(92vw, 560px)"
+            , HA.style "box-sizing" "border-box"
             , HA.style "max-height" "80vh"
             , HA.style "overflow-y" "auto"
             , HA.style "color" "#c7d0dd"
@@ -608,8 +641,10 @@ sheetView game =
             , HA.style "border" "1px solid #2a3550"
             , HA.style "border-radius" "14px"
             , HA.style "padding" "22px 26px"
-            , HA.style "min-width" "420px"
-            , HA.style "max-width" "560px"
+            , HA.style "width" "min(92vw, 560px)"
+            , HA.style "box-sizing" "border-box"
+            , HA.style "max-height" "88vh"
+            , HA.style "overflow-y" "auto"
             , HA.style "color" "#c7d0dd"
             ]
             [ Html.div [ HA.style "font-size" "18px", HA.style "font-weight" "700", HA.style "margin-bottom" "10px" ]
@@ -618,7 +653,7 @@ sheetView game =
             , sheetStat "HP" (String.fromInt (max 0 hero.hp) ++ " / " ++ String.fromInt hero.maxHp)
             , sheetStat "Gold" (String.fromInt hero.gold)
             , Html.div [ HA.style "color" "#5b6b82", HA.style "font-size" "12px", HA.style "margin" "14px 0 6px" ]
-                [ Html.text "Inventory (click to drop)" ]
+                [ Html.text "Inventory (tap to use · ✕ to drop)" ]
             , if List.isEmpty hero.inventory then
                 Html.div [ HA.style "color" "#3f4b5e", HA.style "font-size" "13px" ] [ Html.text "— empty —" ]
 
@@ -651,25 +686,133 @@ sheetStat label value =
 
 sheetItem : Int -> Content.ItemDef -> Html Msg
 sheetItem i def =
+    Html.div
+        [ HA.style "display" "flex"
+        , HA.style "align-items" "stretch"
+        , HA.style "gap" "4px"
+        , HA.style "margin-bottom" "4px"
+        ]
+        [ Html.button
+            [ onClick (GameMsg (Game.Use i))
+            , HA.class "rg-btn"
+            , HA.style "display" "flex"
+            , HA.style "justify-content" "space-between"
+            , HA.style "align-items" "center"
+            , HA.style "gap" "10px"
+            , HA.style "flex" "1"
+            , HA.style "text-align" "left"
+            , HA.style "font" "inherit"
+            , HA.style "font-size" "13px"
+            , HA.style "color" "#c7d0dd"
+            , HA.style "background" "#141b29"
+            , HA.style "border" "1px solid #20304d"
+            , HA.style "border-radius" "8px"
+            , HA.style "padding" "8px 10px"
+            ]
+            [ Html.span [ HA.style "color" def.color ] [ Html.text (String.fromInt (i + 1) ++ ". " ++ def.name) ]
+            , Html.span [ HA.style "color" "#7f8ba0", HA.style "font-size" "11.5px" ] [ Html.text (Content.describe def) ]
+            ]
+        , Html.button
+            [ onClick (GameMsg (Game.Drop i))
+            , HA.class "rg-btn"
+            , HA.style "font" "inherit"
+            , HA.style "font-size" "13px"
+            , HA.style "color" "#9aa7ba"
+            , HA.style "background" "#141b29"
+            , HA.style "border" "1px solid #20304d"
+            , HA.style "border-radius" "8px"
+            , HA.style "padding" "0 12px"
+            ]
+            [ Html.text "✕" ]
+        ]
+
+
+{-| On-screen touch controls (a directional pad plus action buttons) so the game is playable without a
+keyboard. Hidden by CSS on non-touch wide screens; the buttons dispatch the same messages the keys do. -}
+touchControls : Model -> Html Msg
+touchControls model =
+    let
+        aiming =
+            model.targeting /= Nothing
+    in
+    Html.div
+        [ HA.class "rg-touch"
+        , HA.style "gap" "16px"
+        , HA.style "justify-content" "center"
+        , HA.style "align-items" "center"
+        , HA.style "flex-wrap" "wrap"
+        , HA.style "margin" "14px auto 4px"
+        ]
+        [ Html.div
+            [ HA.style "display" "grid"
+            , HA.style "grid-template-columns" "repeat(3, 58px)"
+            , HA.style "grid-auto-rows" "58px"
+            , HA.style "gap" "6px"
+            ]
+            [ padBtn "↖" (GameMsg (Game.Move Grid.dirNW))
+            , padBtn "↑" (GameMsg (Game.Move Grid.dirN))
+            , padBtn "↗" (GameMsg (Game.Move Grid.dirNE))
+            , padBtn "←" (GameMsg (Game.Move Grid.dirW))
+            , padBtn "·" (GameMsg Game.Wait)
+            , padBtn "→" (GameMsg (Game.Move Grid.dirE))
+            , padBtn "↙" (GameMsg (Game.Move Grid.dirSW))
+            , padBtn "↓" (GameMsg (Game.Move Grid.dirS))
+            , padBtn "↘" (GameMsg (Game.Move Grid.dirSE))
+            ]
+        , Html.div
+            [ HA.style "display" "grid"
+            , HA.style "grid-template-columns" "repeat(2, minmax(78px, 1fr))"
+            , HA.style "gap" "6px"
+            , HA.style "max-width" "200px"
+            ]
+            [ actBtn
+                (if aiming then
+                    "✦ Throw"
+
+                 else
+                    "✦ Aim"
+                )
+                (KeyPressed "f")
+            , actBtn "↹ Next" (KeyPressed "tab")
+            , actBtn "Descend" (GameMsg Game.Descend)
+            , actBtn "Search" (GameMsg Game.Search)
+            , actBtn "Brew" (GameMsg Game.Brew)
+            , actBtn "Items" ToggleSheet
+            , actBtn "Beasts" ToggleBestiary
+            , actBtn "Restart" (GameMsg Game.Restart)
+            ]
+        ]
+
+
+padBtn : String -> Msg -> Html Msg
+padBtn label msg =
     Html.button
-        [ onClick (GameMsg (Game.Drop i))
-        , HA.style "display" "flex"
-        , HA.style "justify-content" "space-between"
-        , HA.style "width" "100%"
-        , HA.style "text-align" "left"
+        [ onClick msg
+        , HA.class "rg-btn"
+        , HA.style "font" "inherit"
+        , HA.style "font-size" "24px"
+        , HA.style "color" "#c7d0dd"
+        , HA.style "background" "#161f38"
+        , HA.style "border" "1px solid #2a3550"
+        , HA.style "border-radius" "10px"
+        ]
+        [ Html.text label ]
+
+
+actBtn : String -> Msg -> Html Msg
+actBtn label msg =
+    Html.button
+        [ onClick msg
+        , HA.class "rg-btn"
         , HA.style "font" "inherit"
         , HA.style "font-size" "13px"
+        , HA.style "padding" "11px 8px"
         , HA.style "color" "#c7d0dd"
         , HA.style "background" "#141b29"
-        , HA.style "border" "1px solid #20304d"
-        , HA.style "border-radius" "8px"
-        , HA.style "padding" "6px 10px"
-        , HA.style "margin-bottom" "4px"
-        , HA.style "cursor" "pointer"
+        , HA.style "border" "1px solid #2a3550"
+        , HA.style "border-radius" "10px"
         ]
-        [ Html.span [ HA.style "color" def.color ] [ Html.text (String.fromInt (i + 1) ++ ". " ++ def.name) ]
-        , Html.span [ HA.style "color" "#7f8ba0", HA.style "font-size" "11.5px" ] [ Html.text (Content.describe def) ]
-        ]
+        [ Html.text label ]
 
 
 {-| The render scene for the current frame, with the targeting cursor overlaid when aiming. -}

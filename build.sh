@@ -18,4 +18,11 @@ P="$(pwd)"
 mkdir -p "$OUT"
 echo "Compiling elm-rogue with: $ELM"
 $ELM make "$P/src/Main.elm" --project="$P/elm.json" -o "$P/$OUT/elm-rogue.html" --no-check
+
+# The compiler's HTML <head> omits a viewport meta, so phones render at desktop width. Inject one so
+# the responsive layout / touch controls engage on mobile.
+HTML="$P/$OUT/elm-rogue.html"
+if ! grep -q 'name="viewport"' "$HTML"; then
+  perl -0pi -e 's#<meta charset="utf-8">#<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">#' "$HTML"
+fi
 echo "Done -> $OUT/elm-rogue.html"

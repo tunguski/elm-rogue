@@ -58,6 +58,9 @@ jobs:
           mkdir -p public
           java -jar elm-lang/target/elm.jar make \
             src/Main.elm --project=elm.json -o public/index.html --no-check
+          # The compiler's HTML head omits a viewport meta; inject one so phones use the responsive
+          # layout and on-screen touch controls instead of rendering at desktop width.
+          perl -0pi -e 's#<meta charset="utf-8">#<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">#' public/index.html
           ls -la public
 
       - name: Upload Pages artifact
