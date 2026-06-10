@@ -287,8 +287,18 @@ enterLevel ruleset depth kills idents seed gen hero log =
         ( items, seed3 ) =
             spawnItems ruleset depth (List.drop enemyCount shuffledSpots |> List.take itemCount) seed2
 
+        trapCount =
+            trapCountForDepth depth
+
         ( traps, seed4 ) =
-            spawnTraps depth (List.drop (enemyCount + itemCount) shuffledSpots |> List.take (trapCountForDepth depth)) seed3
+            spawnTraps depth (List.drop (enemyCount + itemCount) shuffledSpots |> List.take trapCount) seed3
+
+        keySpots =
+            List.drop (enemyCount + itemCount + trapCount) shuffledSpots
+                |> List.filter (\p -> not (List.member p gen.vaultCells))
+
+        ( vaultItems, seed5 ) =
+            spawnVault ruleset depth gen keySpots seed4
 
         vis =
             Fov.compute heroAt.fovRadius heroAt.pos gen.level
@@ -298,13 +308,13 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , rooms = gen.rooms
     , hero = heroAt
     , enemies = enemies
-    , items = items
+    , items = items ++ vaultItems
     , traps = traps
     , idents = idents
     , depth = depth
     , turn = 0
     , kills = kills
-    , seed = seed4
+    , seed = seed5
     , visible = vis
     , explored = vis
     , log = log
@@ -390,6 +400,22 @@ rollTrapKind depth seed =
                    )
     in
     Rng.pickWeighted DartTrap candidates seed
+
+
+{-| Stock a generated vault (if any): a couple of bonus items inside, plus a guaranteed key dropped on
+a non-vault floor cell so the locked door can always be opened. No vault → nothing. -}
+spawnVault : Ruleset -> Int -> Generated -> List Pos -> Seed -> ( List ItemOnFloor, Seed )
+spawnVault ruleset depth gen keySpots seed =
+    case ( gen.vaultDoor, Content.findItem "key" ruleset, List.head keySpots ) of
+        ( Just _, Just keyDef, Just keyPos ) ->
+            let
+                ( bonus, seed1 ) =
+                    spawnItems ruleset depth (List.take 2 gen.vaultCells) seed
+            in
+            ( { def = keyDef, pos = keyPos } :: bonus, seed1 )
+
+        _ ->
+            ( [], seed )
 
 
 {-| Drop a depth-appropriate, weight-chosen item on each of the given floor cells. -}
@@ -491,7 +517,10 @@ tryMove dir game =
             endTurn (heroAttack enemy game)
 
         Nothing ->
-            if Level.isPassableAt target game.level then
+            if Level.at target game.level == LockedDoor then
+                tryUnlock target game
+
+            else if Level.isPassableAt target game.level then
                 let
                     hero =
                         game.hero
@@ -503,6 +532,37 @@ tryMove dir game =
 
             else
                 game
+
+
+{-| Bump a locked door: if the hero is carrying a key, spend it and open the door (no movement this
+turn); otherwise just report it's locked. -}
+tryUnlock : Pos -> Game -> Game
+tryUnlock door game =
+    let
+        hero =
+            game.hero
+
+        ( keys, rest ) =
+            List.partition (\it -> isKey it) hero.inventory
+    in
+    case keys of
+        _ :: remainingKeys ->
+            endTurn
+                (refreshFov
+                    { game
+                        | level = Level.set door Door game.level
+                        , hero = { hero | inventory = remainingKeys ++ rest }
+                    }
+                    |> addLog "You unlock the door with an iron key."
+                )
+
+        [] ->
+            addLog "The door is locked. You need a key." game
+
+
+isKey : ItemDef -> Bool
+isKey def =
+    def.kind == Content.Key
 
 
 tryDescend : Game -> Game
@@ -589,6 +649,9 @@ tryUse index game =
 
                 Content.Wand spec ->
                     zapWand index spec game
+
+                Content.Key ->
+                    addLog "Keys open locked doors — walk into one." game
 
 
 {-| Zap the wand in inventory slot `index` at the nearest visible monster, spending a charge (the

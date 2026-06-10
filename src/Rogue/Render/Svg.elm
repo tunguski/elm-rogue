@@ -183,6 +183,9 @@ tileColor theme tile dim =
                 Door ->
                     ( theme.door, "#3c2a18" )
 
+                LockedDoor ->
+                    ( "#c9a23a", "#5a4a1c" )
+
                 StairsDown ->
                     ( "#d8b24c", "#5a4a20" )
 

@@ -46,6 +46,7 @@ ruleset =
         , scrollOfMagicMapping
         , scrollOfIdentify
         , wandMagicMissile
+        , ironKey
         ]
     }
 
@@ -459,4 +460,19 @@ wandMagicMissile =
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 4
+    }
+
+
+{-| The key opens a vault's locked door. Spawn weight 0 keeps it out of the random loot pool — the
+generator places one only when it carves a vault — while still being resolvable by id. -}
+ironKey : ItemDef
+ironKey =
+    { id = "key"
+    , name = "iron key"
+    , glyph = "k"
+    , color = "#e8c75a"
+    , kind = Key
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 0
     }

@@ -24,7 +24,7 @@ two stair positions, and leaves enemy/item population to the engine (which consu
 import Rogue.Grid as Grid exposing (Pos)
 import Rogue.Level as Level exposing (Level)
 import Rogue.Rng as Rng exposing (Seed)
-import Rogue.Tile exposing (Tile(..))
+import Rogue.Tile as Tile exposing (Tile(..))
 
 
 {-| Tunable generation parameters. A mod can supply its own `GenConfig` for bigger/denser floors. -}
@@ -53,12 +53,16 @@ type alias Room =
     { x : Int, y : Int, w : Int, h : Int }
 
 
-{-| The result of generation: the tile map, the rooms in placement order, and the stairs. -}
+{-| The result of generation: the tile map, the rooms in placement order, the stairs, and — when one
+was carved — a locked **vault**: its `LockedDoor` cell and the interior cells the engine fills with
+bonus loot (with a key guaranteed elsewhere on the floor). -}
 type alias Generated =
     { level : Level
     , rooms : List Room
     , stairsUp : Pos
     , stairsDown : Pos
+    , vaultDoor : Maybe Pos
+    , vaultCells : List Pos
     , seed : Seed
     }
 
@@ -101,13 +105,144 @@ generate cfg seed0 =
 
         level4 =
             addWalls level3
+
+        ( level5, seed2 ) =
+            placeDoors level4 seed1
+
+        ( vaultDoor, vaultCells, level6, seed3 ) =
+            placeVault cfg rooms level5 seed2
     in
-    { level = level4
+    { level = level6
     , rooms = rooms
     , stairsUp = upPos
     , stairsDown = downPos
-    , seed = seed1
+    , vaultDoor = vaultDoor
+    , vaultCells = vaultCells
+    , seed = seed3
     }
+
+
+{-| Drop `Door` tiles at corridor pinch-points (a floor cell walled on one axis and open on the
+other), about half the time, for atmosphere and to seed the open/close mechanic. -}
+placeDoors : Level -> Seed -> ( Level, Seed )
+placeDoors level seed =
+    List.foldl
+        (\p ( lv, s ) ->
+            if Level.at p lv == Floor && isDoorway p lv then
+                let
+                    ( makeDoor, s2 ) =
+                        Rng.chance 45 s
+                in
+                ( if makeDoor then
+                    Level.set p Door lv
+
+                  else
+                    lv
+                , s2
+                )
+
+            else
+                ( lv, s )
+        )
+        ( level, seed )
+        (Level.positions level)
+
+
+isDoorway : Pos -> Level -> Bool
+isDoorway p level =
+    let
+        wall d =
+            Level.at (Grid.add p d) level == Wall
+
+        open d =
+            Tile.isPassable (Level.at (Grid.add p d) level)
+    in
+    (wall Grid.dirN && wall Grid.dirS && open Grid.dirE && open Grid.dirW)
+        || (wall Grid.dirE && wall Grid.dirW && open Grid.dirN && open Grid.dirS)
+
+
+{-| Try to carve an extra dead-end **vault** room linked to a random existing room by a corridor whose
+single entrance is a `LockedDoor`. Because the vault is a leaf (one connection) sealing it never blocks
+the stairs. Returns the door cell, the vault's interior cells, the updated level and seed. -}
+placeVault : GenConfig -> List Room -> Level -> Seed -> ( Maybe Pos, List Pos, Level, Seed )
+placeVault cfg rooms level seed =
+    let
+        ( vw, s1 ) =
+            Rng.range cfg.minRoomSize (cfg.minRoomSize + 2) seed
+
+        ( vh, s2 ) =
+            Rng.range cfg.minRoomSize (cfg.minRoomSize + 2) s1
+
+        ( vx, s3 ) =
+            Rng.range 1 (cfg.width - vw - 2) s2
+
+        ( vy, s4 ) =
+            Rng.range 1 (cfg.height - vh - 2) s3
+
+        vault =
+            { x = vx, y = vy, w = vw, h = vh }
+    in
+    if List.any (roomsOverlap vault) rooms then
+        ( Nothing, [], level, s4 )
+
+    else
+        case nearestRoom (roomCenter vault) rooms of
+            Nothing ->
+                ( Nothing, [], level, s4 )
+
+            Just target ->
+                let
+                    carved =
+                        carveRoom vault level |> carveCorridor (roomCenter vault) (roomCenter target)
+
+                    walled =
+                        addWalls carved
+
+                    path =
+                        corridorPath (roomCenter vault) (roomCenter target)
+
+                    doorCell =
+                        List.filter (\p -> not (inRect p vault)) path |> List.head
+                in
+                case doorCell of
+                    Just door ->
+                        ( Just door, roomCells vault, Level.set door LockedDoor walled, s4 )
+
+                    Nothing ->
+                        ( Nothing, [], walled, s4 )
+
+
+inRect : Pos -> Room -> Bool
+inRect p r =
+    p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h
+
+
+nearestRoom : Pos -> List Room -> Maybe Room
+nearestRoom from rooms =
+    case rooms of
+        [] ->
+            Nothing
+
+        first :: rest ->
+            Just
+                (List.foldl
+                    (\r best ->
+                        if Grid.manhattan (roomCenter r) from < Grid.manhattan (roomCenter best) from then
+                            r
+
+                        else
+                            best
+                    )
+                    first
+                    rest
+                )
+
+
+{-| The ordered cells of the L-shaped corridor between two points (horizontal leg then vertical). -}
+corridorPath : Pos -> Pos -> List Pos
+corridorPath a b =
+    List.map (\x -> { x = x, y = a.y }) (rangeBetween a.x b.x)
+        ++ List.map (\y -> { x = b.x, y = y }) (rangeBetween a.y b.y)
 
 
 {-| Try `attempts` times to drop a room that doesn't collide with an existing one; carve the ones

@@ -88,6 +88,7 @@ type ItemKind
     = Consumable ItemEffect
     | Equipment EquipSlot EquipBonus
     | Wand WandSpec
+    | Key
 
 
 {-| A wand: zaps the nearest visible monster for `damage`, with a limited number of `charges`. When
