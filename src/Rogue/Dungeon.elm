@@ -7,6 +7,7 @@ module Rogue.Dungeon exposing
     , FeatureKind(..)
     , generate
     , roomCenter
+    , roomCells
     )
 
 {-| A seeded dungeon generator in the classic "rooms + corridors" style (the rogue/NetHack lineage,

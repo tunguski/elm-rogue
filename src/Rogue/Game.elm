@@ -162,6 +162,20 @@ type alias ItemOnFloor =
     }
 
 
+{-| An item for sale in a shop: stepping onto its cell buys it if the hero can afford the price. -}
+type alias ShopEntry =
+    { def : ItemDef
+    , pos : Pos
+    , price : Int
+    }
+
+
+{-| Floors that host a shop. -}
+shopDepth : Int -> Bool
+shopDepth depth =
+    depth == 3 || depth == 6
+
+
 {-| A floor hazard. Hidden until it triggers (you step on it) or you `Search` it out. -}
 type TrapKind
     = DartTrap
@@ -199,6 +213,7 @@ type alias Game =
     , hero : Hero
     , enemies : List Enemy
     , items : List ItemOnFloor
+    , shop : List ShopEntry
     , traps : List Trap
     , idents : Idents
     , depth : Int
@@ -373,6 +388,13 @@ enterLevel ruleset depth kills idents seed gen hero log =
             else
                 "A powerful presence guards this floor!" :: log
 
+        ( shop, seed7 ) =
+            if shopDepth depth then
+                buildShop ruleset depth gen seed6
+
+            else
+                ( [], seed6 )
+
         amuletItems =
             if depth >= victoryDepth then
                 case Content.findItem "amulet" ruleset of
@@ -394,13 +416,14 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , hero = heroAt
     , enemies = enemies ++ featureEnemies ++ bossEnemy
     , items = items ++ vaultItems ++ featureItems ++ amuletItems
+    , shop = shop
     , traps = traps
     , idents = idents
     , depth = depth
     , turn = 0
     , tempo = 0
     , kills = kills
-    , seed = seed6
+    , seed = seed7
     , visible = vis
     , explored = vis
     , log = bossLog
@@ -482,6 +505,86 @@ rollTrapKind depth seed =
                    )
     in
     Rng.pickWeighted DartTrap candidates seed
+
+
+{-| Stock a shop in a middle room: a handful of depth-appropriate items, each with a gold price. -}
+buildShop : Ruleset -> Int -> Generated -> Seed -> ( List ShopEntry, Seed )
+buildShop ruleset depth gen seed =
+    let
+        candidates =
+            Content.itemsForDepth depth ruleset
+                |> List.filter (\( _, def ) -> def.id /= "gold" && def.id /= "amulet" && def.id /= "key")
+
+        room =
+            gen.rooms |> List.drop 1 |> List.head
+
+        cells =
+            case room of
+                Just r ->
+                    Dungeon.roomCells r |> List.filter (\p -> Level.at p gen.level == Floor) |> List.take 5
+
+                Nothing ->
+                    []
+    in
+    case candidates of
+        ( _, firstDef ) :: _ ->
+            List.foldl
+                (\pos ( acc, s ) ->
+                    let
+                        ( def, s2 ) =
+                            Rng.pickWeighted firstDef candidates s
+                    in
+                    ( { def = def, pos = pos, price = priceFor depth def } :: acc, s2 )
+                )
+                ( [], seed )
+                cells
+
+        [] ->
+            ( [], seed )
+
+
+{-| A shop price by item kind, scaled mildly with depth. -}
+priceFor : Int -> ItemDef -> Int
+priceFor depth def =
+    let
+        base =
+            case def.kind of
+                Content.Equipment _ _ ->
+                    60
+
+                Content.Wand _ ->
+                    80
+
+                Content.Consumable _ ->
+                    30
+
+                Content.Key ->
+                    20
+    in
+    base + depth * 5
+
+
+{-| Standing on a shop item buys it if the hero has the gold; otherwise it stays for sale. -}
+tryBuy : Game -> Game
+tryBuy game =
+    case listFind (\e -> e.pos == game.hero.pos) game.shop of
+        Nothing ->
+            game
+
+        Just entry ->
+            let
+                hero =
+                    game.hero
+            in
+            if hero.gold >= entry.price then
+                { game
+                    | hero = { hero | gold = hero.gold - entry.price, inventory = hero.inventory ++ [ entry.def ] }
+                    , shop = List.filter (\e -> e.pos /= entry.pos) game.shop
+                }
+                    |> addLog ("Bought " ++ displayName game.idents entry.def ++ " for " ++ String.fromInt entry.price ++ " gold.")
+
+            else
+                addLog (displayName game.idents entry.def ++ " costs " ++ String.fromInt entry.price ++ " gold — you can't afford it.") game
 
 
 {-| Where the floor's boss stands: a passable cell beside the down-stairs (so it guards the descent),
@@ -674,7 +777,7 @@ tryMove dir game =
                         else
                             game.level
                 in
-                endTurn (triggerTrap (pickUp (refreshFov { game | hero = moved, level = opened })))
+                endTurn (triggerTrap (tryBuy (pickUp (refreshFov { game | hero = moved, level = opened }))))
 
             else
                 game
@@ -1847,6 +1950,7 @@ toScene game =
     , explored = game.explored
     , glyphs =
         List.map trapGlyph (List.filter .revealed game.traps)
+            ++ List.map shopGlyph game.shop
             ++ List.map (itemGlyph game.idents) game.items
             ++ List.map enemyGlyph game.enemies
             ++ [ heroGlyph game ]
@@ -1955,6 +2059,16 @@ itemGlyph idents item =
     { pos = item.pos
     , char = item.def.glyph
     , color = displayColor idents item.def
+    , layer = Render.layerItem
+    , heavy = False
+    }
+
+
+shopGlyph : ShopEntry -> Render.Glyph
+shopGlyph entry =
+    { pos = entry.pos
+    , char = entry.def.glyph
+    , color = "#ffd166"
     , layer = Render.layerItem
     , heavy = False
     }
