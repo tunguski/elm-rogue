@@ -858,10 +858,13 @@ tryMove dir game =
                     moved =
                         { hero | pos = target }
 
+                    steppedTile =
+                        Level.at target game.level
+
                     -- Stepping into a closed door opens it; trampling tall grass flattens it — both
                     -- stop the cell from blocking sight once you've passed through.
                     opened =
-                        case Level.at target game.level of
+                        case steppedTile of
                             Door ->
                                 Level.set target OpenDoor game.level
 
@@ -871,10 +874,43 @@ tryMove dir game =
                             _ ->
                                 game.level
                 in
-                endTurn (triggerTrap (tryBuy (pickUp (refreshFov { game | hero = moved, level = opened }))))
+                endTurn (applyTerrainStep steppedTile (triggerTrap (tryBuy (pickUp (refreshFov { game | hero = moved, level = opened })))))
 
             else
                 game
+
+
+{-| Terrain underfoot when the hero steps: tall grass sometimes yields healing dew (foraging), and
+water douses any fire the hero is carrying. -}
+applyTerrainStep : Tile -> Game -> Game
+applyTerrainStep tile game =
+    let
+        hero =
+            game.hero
+    in
+    case tile of
+        Grass ->
+            let
+                ( forage, seed1 ) =
+                    Rng.chance 25 game.seed
+            in
+            if forage && hero.hp < hero.maxHp then
+                { game | hero = { hero | hp = min hero.maxHp (hero.hp + 2) }, seed = seed1 }
+                    |> addLog "You gather dew from the grass. (+2 HP)"
+
+            else
+                { game | seed = seed1 }
+
+        Water ->
+            if hasStatus Burn hero then
+                { game | hero = { hero | statuses = List.filter (\s -> s.kind /= Burn) hero.statuses } }
+                    |> addLog "You wade into the water; the flames hiss out."
+
+            else
+                game
+
+        _ ->
+            game
 
 
 {-| Bump a locked door: if the hero is carrying a key, spend it and open the door (no movement this
