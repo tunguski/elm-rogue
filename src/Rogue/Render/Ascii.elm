@@ -111,10 +111,10 @@ cellView scene glyphs p =
                         ( gph.char, gph.color )
 
                     Nothing ->
-                        ( Tile.glyph (Level.at p scene.level), tileColor (Level.at p scene.level) False )
+                        ( Tile.glyph (Level.at p scene.level), tileColor scene.theme (Level.at p scene.level) False )
 
             else if explored then
-                ( Tile.glyph (Level.at p scene.level), tileColor (Level.at p scene.level) True )
+                ( Tile.glyph (Level.at p scene.level), tileColor scene.theme (Level.at p scene.level) True )
 
             else
                 ( " ", "#05070b" )
@@ -128,19 +128,19 @@ cellView scene glyphs p =
         [ Html.text ch ]
 
 
-tileColor : Tile -> Bool -> String
-tileColor tile dim =
+tileColor : Rogue.Render.Theme -> Tile -> Bool -> String
+tileColor theme tile dim =
     let
         lit =
             case tile of
                 Tile.Wall ->
-                    "#5b6b82"
+                    theme.wallLit
 
                 Tile.Floor ->
-                    "#39465c"
+                    theme.floorLit
 
                 Tile.Door ->
-                    "#b07a3c"
+                    theme.door
 
                 Tile.StairsDown ->
                     "#d8b24c"
@@ -152,7 +152,7 @@ tileColor tile dim =
                     "#1b2433"
     in
     if dim then
-        "#26303f"
+        theme.wallDim
 
     else
         lit
@@ -175,7 +175,7 @@ hudView hud =
         , HA.style "font-size" "13px"
         ]
         ([ Html.div [ HA.style "font-size" "20px", HA.style "font-weight" "700" ] [ Html.text hud.title ]
-         , line ("Depth " ++ String.fromInt hud.depth ++ "   Turn " ++ String.fromInt hud.turn)
+         , line ("Depth " ++ String.fromInt hud.depth ++ " " ++ hud.region ++ "   Turn " ++ String.fromInt hud.turn)
          , line ("HP " ++ String.fromInt (max 0 hud.hp) ++ "/" ++ String.fromInt hud.maxHp ++ "   Gold " ++ String.fromInt hud.gold)
          , line ("Wpn " ++ hud.weapon)
          , line ("Arm " ++ hud.armour)

@@ -3,8 +3,11 @@ module Rogue.Render exposing
     , Glyph
     , Hud
     , Renderer
+    , Theme
     , Visibility(..)
     , emptyHud
+    , themeForDepth
+    , defaultTheme
     , layerTerrain, layerItem, layerActor, layerHero
     )
 
@@ -69,6 +72,7 @@ layerHero =
 {-| The heads-up display data a renderer paints around the map. -}
 type alias Hud =
     { title : String
+    , region : String
     , depth : Int
     , hp : Int
     , maxHp : Int
@@ -87,6 +91,7 @@ type alias Hud =
 emptyHud : Hud
 emptyHud =
     { title = "elm-rouge"
+    , region = ""
     , depth = 1
     , hp = 0
     , maxHp = 0
@@ -102,12 +107,47 @@ emptyHud =
     }
 
 
+{-| A visual region palette. The dungeon's look changes with depth (the Shattered-Pixel "Sewers →
+Prison → Caves → Halls" progression); a `Theme` is the colour set a renderer paints terrain with, so
+theming is a render concern the engine just selects by depth. -}
+type alias Theme =
+    { name : String
+    , wallLit : String
+    , wallDim : String
+    , floorLit : String
+    , floorDim : String
+    , door : String
+    }
+
+
+{-| The four default regions, four floors apart, mirroring the source game's act structure. -}
+themeForDepth : Int -> Theme
+themeForDepth depth =
+    if depth <= 2 then
+        { name = "Sewers", wallLit = "#2f4a46", wallDim = "#172724", floorLit = "#10211d", floorDim = "#0a1411", door = "#3c7a5a" }
+
+    else if depth <= 4 then
+        { name = "Prison", wallLit = "#4a4334", wallDim = "#241f18", floorLit = "#1c1813", floorDim = "#100d0a", door = "#8a5a30" }
+
+    else if depth <= 6 then
+        { name = "Caves", wallLit = "#523a36", wallDim = "#281c1a", floorLit = "#1f1614", floorDim = "#120c0b", door = "#a04e3c" }
+
+    else
+        { name = "Halls", wallLit = "#41355c", wallDim = "#1f1830", floorLit = "#181226", floorDim = "#0d0916", door = "#6a4ca0" }
+
+
+defaultTheme : Theme
+defaultTheme =
+    themeForDepth 1
+
+
 {-| Everything a renderer needs for one frame. -}
 type alias Scene =
     { level : Level
     , visible : Set ( Int, Int )
     , explored : Set ( Int, Int )
     , glyphs : List Glyph
+    , theme : Theme
     , hud : Hud
     }
 

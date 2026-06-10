@@ -783,8 +783,10 @@ toScene game =
         List.map itemGlyph game.items
             ++ List.map enemyGlyph game.enemies
             ++ [ heroGlyph game ]
+    , theme = Render.themeForDepth game.depth
     , hud =
         { title = "elm-rouge"
+        , region = (Render.themeForDepth game.depth).name
         , depth = game.depth
         , hp = game.hero.hp
         , maxHp = game.hero.maxHp

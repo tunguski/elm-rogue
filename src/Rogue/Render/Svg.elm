@@ -150,7 +150,7 @@ cellSvg scene p =
                 , SA.y (px (p.y * cellSize))
                 , SA.width (px cellSize)
                 , SA.height (px cellSize)
-                , SA.fill (tileColor tile dim)
+                , SA.fill (tileColor scene.theme tile dim)
                 , SA.stroke "#070a10"
                 , SA.strokeWidth "1"
                 ]
@@ -169,19 +169,19 @@ visibilityAt scene key =
         Rogue.Render.Unseen
 
 
-tileColor : Tile -> Bool -> String
-tileColor tile dim =
+tileColor : Rogue.Render.Theme -> Tile -> Bool -> String
+tileColor theme tile dim =
     let
         ( lit, faded ) =
             case tile of
                 Wall ->
-                    ( "#3a455c", "#1c2230" )
+                    ( theme.wallLit, theme.wallDim )
 
                 Floor ->
-                    ( "#161d2a", "#0c111a" )
+                    ( theme.floorLit, theme.floorDim )
 
                 Door ->
-                    ( "#8a5a30", "#3c2a18" )
+                    ( theme.door, "#3c2a18" )
 
                 StairsDown ->
                     ( "#d8b24c", "#5a4a20" )
@@ -249,7 +249,7 @@ hudView hud =
         , HA.style "font-family" "ui-monospace, Menlo, Consolas, monospace"
         ]
         [ Html.div [ HA.style "font-size" "20px", HA.style "font-weight" "700" ] [ Html.text hud.title ]
-        , statLine "Depth" (String.fromInt hud.depth)
+        , statLine "Depth" (String.fromInt hud.depth ++ "  " ++ hud.region)
         , statLine "Turn" (String.fromInt hud.turn)
         , statLine "Gold" (String.fromInt hud.gold)
         , hpBar hud
