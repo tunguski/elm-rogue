@@ -180,6 +180,13 @@ type alias ShopEntry =
     }
 
 
+{-| A locked chest: bump it with a key to claim its loot. -}
+type alias Chest =
+    { pos : Pos
+    , loot : ItemDef
+    }
+
+
 {-| Floors that host a shop. -}
 shopDepth : Int -> Bool
 shopDepth depth =
@@ -224,6 +231,8 @@ type alias Game =
     , enemies : List Enemy
     , items : List ItemOnFloor
     , shop : List ShopEntry
+    , chests : List Chest
+    , altar : Maybe Pos
     , popups : List Popup
     , traps : List Trap
     , idents : Idents
@@ -426,6 +435,16 @@ enterLevel ruleset depth kills idents seed gen hero log =
             else
                 []
 
+        -- A locked chest with its own key, plus an occasional altar — from the leftover floor cells.
+        leftover =
+            List.drop (enemyCount + itemCount + trapCount + 30) shuffledSpots
+
+        ( chests, chestKey, seed8 ) =
+            buildChest ruleset depth gen leftover seed7
+
+        ( altar, seed9 ) =
+            buildAltar (List.drop 3 leftover) seed8
+
         vis =
             Fov.compute (fovRadiusFor heroAt depth) heroAt.pos gen.level
     in
@@ -434,8 +453,10 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , rooms = gen.rooms
     , hero = heroAt
     , enemies = enemies ++ featureEnemies ++ bossEnemy
-    , items = items ++ vaultItems ++ featureItems ++ amuletItems
+    , items = items ++ vaultItems ++ featureItems ++ amuletItems ++ chestKey
     , shop = shop
+    , chests = chests
+    , altar = altar
     , popups = []
     , traps = traps
     , idents = idents
@@ -443,7 +464,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , turn = 0
     , tempo = 0
     , kills = kills
-    , seed = seed7
+    , seed = seed9
     , visible = vis
     , explored = vis
     , log = bossLog
@@ -552,6 +573,55 @@ rollTrapKind depth seed =
                    )
     in
     Rng.pickWeighted DartTrap candidates seed
+
+
+{-| Place one locked chest (with valuable loot) and drop its key elsewhere on the floor, so the loot
+is always reachable. Returns the chest, the key item to scatter, and the advanced seed. -}
+buildChest : Ruleset -> Int -> Generated -> List Pos -> Seed -> ( List Chest, List ItemOnFloor, Seed )
+buildChest ruleset depth gen spots seed =
+    let
+        loot =
+            Content.itemsForDepth depth ruleset
+                |> List.filter (\( _, def ) -> isGearLoot def)
+    in
+    case ( spots, loot, Content.findItem "key" ruleset ) of
+        ( chestPos :: keyPos :: _, ( _, firstDef ) :: _, Just keyDef ) ->
+            let
+                ( lootDef, seed1 ) =
+                    Rng.pickWeighted firstDef loot seed
+            in
+            ( [ { pos = chestPos, loot = lootDef } ], [ { def = keyDef, pos = keyPos } ], seed1 )
+
+        _ ->
+            ( [], [], seed )
+
+
+isGearLoot : ItemDef -> Bool
+isGearLoot def =
+    case def.kind of
+        Content.Equipment _ _ ->
+            True
+
+        Content.Wand _ ->
+            True
+
+        _ ->
+            False
+
+
+{-| Half the floors host an altar at a free cell: stepping onto it once fully heals the hero. -}
+buildAltar : List Pos -> Seed -> ( Maybe Pos, Seed )
+buildAltar spots seed =
+    let
+        ( hasAltar, seed1 ) =
+            Rng.chance 50 seed
+    in
+    case ( hasAltar, spots ) of
+        ( True, p :: _ ) ->
+            ( Just p, seed1 )
+
+        _ ->
+            ( Nothing, seed1 )
 
 
 {-| Stock a shop in a middle room: a handful of depth-appropriate items, each with a gold price. -}
@@ -903,7 +973,10 @@ tryMove dir game =
             endTurn (heroAttack enemy game)
 
         Nothing ->
-            if Level.at target game.level == LockedDoor then
+            if chestAt target game /= Nothing then
+                tryOpenChest target game
+
+            else if Level.at target game.level == LockedDoor then
                 tryUnlock target game
 
             else if Level.at target game.level == Chasm then
@@ -933,7 +1006,7 @@ tryMove dir game =
                             _ ->
                                 game.level
                 in
-                endTurn (applyTerrainStep steppedTile (triggerTrap (tryBuy (pickUp (refreshFov { game | hero = moved, level = opened })))))
+                endTurn (blessAtAltar (applyTerrainStep steppedTile (triggerTrap (tryBuy (pickUp (refreshFov { game | hero = moved, level = opened }))))))
 
             else
                 game
@@ -970,6 +1043,55 @@ applyTerrainStep tile game =
 
         _ ->
             game
+
+
+chestAt : Pos -> Game -> Maybe Chest
+chestAt p game =
+    listFind (\c -> c.pos == p) game.chests
+
+
+{-| Bump a chest: a key opens it (loot to the pack); without one it stays shut (no turn spent). -}
+tryOpenChest : Pos -> Game -> Game
+tryOpenChest pos game =
+    case chestAt pos game of
+        Nothing ->
+            game
+
+        Just chest ->
+            let
+                hero =
+                    game.hero
+
+                ( keys, rest ) =
+                    List.partition isKey hero.inventory
+            in
+            case keys of
+                _ :: remainingKeys ->
+                    endTurn
+                        ({ game
+                            | chests = List.filter (\c -> c.pos /= pos) game.chests
+                            , hero = { hero | inventory = (remainingKeys ++ rest) ++ [ chest.loot ] }
+                         }
+                            |> addLog ("You unlock the chest and find a " ++ displayName game.idents chest.loot ++ "!")
+                        )
+
+                [] ->
+                    addLog "The chest is locked. You need a key." game
+
+
+{-| Stepping onto an altar grants its one-time blessing: full health. -}
+blessAtAltar : Game -> Game
+blessAtAltar game =
+    if game.altar == Just game.hero.pos then
+        let
+            hero =
+                game.hero
+        in
+        { game | hero = { hero | hp = hero.maxHp }, altar = Nothing }
+            |> addLog "You kneel at the altar; its blessing restores you fully."
+
+    else
+        game
 
 
 {-| Bump a locked door: if the hero is carrying a key, spend it and open the door (no movement this
@@ -2439,6 +2561,8 @@ toScene game =
     , explored = game.explored
     , glyphs =
         List.map trapGlyph (List.filter .revealed game.traps)
+            ++ altarGlyphs game.altar
+            ++ List.map chestGlyph game.chests
             ++ List.map shopGlyph game.shop
             ++ List.map (itemGlyph game.idents) game.items
             ++ List.map enemyGlyph game.enemies
@@ -2561,6 +2685,26 @@ itemGlyph idents item =
     , layer = Render.layerItem
     , heavy = False
     }
+
+
+chestGlyph : Chest -> Render.Glyph
+chestGlyph chest =
+    { pos = chest.pos
+    , char = "0"
+    , color = "#caa24a"
+    , layer = Render.layerItem
+    , heavy = True
+    }
+
+
+altarGlyphs : Maybe Pos -> List Render.Glyph
+altarGlyphs maybeAltar =
+    case maybeAltar of
+        Just p ->
+            [ { pos = p, char = "_", color = "#9be0ff", layer = Render.layerItem, heavy = False } ]
+
+        Nothing ->
+            []
 
 
 shopGlyph : ShopEntry -> Render.Glyph
