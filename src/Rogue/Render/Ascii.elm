@@ -79,17 +79,44 @@ renderWith scene =
             , HA.style "font-size" "18px"
             , HA.style "letter-spacing" "3px"
             ]
-            (List.map (\y -> rowView scene glyphs y) (List.range 0 (scene.level.height - 1))
+            (let
+                win =
+                    asciiWindow scene.camera scene.level.width scene.level.height
+             in
+             List.map (\y -> rowView scene glyphs win y) (List.range win.y0 win.y1)
                 ++ [ overlayView scene.hud ]
             )
         , hudView scene.hud
         ]
 
 
-rowView : Scene -> Dict ( Int, Int ) Glyph -> Int -> Html msg
-rowView scene glyphs y =
+{-| A camera-centred window of cells to render — the ASCII analogue of the SVG viewport, so a big map
+costs no more `<span>`s than a small one. -}
+asciiWindow : Pos -> Int -> Int -> { x0 : Int, y0 : Int, x1 : Int, y1 : Int }
+asciiWindow camera width height =
+    let
+        vw =
+            min width 41
+
+        vh =
+            min height 23
+
+        start c span extent =
+            max 0 (min (extent - span) (c - span // 2))
+
+        x0 =
+            start camera.x vw width
+
+        y0 =
+            start camera.y vh height
+    in
+    { x0 = x0, y0 = y0, x1 = x0 + vw - 1, y1 = y0 + vh - 1 }
+
+
+rowView : Scene -> Dict ( Int, Int ) Glyph -> { x0 : Int, y0 : Int, x1 : Int, y1 : Int } -> Int -> Html msg
+rowView scene glyphs win y =
     Html.div [ HA.style "display" "flex" ]
-        (List.map (\x -> cellView scene glyphs { x = x, y = y }) (List.range 0 (scene.level.width - 1)))
+        (List.map (\x -> cellView scene glyphs { x = x, y = y }) (List.range win.x0 win.x1))
 
 
 cellView : Scene -> Dict ( Int, Int ) Glyph -> Pos -> Html msg

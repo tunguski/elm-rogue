@@ -84,7 +84,7 @@ view scene =
                 , HA.style "max-width" "100%"
                 , HA.style "height" "auto"
                 ]
-                [ g [] (List.map (cellSvg scene) cells)
+                [ g [] (List.filterMap (cellSvg scene) cells)
                 , g [] (List.filterMap (glyphSvg scene) (List.sortBy .layer (List.filter (\gl -> inWindow gl.pos) scene.glyphs)))
                 , g [] (List.map popupSvg (List.filter (\pp -> inWindow pp.pos) scene.popups))
                 ]
@@ -107,22 +107,21 @@ minimapView scene =
         scale =
             5
 
-        dot p =
+        -- Iterate only the explored cells (a Set), not the whole map, so the minimap's cost scales
+        -- with what you've seen rather than the floor size.
+        dot ( x, y ) =
             let
-                key =
-                    ( p.x, p.y )
-
                 tile =
-                    Level.at p lvl
+                    Level.at { x = x, y = y } lvl
             in
-            if not (Set.member key scene.explored) || tile == Empty then
+            if tile == Empty then
                 Nothing
 
             else
                 Just
                     (rect
-                        [ SA.x (px (p.x * scale))
-                        , SA.y (px (p.y * scale))
+                        [ SA.x (px (x * scale))
+                        , SA.y (px (y * scale))
                         , SA.width (px scale)
                         , SA.height (px scale)
                         , SA.fill (minimapColor tile)
@@ -151,7 +150,7 @@ minimapView scene =
             , HA.style "border-radius" "4px"
             , HA.style "max-width" "100%"
             ]
-            [ g [] (List.filterMap dot (Level.positions lvl)), heroDot ]
+            [ g [] (List.filterMap dot (Set.toList scene.explored)), heroDot ]
         ]
 
 
@@ -249,47 +248,39 @@ overlayView hud =
 -- TERRAIN ----------------------------------------------------------------------------------------
 
 
-cellSvg : Scene -> Pos -> Svg msg
+{-| Draw one terrain cell — or nothing for an unseen cell, letting the SVG's own background show
+through. Skipping unseen cells keeps the node count proportional to what's been explored, not to the
+whole viewport (a real win on slow machines, where vDOM-diffing fewer nodes is cheaper). -}
+cellSvg : Scene -> Pos -> Maybe (Svg msg)
 cellSvg scene p =
     let
-        key =
-            ( p.x, p.y )
-
         vis =
-            visibilityAt scene key
+            visibilityAt scene ( p.x, p.y )
     in
     case vis of
         Rogue.Render.Unseen ->
-            rect
-                [ SA.x (px (p.x * cellSize))
-                , SA.y (px (p.y * cellSize))
-                , SA.width (px cellSize)
-                , SA.height (px cellSize)
-                , SA.fill "#05070b"
-                ]
-                []
+            Nothing
 
         _ ->
             let
-                lvl =
-                    scene.level
-
                 tile =
-                    Level.at p lvl
+                    Level.at p scene.level
 
                 dim =
                     vis == Rogue.Render.Remembered
             in
-            rect
-                [ SA.x (px (p.x * cellSize))
-                , SA.y (px (p.y * cellSize))
-                , SA.width (px cellSize)
-                , SA.height (px cellSize)
-                , SA.fill (tileColor scene.theme tile dim)
-                , SA.stroke "#070a10"
-                , SA.strokeWidth "1"
-                ]
-                []
+            Just
+                (rect
+                    [ SA.x (px (p.x * cellSize))
+                    , SA.y (px (p.y * cellSize))
+                    , SA.width (px cellSize)
+                    , SA.height (px cellSize)
+                    , SA.fill (tileColor scene.theme tile dim)
+                    , SA.stroke "#070a10"
+                    , SA.strokeWidth "1"
+                    ]
+                    []
+                )
 
 
 visibilityAt : Scene -> ( Int, Int ) -> Rogue.Render.Visibility

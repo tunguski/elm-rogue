@@ -109,7 +109,13 @@ engine plays it.
   fleeing AI, status effects, XP & leveling, potion identification, scrolls & wands, and `localStorage`
   run history.
 
+- **Set 3 — Pixel-Dungeon depth:** locked vaults + keys, special rooms, secret/open doors, monster
+  abilities (split/steal/regenerate), boss floors, the **Amulet of Yendor** win, equipment
+  enchantment, thrown attacks, hunger, dark floors + torches, paralysis/haste/slow, wandering spawns,
+  shops, an inventory/character screen, **camera-follow viewport culling**, a minimap, floating combat
+  numbers, custom-seed/daily runs, a bestiary journal, and a **32-test headless suite**.
+
 Every system above is data behind the same two seams — content is a `Ruleset`, rendering is a
-`Renderer` — so mods extend all of it. Planned next: locked vaults & keys, boss floors, the Amulet
-win, equipment enchantments, a wider bestiary, and a headless test suite. Iterating toward
-Pixel-Dungeon parity.
+`Renderer` — so mods extend all of it. Run the tests with `ELM=../../elm.sh ./test.sh`; see
+[PERFORMANCE.md](PERFORMANCE.md) for the rendering/speed analysis. Iterating toward Pixel-Dungeon
+parity.

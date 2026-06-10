@@ -9,8 +9,10 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 ELM="${ELM:-elm}"
+P="$(pwd)"
 
-$ELM test test/RogueTest.elm \
-  src/Rogue/Rng.elm src/Rogue/Grid.elm src/Rogue/Tile.elm src/Rogue/Level.elm \
-  src/Rogue/Fov.elm src/Rogue/Path.elm src/Rogue/Dungeon.elm src/Rogue/Content.elm \
-  src/Rogue/Render.elm src/Rogue/Game.elm src/Mod/Default.elm
+# Absolute paths: the elm.sh wrapper chdirs to the elm-lang repo root before running.
+$ELM test "$P/test/RogueTest.elm" \
+  "$P/src/Rogue/Rng.elm" "$P/src/Rogue/Grid.elm" "$P/src/Rogue/Tile.elm" "$P/src/Rogue/Level.elm" \
+  "$P/src/Rogue/Fov.elm" "$P/src/Rogue/Path.elm" "$P/src/Rogue/Dungeon.elm" "$P/src/Rogue/Content.elm" \
+  "$P/src/Rogue/Render.elm" "$P/src/Rogue/Game.elm" "$P/src/Mod/Default.elm"
