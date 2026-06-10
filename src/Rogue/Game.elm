@@ -31,6 +31,7 @@ import Rogue.Dungeon as Dungeon exposing (Generated, Room)
 import Rogue.Fov as Fov
 import Rogue.Grid as Grid exposing (Dir, Pos)
 import Rogue.Level as Level exposing (Level)
+import Rogue.Path as Path
 import Rogue.Render as Render exposing (Scene)
 import Rogue.Rng as Rng exposing (Seed)
 import Rogue.Tile as Tile exposing (Tile(..))
@@ -86,6 +87,7 @@ type alias Enemy =
     { def : EnemyDef
     , pos : Pos
     , hp : Int
+    , alerted : Bool
     }
 
 
@@ -285,7 +287,7 @@ spawnEnemies ruleset depth spots seed =
                         ( def, s2 ) =
                             Rng.pickWeighted firstDef candidates s
                     in
-                    ( { def = def, pos = pos, hp = def.maxHp } :: acc, s2 )
+                    ( { def = def, pos = pos, hp = def.maxHp, alerted = False } :: acc, s2 )
                 )
                 ( [], seed )
                 spots
@@ -777,64 +779,91 @@ type alias TurnAcc =
     }
 
 
+{-| One monster's turn. It wakes on line of sight within `aggroRange` and stays alert thereafter
+(remembering the hero). An alert monster: flees when badly hurt, melees an adjacent hero, shoots a hero
+in range/sight if it has a ranged attack, or BFS-paths toward the hero (rounding corners). -}
 stepEnemy : Enemy -> ( List Enemy, TurnAcc ) -> ( List Enemy, TurnAcc )
 stepEnemy enemy ( done, acc ) =
     let
         heroPos =
             acc.hero.pos
 
-        adjacent =
-            Grid.chebyshev enemy.pos heroPos == 1
+        dist =
+            Grid.chebyshev enemy.pos heroPos
+
+        los =
+            Fov.visibleFrom enemy.pos heroPos acc.level
 
         aware =
-            Grid.chebyshev enemy.pos heroPos <= aggroRange && Fov.visibleFrom enemy.pos heroPos acc.level
+            enemy.alerted || (dist <= aggroRange && los)
+
+        woken =
+            { enemy | alerted = aware }
     in
-    if adjacent then
-        let
-            ( dmg, seed1 ) =
-                rollDamage enemy.def.damage (heroDefense acc.hero) acc.seed
+    if not aware then
+        ( woken :: done, acc )
 
-            hero =
-                acc.hero
+    else if dist == 1 then
+        attackHero woken (enemy.def.name ++ " hits you") done acc
 
-            hurt =
-                { hero | hp = hero.hp - dmg }
-        in
-        ( enemy :: done
-        , { acc
-            | hero = hurt
-            , seed = seed1
-            , log = ("The " ++ enemy.def.name ++ " hits you (" ++ String.fromInt dmg ++ ").") :: acc.log
-          }
-        )
+    else if isFleeing woken then
+        moveEnemy enemy woken (stepAway enemy.pos heroPos acc.level acc.occupied) done acc
 
-    else if aware then
-        case stepToward enemy.pos heroPos acc.level acc.occupied of
-            Just next ->
-                ( { enemy | pos = next } :: done
-                , { acc
-                    | occupied =
-                        acc.occupied
-                            |> Set.remove ( enemy.pos.x, enemy.pos.y )
-                            |> Set.insert ( next.x, next.y )
-                  }
-                )
-
-            Nothing ->
-                ( enemy :: done, acc )
+    else if woken.def.ranged > 0 && dist <= woken.def.ranged && los then
+        attackHero woken (enemy.def.name ++ " shoots you") done acc
 
     else
-        ( enemy :: done, acc )
+        moveEnemy enemy woken (Path.firstStep acc.level acc.occupied enemy.pos heroPos) done acc
 
 
-{-| Greedy chase: of the passable, unoccupied neighbours, the one that most reduces Chebyshev
-distance to the target. `Nothing` if boxed in. -}
-stepToward : Pos -> Pos -> Level -> Set ( Int, Int ) -> Maybe Pos
-stepToward from to level occupied =
+{-| Below 25% HP a monster turns tail. -}
+isFleeing : Enemy -> Bool
+isFleeing enemy =
+    enemy.hp * 4 < enemy.def.maxHp
+
+
+attackHero : Enemy -> String -> List Enemy -> TurnAcc -> ( List Enemy, TurnAcc )
+attackHero enemy verb done acc =
+    let
+        ( dmg, seed1 ) =
+            rollDamage enemy.def.damage (heroDefense acc.hero) acc.seed
+
+        hero =
+            acc.hero
+    in
+    ( enemy :: done
+    , { acc
+        | hero = { hero | hp = hero.hp - dmg }
+        , seed = seed1
+        , log = ("The " ++ verb ++ " (" ++ String.fromInt dmg ++ ").") :: acc.log
+      }
+    )
+
+
+moveEnemy : Enemy -> Enemy -> Maybe Pos -> List Enemy -> TurnAcc -> ( List Enemy, TurnAcc )
+moveEnemy original woken maybeNext done acc =
+    case maybeNext of
+        Just next ->
+            ( { woken | pos = next } :: done
+            , { acc
+                | occupied =
+                    acc.occupied
+                        |> Set.remove ( original.pos.x, original.pos.y )
+                        |> Set.insert ( next.x, next.y )
+              }
+            )
+
+        Nothing ->
+            ( woken :: done, acc )
+
+
+{-| Step to the passable, unoccupied neighbour that most *increases* distance from the target. -}
+stepAway : Pos -> Pos -> Level -> Set ( Int, Int ) -> Maybe Pos
+stepAway from to level occupied =
     Grid.eightDirs
         |> List.map (Grid.move from)
         |> List.filter (\p -> Level.isPassableAt p level && not (Set.member ( p.x, p.y ) occupied))
-        |> minimumBy (\p -> Grid.chebyshev p to)
+        |> maximumBy (\p -> Grid.chebyshev p to)
 
 
 checkHeroDeath : Game -> Game
@@ -897,14 +926,14 @@ removeAt i xs =
     List.take i xs ++ List.drop (i + 1) xs
 
 
-minimumBy : (a -> comparable) -> List a -> Maybe a
-minimumBy f xs =
+maximumBy : (a -> comparable) -> List a -> Maybe a
+maximumBy f xs =
     case xs of
         [] ->
             Nothing
 
         first :: rest ->
-            Just (List.foldl (\x best -> if f x < f best then x else best) first rest)
+            Just (List.foldl (\x best -> if f x > f best then x else best) first rest)
 
 
 addLog : String -> Game -> Game

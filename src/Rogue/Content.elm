@@ -42,6 +42,7 @@ type alias EnemyDef =
     , damage : Int
     , defense : Int
     , speed : Int
+    , ranged : Int
     , minDepth : Int
     , maxDepth : Int
     , spawnWeight : Int

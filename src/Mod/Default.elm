@@ -24,6 +24,7 @@ ruleset =
         [ rat
         , marsupialRat
         , gnollScout
+        , gnollArcher
         , crab
         , skeleton
         , swarm
@@ -120,6 +121,7 @@ rat =
     , damage = 2
     , defense = 0
     , speed = 1
+    , ranged = 0
     , minDepth = 1
     , maxDepth = 3
     , spawnWeight = 10
@@ -137,6 +139,7 @@ marsupialRat =
     , damage = 3
     , defense = 0
     , speed = 1
+    , ranged = 0
     , minDepth = 2
     , maxDepth = 4
     , spawnWeight = 6
@@ -154,10 +157,29 @@ gnollScout =
     , damage = 4
     , defense = 1
     , speed = 1
+    , ranged = 0
     , minDepth = 2
     , maxDepth = 5
     , spawnWeight = 8
     , xp = 3
+    }
+
+
+gnollArcher : EnemyDef
+gnollArcher =
+    { id = "gnoll-archer"
+    , name = "gnoll archer"
+    , glyph = "a"
+    , color = "#a7c46a"
+    , maxHp = 10
+    , damage = 4
+    , defense = 0
+    , speed = 1
+    , ranged = 4
+    , minDepth = 3
+    , maxDepth = 6
+    , spawnWeight = 5
+    , xp = 4
     }
 
 
@@ -171,6 +193,7 @@ crab =
     , damage = 5
     , defense = 2
     , speed = 1
+    , ranged = 0
     , minDepth = 3
     , maxDepth = 6
     , spawnWeight = 6
@@ -188,6 +211,7 @@ skeleton =
     , damage = 6
     , defense = 2
     , speed = 1
+    , ranged = 0
     , minDepth = 4
     , maxDepth = 8
     , spawnWeight = 5
@@ -205,6 +229,7 @@ swarm =
     , damage = 2
     , defense = 0
     , speed = 1
+    , ranged = 0
     , minDepth = 3
     , maxDepth = 7
     , spawnWeight = 4
