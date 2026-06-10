@@ -15,7 +15,7 @@ import Browser
 import Browser.Events
 import Html exposing (Html)
 import Html.Attributes as HA
-import Html.Events exposing (onClick)
+import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode
 import Mod.Default
 import Mod.Hard
@@ -41,6 +41,7 @@ type alias Model =
     , currentClass : String
     , history : List Run
     , showSheet : Bool
+    , seedInput : String
     , seedBump : Int
     }
 
@@ -61,7 +62,13 @@ type Msg
     | SelectRenderer String
     | StartGame ClassDef
     | ToggleSheet
+    | SetSeed String
     | Loaded (Maybe String)
+
+
+dailySeed : Int
+dailySeed =
+    20260610
 
 
 startSeed : Int
@@ -126,6 +133,7 @@ init _ =
       , currentClass = "Adventurer"
       , history = []
       , showSheet = False
+      , seedInput = ""
       , seedBump = 0
       }
     , Storage.load storageKey Loaded
@@ -141,6 +149,9 @@ update msg model =
         ToggleSheet ->
             ( { model | showSheet = not model.showSheet }, Cmd.none )
 
+        SetSeed text ->
+            ( { model | seedInput = text }, Cmd.none )
+
         SelectRenderer name ->
             ( { model | rendererName = name }, Cmd.none )
 
@@ -149,7 +160,7 @@ update msg model =
 
         StartGame class ->
             ( { model
-                | game = Game.newGame (rulesetNamed model.modName) class (startSeed + model.seedBump)
+                | game = Game.newGame (rulesetNamed model.modName) class (chosenSeed model)
                 , currentClass = class.name
                 , screen = Playing
               }
@@ -420,6 +431,16 @@ chip label active msg =
 -- CLASS SELECT -----------------------------------------------------------------------------------
 
 
+chosenSeed : Model -> Int
+chosenSeed model =
+    case String.toInt (String.trim model.seedInput) of
+        Just n ->
+            n
+
+        Nothing ->
+            startSeed + model.seedBump
+
+
 classSelectView : Model -> Html Msg
 classSelectView model =
     Html.div
@@ -431,10 +452,35 @@ classSelectView model =
         ]
         [ Html.div [ HA.style "text-align" "center", HA.style "font-size" "16px", HA.style "color" "#9aa7ba" ]
             [ Html.text ("Choose your class — " ++ model.modName ++ " mod") ]
+        , seedRow model
         , Html.div
             [ HA.style "display" "flex", HA.style "gap" "14px", HA.style "flex-wrap" "wrap", HA.style "justify-content" "center" ]
             (List.map classCard (rulesetNamed model.modName).classes)
         , historyView model.history
+        ]
+
+
+seedRow : Model -> Html Msg
+seedRow model =
+    Html.div
+        [ HA.style "display" "flex", HA.style "gap" "8px", HA.style "justify-content" "center", HA.style "align-items" "center", HA.style "font-size" "12.5px" ]
+        [ Html.span [ HA.style "color" "#5b6b82" ] [ Html.text "Seed" ]
+        , Html.input
+            [ HA.value model.seedInput
+            , onInput SetSeed
+            , HA.placeholder "random"
+            , HA.style "font" "inherit"
+            , HA.style "font-size" "12.5px"
+            , HA.style "width" "130px"
+            , HA.style "padding" "5px 9px"
+            , HA.style "border-radius" "7px"
+            , HA.style "border" "1px solid #2a3550"
+            , HA.style "background" "#0e131d"
+            , HA.style "color" "#c7d0dd"
+            ]
+            []
+        , chip ("Daily " ++ String.fromInt dailySeed) (String.trim model.seedInput == String.fromInt dailySeed) (SetSeed (String.fromInt dailySeed))
+        , chip "Clear" (model.seedInput == "") (SetSeed "")
         ]
 
 
