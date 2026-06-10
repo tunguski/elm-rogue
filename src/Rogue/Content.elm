@@ -77,6 +77,7 @@ type ItemEffect
     | MagicMap
     | IdentifyAll
     | UpgradeGear
+    | Feed Int
 
 
 {-| Which body slot a piece of equipment occupies. -}

@@ -183,7 +183,7 @@ hudView hud =
         ([ Html.div [ HA.style "font-size" "20px", HA.style "font-weight" "700" ] [ Html.text hud.title ]
          , line ("Depth " ++ String.fromInt hud.depth ++ " " ++ hud.region ++ "   Turn " ++ String.fromInt hud.turn)
          , line ("Level " ++ String.fromInt hud.level ++ "  xp " ++ String.fromInt hud.xp ++ "/" ++ String.fromInt hud.xpNext)
-         , line ("HP " ++ String.fromInt (max 0 hud.hp) ++ "/" ++ String.fromInt hud.maxHp ++ "   Gold " ++ String.fromInt hud.gold)
+         , line ("HP " ++ String.fromInt (max 0 hud.hp) ++ "/" ++ String.fromInt hud.maxHp ++ "   Gold " ++ String.fromInt hud.gold ++ (if hud.hunger /= "" then "   " ++ hud.hunger else ""))
          , line ("Wpn " ++ hud.weapon)
          , line ("Arm " ++ hud.armour)
          , if List.isEmpty hud.statuses then

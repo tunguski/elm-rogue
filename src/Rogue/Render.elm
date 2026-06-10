@@ -81,6 +81,7 @@ type alias Hud =
     , maxHp : Int
     , turn : Int
     , gold : Int
+    , hunger : String
     , weapon : String
     , armour : String
     , statuses : List String
@@ -104,6 +105,7 @@ emptyHud =
     , maxHp = 0
     , turn = 0
     , gold = 0
+    , hunger = ""
     , weapon = ""
     , armour = ""
     , statuses = []

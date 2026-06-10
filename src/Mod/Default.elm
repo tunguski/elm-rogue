@@ -42,6 +42,7 @@ ruleset =
         , potionOfStrength
         , potionOfShielding
         , potionOfRegeneration
+        , ration
         , goldPile
         , dagger
         , shortSword
@@ -425,6 +426,19 @@ potionOfRegeneration =
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 5
+    }
+
+
+ration : ItemDef
+ration =
+    { id = "ration"
+    , name = "ration of food"
+    , glyph = "%"
+    , color = "#c98b3c"
+    , kind = Consumable (Feed 250)
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 6
     }
 
 

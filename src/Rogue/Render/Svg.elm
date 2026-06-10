@@ -263,6 +263,11 @@ hudView hud =
         , statLine "Level" (String.fromInt hud.level ++ "  (xp " ++ String.fromInt hud.xp ++ "/" ++ String.fromInt hud.xpNext ++ ")")
         , statLine "Turn" (String.fromInt hud.turn)
         , statLine "Gold" (String.fromInt hud.gold)
+        , if hud.hunger /= "" then
+            statLine "Hunger" hud.hunger
+
+          else
+            Html.text ""
         , hpBar hud
         , statLine "Weapon" hud.weapon
         , statLine "Armour" hud.armour

@@ -55,7 +55,13 @@ type alias Hero =
     , statuses : List Status
     , level : Int
     , xp : Int
+    , nutrition : Int
     }
+
+
+maxNutrition : Int
+maxNutrition =
+    450
 
 
 {-| A timed condition on the hero. `magnitude` is HP per turn (drained for `Poison`/`Burn`, restored
@@ -240,6 +246,7 @@ newGame ruleset class rawSeed =
             , statuses = []
             , level = 1
             , xp = 0
+            , nutrition = 400
             }
     in
     let
@@ -941,6 +948,10 @@ applyEffect def game =
         UpgradeGear ->
             upgradeGear game
 
+        Feed n ->
+            { game | hero = { hero | nutrition = min maxNutrition (hero.nutrition + n) } }
+                |> addLog ("You eat the " ++ name ++ ". You feel sated.")
+
 
 effectOf : ItemDef -> ItemEffect
 effectOf def =
@@ -1529,8 +1540,28 @@ endTurn game =
 
         afterPerception =
             passivePerception afterMonsters
+
+        afterHunger =
+            tickHunger afterPerception
     in
-    { afterPerception | turn = afterPerception.turn + 1 }
+    { afterHunger | turn = afterHunger.turn + 1 }
+
+
+{-| Burn one point of nutrition per turn; at zero the hero starves for 1 HP a turn. -}
+tickHunger : Game -> Game
+tickHunger game =
+    let
+        hero =
+            game.hero
+
+        fed =
+            hero.nutrition - 1
+    in
+    if fed <= 0 then
+        checkHeroDeath ({ game | hero = { hero | hp = hero.hp - 1, nutrition = 0 } } |> addLog "You are starving!")
+
+    else
+        { game | hero = { hero | nutrition = fed } }
 
 
 {-| Each turn there's a chance the hero spots an adjacent secret door without searching, so one never
@@ -1677,6 +1708,7 @@ toScene game =
         , maxHp = game.hero.maxHp
         , turn = game.turn
         , gold = game.hero.gold
+        , hunger = hungerLabel game.hero.nutrition
         , weapon = equippedName game.hero.weapon (heroDamage game.hero) "dmg"
         , armour = equippedName game.hero.armour (heroDefense game.hero) "def"
         , statuses = List.map statusLabel game.hero.statuses
@@ -1687,6 +1719,21 @@ toScene game =
         , status = statusLine game
         }
     }
+
+
+hungerLabel : Int -> String
+hungerLabel nutrition =
+    if nutrition > 300 then
+        ""
+
+    else if nutrition > 100 then
+        "Hungry"
+
+    else if nutrition > 0 then
+        "Famished"
+
+    else
+        "Starving"
 
 
 statusLine : Game -> String
