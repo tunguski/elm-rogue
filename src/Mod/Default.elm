@@ -56,6 +56,9 @@ ruleset =
         , scrollOfMagicMapping
         , scrollOfIdentify
         , scrollOfUpgrade
+        , scrollOfRecharging
+        , scrollOfTerror
+        , scrollOfRemoveCurse
         , wandMagicMissile
         , wandFirebolt
         , wandLightning
@@ -497,7 +500,7 @@ dagger =
     , name = "dagger"
     , glyph = "/"
     , color = "#b9c2d0"
-    , kind = Equipment WeaponSlot { damage = 2, defense = 0, maxHp = 0, plus = 0 }
+    , kind = Equipment WeaponSlot { damage = 2, defense = 0, maxHp = 0, plus = 0, cursed = False }
     , minDepth = 1
     , maxDepth = 4
     , spawnWeight = 6
@@ -510,7 +513,7 @@ shortSword =
     , name = "short sword"
     , glyph = "/"
     , color = "#d6deea"
-    , kind = Equipment WeaponSlot { damage = 4, defense = 0, maxHp = 0, plus = 0 }
+    , kind = Equipment WeaponSlot { damage = 4, defense = 0, maxHp = 0, plus = 0, cursed = False }
     , minDepth = 2
     , maxDepth = 6
     , spawnWeight = 5
@@ -523,7 +526,7 @@ mace =
     , name = "mace"
     , glyph = "/"
     , color = "#e8b06a"
-    , kind = Equipment WeaponSlot { damage = 6, defense = 0, maxHp = 0, plus = 0 }
+    , kind = Equipment WeaponSlot { damage = 6, defense = 0, maxHp = 0, plus = 0, cursed = False }
     , minDepth = 4
     , maxDepth = 99
     , spawnWeight = 4
@@ -536,7 +539,7 @@ leatherArmour =
     , name = "leather armour"
     , glyph = "["
     , color = "#b08968"
-    , kind = Equipment ArmourSlot { damage = 0, defense = 1, maxHp = 0, plus = 0 }
+    , kind = Equipment ArmourSlot { damage = 0, defense = 1, maxHp = 0, plus = 0, cursed = False }
     , minDepth = 1
     , maxDepth = 4
     , spawnWeight = 6
@@ -549,7 +552,7 @@ mailArmour =
     , name = "mail armour"
     , glyph = "["
     , color = "#9aa7ba"
-    , kind = Equipment ArmourSlot { damage = 0, defense = 3, maxHp = 0, plus = 0 }
+    , kind = Equipment ArmourSlot { damage = 0, defense = 3, maxHp = 0, plus = 0, cursed = False }
     , minDepth = 3
     , maxDepth = 7
     , spawnWeight = 5
@@ -562,7 +565,7 @@ plateArmour =
     , name = "plate armour"
     , glyph = "["
     , color = "#cfd8e6"
-    , kind = Equipment ArmourSlot { damage = 0, defense = 5, maxHp = 0, plus = 0 }
+    , kind = Equipment ArmourSlot { damage = 0, defense = 5, maxHp = 0, plus = 0, cursed = False }
     , minDepth = 5
     , maxDepth = 99
     , spawnWeight = 3
@@ -579,7 +582,7 @@ ringOfPower =
     , name = "ring of power"
     , glyph = "="
     , color = "#e0a23c"
-    , kind = Equipment RingSlot { damage = 2, defense = 0, maxHp = 0, plus = 0 }
+    , kind = Equipment RingSlot { damage = 2, defense = 0, maxHp = 0, plus = 0, cursed = False }
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 3
@@ -592,7 +595,7 @@ ringOfProtection =
     , name = "ring of protection"
     , glyph = "="
     , color = "#6ad8c0"
-    , kind = Equipment RingSlot { damage = 0, defense = 2, maxHp = 0, plus = 0 }
+    , kind = Equipment RingSlot { damage = 0, defense = 2, maxHp = 0, plus = 0, cursed = False }
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 3
@@ -649,6 +652,45 @@ scrollOfUpgrade =
     , glyph = "?"
     , color = "#ffd166"
     , kind = Consumable UpgradeGear
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 4
+    }
+
+
+scrollOfRecharging : ItemDef
+scrollOfRecharging =
+    { id = "scroll-recharging"
+    , name = "scroll of recharging"
+    , glyph = "?"
+    , color = "#82aaff"
+    , kind = Consumable Recharge
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 4
+    }
+
+
+scrollOfTerror : ItemDef
+scrollOfTerror =
+    { id = "scroll-terror"
+    , name = "scroll of terror"
+    , glyph = "?"
+    , color = "#e0564b"
+    , kind = Consumable Terror
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 4
+    }
+
+
+scrollOfRemoveCurse : ItemDef
+scrollOfRemoveCurse =
+    { id = "scroll-remove-curse"
+    , name = "scroll of remove curse"
+    , glyph = "?"
+    , color = "#9be08a"
+    , kind = Consumable RemoveCurse
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 4

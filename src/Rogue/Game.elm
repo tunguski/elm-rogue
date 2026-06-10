@@ -726,11 +726,34 @@ spawnItems ruleset depth spots seed =
                     let
                         ( def, s2 ) =
                             Rng.pickWeighted firstDef candidates s
+
+                        ( cursedDef, s3 ) =
+                            maybeCurse def s2
                     in
-                    ( { def = def, pos = pos } :: acc, s2 )
+                    ( { def = cursedDef, pos = pos } :: acc, s3 )
                 )
                 ( [], seed )
                 spots
+
+
+{-| About one in five pieces of dropped equipment is cursed: a negative enchantment that sticks until
+a scroll of remove curse (or upgrade) cleanses it. -}
+maybeCurse : ItemDef -> Seed -> ( ItemDef, Seed )
+maybeCurse def seed =
+    case def.kind of
+        Content.Equipment slot bonus ->
+            let
+                ( curse, seed1 ) =
+                    Rng.chance 20 seed
+            in
+            if curse then
+                ( { def | kind = Content.Equipment slot { bonus | cursed = True, plus = bonus.plus - 2 } }, seed1 )
+
+            else
+                ( def, seed1 )
+
+        _ ->
+            ( def, seed )
 
 
 {-| Floor cells eligible to host a monster: any floor tile outside the first (start) room and not on
@@ -1312,9 +1335,24 @@ equip index slot def game =
 
                 Content.RingSlot ->
                     { hero | inventory = pack, ring = Just def }
+
+        cursedNote =
+            if isCursed def then
+                " It's cursed — it won't come off!"
+
+            else
+                ""
     in
-    { game | hero = equippedHero }
-        |> addLog ("You equip the " ++ def.name ++ ".")
+    case previous of
+        Just old ->
+            if isCursed old then
+                addLog ("You can't remove the cursed " ++ old.name ++ "!") game
+
+            else
+                { game | hero = equippedHero } |> addLog ("You equip the " ++ def.name ++ "." ++ cursedNote)
+
+        Nothing ->
+            { game | hero = equippedHero } |> addLog ("You equip the " ++ def.name ++ "." ++ cursedNote)
 
 
 {-| Interpret a consumable's `ItemEffect` on the game — the engine half of the moddable item DSL. A
@@ -1391,6 +1429,37 @@ applyEffect def game =
             addStatus Hasted 1 turns game
                 |> addLog ("You drink the " ++ name ++ ". You move with quickened speed!")
 
+        Recharge ->
+            { game | hero = { hero | inventory = List.map fullyCharge hero.inventory } }
+                |> addLog "You read the scroll. Your wands hum, fully recharged."
+
+        Terror ->
+            let
+                routed =
+                    List.map
+                        (\e ->
+                            if Set.member ( e.pos.x, e.pos.y ) game.visible then
+                                { e | fleeing = True, alerted = True }
+
+                            else
+                                e
+                        )
+                        game.enemies
+            in
+            { game | enemies = routed }
+                |> addLog "You read the scroll. Nearby monsters flee in terror!"
+
+        RemoveCurse ->
+            { game
+                | hero =
+                    { hero
+                        | weapon = Maybe.map uncurse hero.weapon
+                        , armour = Maybe.map uncurse hero.armour
+                        , ring = Maybe.map uncurse hero.ring
+                    }
+            }
+                |> addLog "You read the scroll. A malign weight lifts from your gear."
+
 
 effectOf : ItemDef -> ItemEffect
 effectOf def =
@@ -1425,15 +1494,47 @@ upgradeGear game =
                     addLog "You read the scroll, but have nothing equipped to upgrade." game
 
 
-{-| Return a copy of an equipment item with its enchantment level raised by one. -}
+{-| Return a copy of an equipment item with its enchantment level raised by one (also lifts a curse). -}
 enchant : ItemDef -> ItemDef
 enchant item =
     case item.kind of
         Content.Equipment slot bonus ->
-            { item | kind = Content.Equipment slot { bonus | plus = bonus.plus + 1 } }
+            { item | kind = Content.Equipment slot { bonus | plus = bonus.plus + 1, cursed = False } }
 
         _ ->
             item
+
+
+{-| Refill a wand in the pack to its maximum charges (others untouched). -}
+fullyCharge : ItemDef -> ItemDef
+fullyCharge item =
+    case item.kind of
+        Content.Wand spec ->
+            { item | kind = Content.Wand { spec | charges = spec.maxCharges } }
+
+        _ ->
+            item
+
+
+{-| Clear the curse on a piece of equipment. -}
+uncurse : ItemDef -> ItemDef
+uncurse item =
+    case item.kind of
+        Content.Equipment slot bonus ->
+            { item | kind = Content.Equipment slot { bonus | cursed = False } }
+
+        _ ->
+            item
+
+
+isCursed : ItemDef -> Bool
+isCursed item =
+    case item.kind of
+        Content.Equipment _ bonus ->
+            bonus.cursed
+
+        _ ->
+            False
 
 
 

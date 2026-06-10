@@ -81,6 +81,9 @@ type ItemEffect
     | Feed Int
     | LightFor Int Int
     | HasteFor Int
+    | Recharge
+    | Terror
+    | RemoveCurse
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -96,6 +99,7 @@ type alias EquipBonus =
     , defense : Int
     , maxHp : Int
     , plus : Int
+    , cursed : Bool
     }
 
 
@@ -279,6 +283,15 @@ describeEffect effect =
 
         HasteFor turns ->
             "haste for " ++ String.fromInt turns
+
+        Recharge ->
+            "recharges your wands"
+
+        Terror ->
+            "routs nearby monsters"
+
+        RemoveCurse ->
+            "lifts curses from your gear"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}
