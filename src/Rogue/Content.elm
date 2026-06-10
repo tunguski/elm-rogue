@@ -1,5 +1,6 @@
 module Rogue.Content exposing
     ( EnemyDef
+    , MonsterAbility(..)
     , ItemDef
     , ItemEffect(..)
     , ItemKind(..)
@@ -31,6 +32,14 @@ never the other way.
 -}
 
 
+{-| A special behaviour a monster can have, applied by the engine each turn / on hit. -}
+type MonsterAbility
+    = NoAbility
+    | Regenerates Int
+    | Splits
+    | StealsGold Int
+
+
 {-| A monster archetype. Instances in play (`Rogue.Game.Enemy`) carry a copy of their `EnemyDef`, so
 the stats a mod sets here are exactly the stats that fight. -}
 type alias EnemyDef =
@@ -43,6 +52,7 @@ type alias EnemyDef =
     , defense : Int
     , speed : Int
     , ranged : Int
+    , ability : MonsterAbility
     , minDepth : Int
     , maxDepth : Int
     , spawnWeight : Int

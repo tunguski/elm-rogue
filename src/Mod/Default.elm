@@ -8,7 +8,7 @@ tweak the numbers (or add/remove `EnemyDef`s) and hand the resulting `Ruleset` t
 Pixel Dungeon's early floors (rats and gnolls up top, tougher crabs and skeletons deeper).
 -}
 
-import Rogue.Content exposing (ClassDef, EnemyDef, EquipSlot(..), HeroDef, ItemDef, ItemEffect(..), ItemKind(..), Ruleset)
+import Rogue.Content exposing (ClassDef, EnemyDef, EquipSlot(..), HeroDef, ItemDef, ItemEffect(..), ItemKind(..), MonsterAbility(..), Ruleset)
 
 
 ruleset : Ruleset
@@ -28,6 +28,9 @@ ruleset =
         , crab
         , skeleton
         , swarm
+        , slime
+        , thief
+        , gnollBrute
         ]
     , items =
         [ healingPotion
@@ -128,6 +131,7 @@ rat =
     , defense = 0
     , speed = 1
     , ranged = 0
+    , ability = NoAbility
     , minDepth = 1
     , maxDepth = 3
     , spawnWeight = 10
@@ -146,6 +150,7 @@ marsupialRat =
     , defense = 0
     , speed = 1
     , ranged = 0
+    , ability = NoAbility
     , minDepth = 2
     , maxDepth = 4
     , spawnWeight = 6
@@ -164,6 +169,7 @@ gnollScout =
     , defense = 1
     , speed = 1
     , ranged = 0
+    , ability = NoAbility
     , minDepth = 2
     , maxDepth = 5
     , spawnWeight = 8
@@ -182,6 +188,7 @@ gnollArcher =
     , defense = 0
     , speed = 1
     , ranged = 4
+    , ability = NoAbility
     , minDepth = 3
     , maxDepth = 6
     , spawnWeight = 5
@@ -200,6 +207,7 @@ crab =
     , defense = 2
     , speed = 1
     , ranged = 0
+    , ability = NoAbility
     , minDepth = 3
     , maxDepth = 6
     , spawnWeight = 6
@@ -218,6 +226,7 @@ skeleton =
     , defense = 2
     , speed = 1
     , ranged = 0
+    , ability = NoAbility
     , minDepth = 4
     , maxDepth = 8
     , spawnWeight = 5
@@ -236,10 +245,69 @@ swarm =
     , defense = 0
     , speed = 1
     , ranged = 0
+    , ability = NoAbility
     , minDepth = 3
     , maxDepth = 7
     , spawnWeight = 4
     , xp = 2
+    }
+
+
+
+slime : EnemyDef
+slime =
+    { id = "slime"
+    , name = "green slime"
+    , glyph = "j"
+    , color = "#6fc06a"
+    , maxHp = 14
+    , damage = 3
+    , defense = 1
+    , speed = 1
+    , ranged = 0
+    , ability = Splits
+    , minDepth = 2
+    , maxDepth = 6
+    , spawnWeight = 4
+    , xp = 3
+    }
+
+
+thief : EnemyDef
+thief =
+    { id = "thief"
+    , name = "thief"
+    , glyph = "t"
+    , color = "#c9a0ff"
+    , maxHp = 10
+    , damage = 2
+    , defense = 1
+    , speed = 1
+    , ranged = 0
+    , ability = StealsGold 20
+    , minDepth = 2
+    , maxDepth = 7
+    , spawnWeight = 3
+    , xp = 4
+    }
+
+
+gnollBrute : EnemyDef
+gnollBrute =
+    { id = "gnoll-brute"
+    , name = "gnoll brute"
+    , glyph = "G"
+    , color = "#6f8f4a"
+    , maxHp = 22
+    , damage = 6
+    , defense = 2
+    , speed = 1
+    , ranged = 0
+    , ability = Regenerates 2
+    , minDepth = 4
+    , maxDepth = 8
+    , spawnWeight = 4
+    , xp = 7
     }
 
 

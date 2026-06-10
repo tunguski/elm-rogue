@@ -124,6 +124,7 @@ type alias Enemy =
     , pos : Pos
     , hp : Int
     , alerted : Bool
+    , fleeing : Bool
     }
 
 
@@ -363,7 +364,7 @@ spawnEnemies ruleset depth spots seed =
                         ( def, s2 ) =
                             Rng.pickWeighted firstDef candidates s
                     in
-                    ( { def = def, pos = pos, hp = def.maxHp, alerted = False } :: acc, s2 )
+                    ( { def = def, pos = pos, hp = def.maxHp, alerted = False, fleeing = False } :: acc, s2 )
                 )
                 ( [], seed )
                 spots
@@ -1114,10 +1115,46 @@ heroAttack enemy game =
 
     else
         { game
-            | enemies = updateEnemyAt enemy.pos (\e -> { e | hp = remaining }) game.enemies
+            | enemies = updateEnemyAt enemy.pos (\e -> { e | hp = remaining, alerted = True }) game.enemies
             , seed = seed1
         }
             |> addLog ("You hit the " ++ enemy.def.name ++ " (" ++ String.fromInt dmg ++ ").")
+            |> maybeSplit enemy remaining
+
+
+{-| A `Splits` monster cleaves in two when wounded (but not killed): a fresh copy at half the parent's
+remaining HP appears on a free adjacent cell, if there is one. -}
+maybeSplit : Enemy -> Int -> Game -> Game
+maybeSplit parent parentHp game =
+    if parent.def.ability /= Content.Splits || parentHp <= 1 then
+        game
+
+    else
+        let
+            occupied =
+                Set.fromList (( game.hero.pos.x, game.hero.pos.y ) :: List.map (\e -> ( e.pos.x, e.pos.y )) game.enemies)
+
+            free =
+                Grid.neighbors8 parent.pos
+                    |> List.filter (\p -> Level.isPassableAt p game.level && not (Set.member ( p.x, p.y ) occupied))
+        in
+        case free of
+            spot :: _ ->
+                let
+                    childHp =
+                        max 1 (parentHp // 2)
+
+                    child =
+                        { def = parent.def, pos = spot, hp = childHp, alerted = True, fleeing = False }
+                in
+                { game
+                    | enemies =
+                        updateEnemyAt parent.pos (\e -> { e | hp = childHp }) game.enemies ++ [ child ]
+                }
+                    |> addLog ("The " ++ parent.def.name ++ " splits in two!")
+
+            [] ->
+                game
 
 
 
@@ -1210,23 +1247,31 @@ stepEnemy enemy ( done, acc ) =
         heroPos =
             acc.hero.pos
 
+        healed =
+            applyRegen enemy
+
         dist =
-            Grid.chebyshev enemy.pos heroPos
+            Grid.chebyshev healed.pos heroPos
 
         los =
-            Fov.visibleFrom enemy.pos heroPos acc.level
+            Fov.visibleFrom healed.pos heroPos acc.level
 
         aware =
-            enemy.alerted || (dist <= aggroRange && los)
+            healed.alerted || (dist <= aggroRange && los)
 
         woken =
-            { enemy | alerted = aware }
+            { healed | alerted = aware }
     in
     if not aware then
         ( woken :: done, acc )
 
     else if dist == 1 then
-        attackHero woken (enemy.def.name ++ " hits you") done acc
+        case woken.def.ability of
+            Content.StealsGold amount ->
+                stealAndFlee woken amount done acc
+
+            _ ->
+                attackHero woken (enemy.def.name ++ " hits you") done acc
 
     else if isFleeing woken then
         moveEnemy enemy woken (stepAway enemy.pos heroPos acc.level acc.occupied) done acc
@@ -1238,10 +1283,39 @@ stepEnemy enemy ( done, acc ) =
         moveEnemy enemy woken (Path.firstStep acc.level acc.occupied enemy.pos heroPos) done acc
 
 
-{-| Below 25% HP a monster turns tail. -}
+{-| A `Regenerates` monster heals a little at the start of its turn. -}
+applyRegen : Enemy -> Enemy
+applyRegen enemy =
+    case enemy.def.ability of
+        Content.Regenerates n ->
+            { enemy | hp = min enemy.def.maxHp (enemy.hp + n) }
+
+        _ ->
+            enemy
+
+
+{-| A thief grabs gold and bolts for the exit. -}
+stealAndFlee : Enemy -> Int -> List Enemy -> TurnAcc -> ( List Enemy, TurnAcc )
+stealAndFlee enemy amount done acc =
+    let
+        hero =
+            acc.hero
+
+        stolen =
+            min amount hero.gold
+    in
+    ( { enemy | fleeing = True } :: done
+    , { acc
+        | hero = { hero | gold = hero.gold - stolen }
+        , log = ("The " ++ enemy.def.name ++ " steals " ++ String.fromInt stolen ++ " gold and flees!") :: acc.log
+      }
+    )
+
+
+{-| A monster flees when badly hurt, or when it has stolen and wants to escape. -}
 isFleeing : Enemy -> Bool
 isFleeing enemy =
-    enemy.hp * 4 < enemy.def.maxHp
+    enemy.fleeing || enemy.hp * 4 < enemy.def.maxHp
 
 
 attackHero : Enemy -> String -> List Enemy -> TurnAcc -> ( List Enemy, TurnAcc )
