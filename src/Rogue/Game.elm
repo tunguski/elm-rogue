@@ -555,8 +555,16 @@ tryMove dir game =
 
                     moved =
                         { hero | pos = target }
+
+                    -- Stepping into a closed door opens it (so it stops blocking sight).
+                    opened =
+                        if Level.at target game.level == Door then
+                            Level.set target OpenDoor game.level
+
+                        else
+                            game.level
                 in
-                endTurn (triggerTrap (pickUp (refreshFov { game | hero = moved })))
+                endTurn (triggerTrap (pickUp (refreshFov { game | hero = moved, level = opened })))
 
             else
                 game
@@ -1018,14 +1026,14 @@ teleportHero game =
     refreshFov { game | hero = { hero | pos = dest }, seed = s1 }
 
 
-{-| Reveal every hidden trap in the hero's eight neighbouring cells (and under foot). -}
+{-| Reveal every hidden trap and secret door in the hero's eight neighbouring cells. -}
 searchTraps : Game -> Game
 searchTraps game =
     let
         near p =
             Grid.chebyshev p game.hero.pos <= 1
 
-        revealed =
+        revealedTraps =
             List.map
                 (\t ->
                     if near t.pos then
@@ -1036,17 +1044,39 @@ searchTraps game =
                 )
                 game.traps
 
-        found =
+        trapsFound =
             List.length (List.filter (\t -> near t.pos && not t.revealed) game.traps)
+
+        ( level1, doorsFound ) =
+            revealSecretsNear (\p -> near p) game.level game.hero.pos
+
+        total =
+            trapsFound + doorsFound
     in
-    { game | traps = revealed }
+    { game | traps = revealedTraps, level = level1 }
         |> addLog
-            (if found > 0 then
-                "You find " ++ String.fromInt found ++ " trap(s) nearby!"
+            (if total > 0 then
+                "You find " ++ String.fromInt total ++ " hidden thing(s) nearby!"
 
              else
                 "You search but find nothing."
             )
+
+
+{-| Turn neighbouring `SecretDoor`s satisfying `pred` into ordinary `Door`s; returns the updated level
+and how many were revealed. -}
+revealSecretsNear : (Pos -> Bool) -> Level -> Pos -> ( Level, Int )
+revealSecretsNear pred level origin =
+    List.foldl
+        (\nb ( lv, n ) ->
+            if pred nb && Level.at nb lv == SecretDoor then
+                ( Level.set nb Door lv, n + 1 )
+
+            else
+                ( lv, n )
+        )
+        ( level, 0 )
+        (origin :: Grid.neighbors8 origin)
 
 
 
@@ -1303,8 +1333,34 @@ endTurn game =
 
         afterMonsters =
             enemiesTurn afterStatuses
+
+        afterPerception =
+            passivePerception afterMonsters
     in
-    { afterMonsters | turn = afterMonsters.turn + 1 }
+    { afterPerception | turn = afterPerception.turn + 1 }
+
+
+{-| Each turn there's a chance the hero spots an adjacent secret door without searching, so one never
+permanently blocks the way. -}
+passivePerception : Game -> Game
+passivePerception game =
+    let
+        ( notice, seed1 ) =
+            Rng.chance 25 game.seed
+    in
+    if notice then
+        let
+            ( level1, found ) =
+                revealSecretsNear (\p -> Grid.chebyshev p game.hero.pos == 1) game.level game.hero.pos
+        in
+        if found > 0 then
+            { game | level = level1, seed = seed1 } |> addLog "You notice a hidden door!"
+
+        else
+            { game | seed = seed1 }
+
+    else
+        { game | seed = seed1 }
 
 
 {-| Apply each active status to the hero (poison/burn drain HP, regen restores it, capped at max),

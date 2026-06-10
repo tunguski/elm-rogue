@@ -142,6 +142,12 @@ tileColor theme tile dim =
                 Tile.Door ->
                     theme.door
 
+                Tile.OpenDoor ->
+                    theme.floorLit
+
+                Tile.SecretDoor ->
+                    theme.wallLit
+
                 Tile.StairsDown ->
                     "#d8b24c"
 

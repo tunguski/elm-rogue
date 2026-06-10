@@ -19,7 +19,9 @@ type Tile
     = Wall
     | Floor
     | Door
+    | OpenDoor
     | LockedDoor
+    | SecretDoor
     | StairsDown
     | StairsUp
     | Chasm
@@ -37,6 +39,9 @@ isPassable tile =
         Door ->
             True
 
+        OpenDoor ->
+            True
+
         StairsDown ->
             True
 
@@ -47,6 +52,9 @@ isPassable tile =
             False
 
         LockedDoor ->
+            False
+
+        SecretDoor ->
             False
 
         Chasm ->
@@ -72,6 +80,12 @@ blocksSight tile =
 
         LockedDoor ->
             True
+
+        SecretDoor ->
+            True
+
+        OpenDoor ->
+            False
 
         Floor ->
             False
@@ -105,8 +119,14 @@ glyph tile =
         Door ->
             "+"
 
+        OpenDoor ->
+            "'"
+
         LockedDoor ->
             "+"
+
+        SecretDoor ->
+            "#"
 
         StairsDown ->
             ">"
@@ -133,8 +153,14 @@ name tile =
         Door ->
             "door"
 
+        OpenDoor ->
+            "open door"
+
         LockedDoor ->
             "locked door"
+
+        SecretDoor ->
+            "secret door"
 
         StairsDown ->
             "stairs down"

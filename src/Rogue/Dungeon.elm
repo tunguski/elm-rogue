@@ -180,13 +180,23 @@ placeDoors level seed =
                 let
                     ( makeDoor, s2 ) =
                         Rng.chance 45 s
+
+                    ( secret, s3 ) =
+                        Rng.chance 14 s2
                 in
                 ( if makeDoor then
-                    Level.set p Door lv
+                    Level.set p
+                        (if secret then
+                            SecretDoor
+
+                         else
+                            Door
+                        )
+                        lv
 
                   else
                     lv
-                , s2
+                , s3
                 )
 
             else
