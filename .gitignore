@@ -1,0 +1,3 @@
+# build screenshots
+build/*.png
+elm.lock

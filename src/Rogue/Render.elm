@@ -1,0 +1,111 @@
+module Rogue.Render exposing
+    ( Scene
+    , Glyph
+    , Hud
+    , Renderer
+    , Visibility(..)
+    , emptyHud
+    , layerTerrain, layerItem, layerActor, layerHero
+    )
+
+{-| The rendering seam — the boundary that makes the *graphics engine* itself a mod.
+
+The game engine never talks to SVG or HTML directly. Instead it produces a **`Scene`**: a flat,
+renderer-agnostic description of what is on screen this frame — the terrain, which cells are
+visible/remembered, the drawable `Glyph`s (hero, monsters, items) and a `Hud`. A **`Renderer msg`**
+is a record of functions that turns a `Scene` into `Html msg`. Swapping `Rogue.Render.Svg` for
+`Rogue.Render.Ascii` (or any third-party renderer) changes nothing in the engine — that is exactly
+the "alternative game rendering engine" extension point the project promises.
+
+Keeping the seam as *data in, Html out* (rather than the engine calling renderer methods) means a
+renderer is pure and trivially swappable, and the same `Scene` can be snapshot-tested headlessly.
+-}
+
+import Html exposing (Html)
+import Rogue.Grid exposing (Pos)
+import Rogue.Level exposing (Level)
+import Set exposing (Set)
+
+
+{-| How well a cell is currently seen — drives fog-of-war dimming in renderers. -}
+type Visibility
+    = Visible
+    | Remembered
+    | Unseen
+
+
+{-| One thing to draw on the grid. `char` is the ASCII/text glyph (used by text renderers and as a
+fallback label); `color` is a CSS colour; `layer` orders overlapping draws (higher = on top).
+`heavy` lets a renderer emphasise a glyph (e.g. the hero). -}
+type alias Glyph =
+    { pos : Pos
+    , char : String
+    , color : String
+    , layer : Int
+    , heavy : Bool
+    }
+
+
+layerTerrain : Int
+layerTerrain =
+    0
+
+
+layerItem : Int
+layerItem =
+    1
+
+
+layerActor : Int
+layerActor =
+    2
+
+
+layerHero : Int
+layerHero =
+    3
+
+
+{-| The heads-up display data a renderer paints around the map. -}
+type alias Hud =
+    { title : String
+    , depth : Int
+    , hp : Int
+    , maxHp : Int
+    , turn : Int
+    , log : List String
+    , gameOver : Bool
+    , status : String
+    }
+
+
+emptyHud : Hud
+emptyHud =
+    { title = "elm-rouge"
+    , depth = 1
+    , hp = 0
+    , maxHp = 0
+    , turn = 0
+    , log = []
+    , gameOver = False
+    , status = ""
+    }
+
+
+{-| Everything a renderer needs for one frame. -}
+type alias Scene =
+    { level : Level
+    , visible : Set ( Int, Int )
+    , explored : Set ( Int, Int )
+    , glyphs : List Glyph
+    , hud : Hud
+    }
+
+
+{-| A renderer: a named record of functions that draws a `Scene`. Extra fields beyond `view` (the
+cell size, a palette hook…) let renderers carry their own configuration without the engine knowing. -}
+type alias Renderer msg =
+    { name : String
+    , cellSize : Int
+    , view : Scene -> Html msg
+    }
