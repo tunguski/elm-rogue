@@ -57,6 +57,8 @@ ruleset =
         , scrollOfIdentify
         , scrollOfUpgrade
         , wandMagicMissile
+        , wandFirebolt
+        , wandLightning
         , ringOfPower
         , ringOfProtection
         , ironKey
@@ -659,10 +661,36 @@ wandMagicMissile =
     , name = "wand of magic missile"
     , glyph = "-"
     , color = "#82aaff"
-    , kind = Wand { damage = 5, charges = 4 }
+    , kind = Wand { damage = 5, charges = 4, maxCharges = 4 }
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 4
+    }
+
+
+wandFirebolt : ItemDef
+wandFirebolt =
+    { id = "wand-firebolt"
+    , name = "wand of firebolt"
+    , glyph = "-"
+    , color = "#ff7a3c"
+    , kind = Wand { damage = 9, charges = 3, maxCharges = 3 }
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+wandLightning : ItemDef
+wandLightning =
+    { id = "wand-lightning"
+    , name = "wand of lightning"
+    , glyph = "-"
+    , color = "#9be0ff"
+    , kind = Wand { damage = 7, charges = 4, maxCharges = 4 }
+    , minDepth = 4
+    , maxDepth = 99
+    , spawnWeight = 3
     }
 
 

@@ -109,11 +109,12 @@ type ItemKind
     | Key
 
 
-{-| A wand: zaps the nearest visible monster for `damage`, with a limited number of `charges`. When
-used the engine writes back a copy with one fewer charge; at zero charges the wand is spent. -}
+{-| A wand: zaps the nearest visible monster for `damage`. Each zap spends a charge; the wand slowly
+recharges over time up to `maxCharges`, so it's never permanently spent. -}
 type alias WandSpec =
     { damage : Int
     , charges : Int
+    , maxCharges : Int
     }
 
 

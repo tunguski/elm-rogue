@@ -1131,60 +1131,50 @@ tryUse index game =
                     addLog "Keys open locked doors — walk into one." game
 
 
-{-| Zap the wand in inventory slot `index` at the nearest visible monster, spending a charge (the
-wand is removed when its last charge is used). Does nothing — and costs no turn — with no target. -}
+{-| Zap the wand in inventory slot `index` at the nearest visible monster, spending a charge. A
+drained wand (0 charges) just fizzles until it recharges. No turn is spent on a fizzle or no target. -}
 zapWand : Int -> Content.WandSpec -> Game -> Game
 zapWand index spec game =
-    case nearestVisibleEnemy game of
-        Nothing ->
-            addLog "You wave the wand, but there is no target in sight." game
+    if spec.charges <= 0 then
+        addLog "The wand is drained — wait for it to recharge." game
 
-        Just target ->
-            let
-                ( dmg, seed1 ) =
-                    rollDamage spec.damage target.def.defense game.seed
+    else
+        case nearestVisibleEnemy game of
+            Nothing ->
+                addLog "You wave the wand, but there is no target in sight." game
 
-                afterHit =
-                    if target.hp - dmg <= 0 then
-                        { game | enemies = List.filter (\e -> e.pos /= target.pos) game.enemies, seed = seed1, kills = game.kills + 1 }
-                            |> addLog ("Your magic missile destroys the " ++ target.def.name ++ "!")
-                            |> addPopup target.pos (String.fromInt dmg) "#82aaff"
-                            |> gainXp target.def.xp
+            Just target ->
+                let
+                    ( dmg, seed1 ) =
+                        rollDamage spec.damage target.def.defense game.seed
 
-                    else
-                        { game | enemies = updateEnemyAt target.pos (\e -> { e | hp = e.hp - dmg, alerted = True }) game.enemies, seed = seed1 }
-                            |> addLog ("Your magic missile hits the " ++ target.def.name ++ " (" ++ String.fromInt dmg ++ ").")
-                            |> addPopup target.pos (String.fromInt dmg) "#82aaff"
+                    afterHit =
+                        if target.hp - dmg <= 0 then
+                            { game | enemies = List.filter (\e -> e.pos /= target.pos) game.enemies, seed = seed1, kills = game.kills + 1 }
+                                |> addLog ("Your bolt destroys the " ++ target.def.name ++ "!")
+                                |> addPopup target.pos (String.fromInt dmg) "#82aaff"
+                                |> gainXp target.def.xp
 
-                spent =
-                    spec.charges - 1
+                        else
+                            { game | enemies = updateEnemyAt target.pos (\e -> { e | hp = e.hp - dmg, alerted = True }) game.enemies, seed = seed1 }
+                                |> addLog ("Your bolt hits the " ++ target.def.name ++ " (" ++ String.fromInt dmg ++ ").")
+                                |> addPopup target.pos (String.fromInt dmg) "#82aaff"
 
-                hero =
-                    afterHit.hero
+                    hero =
+                        afterHit.hero
 
-                newInventory =
-                    if spent <= 0 then
-                        removeAt index hero.inventory
-
-                    else
+                    drained =
                         List.indexedMap
                             (\i it ->
                                 if i == index then
-                                    { it | kind = Content.Wand { spec | charges = spent } }
+                                    { it | kind = Content.Wand { spec | charges = spec.charges - 1 } }
 
                                 else
                                     it
                             )
                             hero.inventory
-
-                drained =
-                    if spent <= 0 then
-                        addLog "The wand crumbles to dust." afterHit
-
-                    else
-                        afterHit
-            in
-            endTurn { drained | hero = { hero | inventory = newInventory } }
+                in
+                endTurn { afterHit | hero = { hero | inventory = drained } }
 
 
 {-| A thrown attack at the nearest visible monster for half the hero's melee power (a sling/dagger
@@ -1971,8 +1961,41 @@ endTurn game =
 
         afterHunger =
             tickHunger afterPerception
+
+        recharged =
+            rechargeWands { afterHunger | turn = afterHunger.turn + 1 }
     in
-    maybeWander { afterHunger | turn = afterHunger.turn + 1 }
+    maybeWander recharged
+
+
+{-| Every 12 turns each wand in the pack regains one charge, up to its maximum. -}
+rechargeWands : Game -> Game
+rechargeWands game =
+    if modBy 12 game.turn /= 0 then
+        game
+
+    else
+        let
+            hero =
+                game.hero
+
+            bumped =
+                List.map
+                    (\it ->
+                        case it.kind of
+                            Content.Wand spec ->
+                                if spec.charges < spec.maxCharges then
+                                    { it | kind = Content.Wand { spec | charges = spec.charges + 1 } }
+
+                                else
+                                    it
+
+                            _ ->
+                                it
+                    )
+                    hero.inventory
+        in
+        { game | hero = { hero | inventory = bumped } }
 
 
 {-| Every so often a fresh monster wanders onto the floor — out of the hero's sight — so camping isn't
