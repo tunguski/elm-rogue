@@ -273,6 +273,7 @@ type Msg
     | Use Int
     | Search
     | Fire
+    | Drop Int
     | Restart
     | NoOp
 
@@ -723,6 +724,9 @@ update msg game =
             Fire ->
                 tryFire game
 
+            Drop index ->
+                dropItem index game
+
             Restart ->
                 -- The shell (Main) owns reseeding a new run; inside a game it's a no-op.
                 game
@@ -739,6 +743,9 @@ isActionMsg msg =
             False
 
         NoOp ->
+            False
+
+        Drop _ ->
             False
 
         _ ->
@@ -880,6 +887,25 @@ pickUpItem it game =
             in
             { game | hero = { hero | inventory = hero.inventory ++ [ it.def ] } }
                 |> addLog ("You pick up a " ++ displayName game.idents it.def ++ ".")
+
+
+{-| Drop the inventory item at `index` onto the hero's cell. Instant (no turn spent). -}
+dropItem : Int -> Game -> Game
+dropItem index game =
+    case nth index game.hero.inventory of
+        Nothing ->
+            game
+
+        Just def ->
+            let
+                hero =
+                    game.hero
+            in
+            { game
+                | hero = { hero | inventory = removeAt index hero.inventory }
+                , items = { def = def, pos = hero.pos } :: game.items
+            }
+                |> addLog ("You drop the " ++ displayName game.idents def ++ ".")
 
 
 {-| Use the inventory item at `index` (0-based): drink a consumable (apply effect, remove it) or wear

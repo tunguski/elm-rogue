@@ -40,6 +40,7 @@ type alias Model =
     , rendererName : String
     , currentClass : String
     , history : List Run
+    , showSheet : Bool
     , seedBump : Int
     }
 
@@ -59,6 +60,7 @@ type Msg
     | SelectMod String
     | SelectRenderer String
     | StartGame ClassDef
+    | ToggleSheet
     | Loaded (Maybe String)
 
 
@@ -123,6 +125,7 @@ init _ =
       , rendererName = "SVG"
       , currentClass = "Adventurer"
       , history = []
+      , showSheet = False
       , seedBump = 0
       }
     , Storage.load storageKey Loaded
@@ -134,6 +137,9 @@ update msg model =
     case msg of
         Loaded stored ->
             ( { model | history = parseHistory stored }, Cmd.none )
+
+        ToggleSheet ->
+            ( { model | showSheet = not model.showSheet }, Cmd.none )
 
         SelectRenderer name ->
             ( { model | rendererName = name }, Cmd.none )
@@ -264,9 +270,98 @@ view model =
                 Html.div []
                     [ Html.div
                         [ HA.style "text-align" "center", HA.style "font-size" "12px", HA.style "color" "#5b6b82", HA.style "margin" "10px 0 14px" ]
-                        [ Html.text "move: arrows / WASD / HJKL · diagonals: Y U B N · wait: . · search: Z · throw: F · descend: > · use/equip: 1-9 · restart: R" ]
+                        [ Html.text "move: arrows / WASD / HJKL · diagonals: Y U B N · wait: . · search: Z · throw: F · inventory: I · descend: > · use/equip: 1-9 · restart: R" ]
                     , (rendererNamed model.rendererName).view (Game.toScene model.game)
+                    , if model.showSheet then
+                        sheetView model.game
+
+                      else
+                        Html.text ""
                     ]
+        ]
+
+
+sheetView : Game -> Html Msg
+sheetView game =
+    let
+        hero =
+            game.hero
+    in
+    Html.div
+        [ HA.style "position" "fixed"
+        , HA.style "inset" "0"
+        , HA.style "background" "rgba(3,5,9,0.82)"
+        , HA.style "display" "flex"
+        , HA.style "align-items" "center"
+        , HA.style "justify-content" "center"
+        , HA.style "z-index" "10"
+        ]
+        [ Html.div
+            [ HA.style "background" "#0e131d"
+            , HA.style "border" "1px solid #2a3550"
+            , HA.style "border-radius" "14px"
+            , HA.style "padding" "22px 26px"
+            , HA.style "min-width" "420px"
+            , HA.style "max-width" "560px"
+            , HA.style "color" "#c7d0dd"
+            ]
+            [ Html.div [ HA.style "font-size" "18px", HA.style "font-weight" "700", HA.style "margin-bottom" "10px" ]
+                [ Html.text "Character" ]
+            , sheetStat "Level" (String.fromInt hero.level)
+            , sheetStat "HP" (String.fromInt (max 0 hero.hp) ++ " / " ++ String.fromInt hero.maxHp)
+            , sheetStat "Gold" (String.fromInt hero.gold)
+            , Html.div [ HA.style "color" "#5b6b82", HA.style "font-size" "12px", HA.style "margin" "14px 0 6px" ]
+                [ Html.text "Inventory (click to drop)" ]
+            , if List.isEmpty hero.inventory then
+                Html.div [ HA.style "color" "#3f4b5e", HA.style "font-size" "13px" ] [ Html.text "— empty —" ]
+
+              else
+                Html.div [] (List.indexedMap sheetItem hero.inventory)
+            , Html.button
+                [ onClick ToggleSheet
+                , HA.style "margin-top" "14px"
+                , HA.style "font" "inherit"
+                , HA.style "font-size" "12.5px"
+                , HA.style "cursor" "pointer"
+                , HA.style "color" "#c7d0dd"
+                , HA.style "background" "#161f38"
+                , HA.style "border" "1px solid #2a3550"
+                , HA.style "border-radius" "8px"
+                , HA.style "padding" "6px 14px"
+                ]
+                [ Html.text "Close (I)" ]
+            ]
+        ]
+
+
+sheetStat : String -> String -> Html Msg
+sheetStat label value =
+    Html.div [ HA.style "display" "flex", HA.style "justify-content" "space-between", HA.style "font-size" "13px", HA.style "padding" "2px 0" ]
+        [ Html.span [ HA.style "color" "#7f8ba0" ] [ Html.text label ]
+        , Html.span [] [ Html.text value ]
+        ]
+
+
+sheetItem : Int -> Content.ItemDef -> Html Msg
+sheetItem i def =
+    Html.button
+        [ onClick (GameMsg (Game.Drop i))
+        , HA.style "display" "flex"
+        , HA.style "justify-content" "space-between"
+        , HA.style "width" "100%"
+        , HA.style "text-align" "left"
+        , HA.style "font" "inherit"
+        , HA.style "font-size" "13px"
+        , HA.style "color" "#c7d0dd"
+        , HA.style "background" "#141b29"
+        , HA.style "border" "1px solid #20304d"
+        , HA.style "border-radius" "8px"
+        , HA.style "padding" "6px 10px"
+        , HA.style "margin-bottom" "4px"
+        , HA.style "cursor" "pointer"
+        ]
+        [ Html.span [ HA.style "color" def.color ] [ Html.text (String.fromInt (i + 1) ++ ". " ++ def.name) ]
+        , Html.span [ HA.style "color" "#7f8ba0", HA.style "font-size" "11.5px" ] [ Html.text (Content.describe def) ]
         ]
 
 
@@ -410,7 +505,11 @@ runRow run =
 
 keyToMsg : String -> Msg
 keyToMsg key =
-    GameMsg (keyToGameMsg key)
+    if String.toLower key == "i" then
+        ToggleSheet
+
+    else
+        GameMsg (keyToGameMsg key)
 
 
 keyToGameMsg : String -> Game.Msg

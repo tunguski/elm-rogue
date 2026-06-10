@@ -16,6 +16,7 @@ module Rogue.Content exposing
     , itemCountForDepth
     , findItem
     , defaultClass
+    , describe
     )
 
 {-| The moddable content model — *data* that defines what fills a dungeon, kept separate from the
@@ -206,6 +207,72 @@ spawnCountForDepth depth =
 itemCountForDepth : Int -> Int
 itemCountForDepth depth =
     min 6 (1 + depth // 2)
+
+
+{-| A one-line human description of what an item does, for the inventory screen. -}
+describe : ItemDef -> String
+describe def =
+    case def.kind of
+        Equipment WeaponSlot bonus ->
+            "weapon · +" ++ String.fromInt (bonus.damage + bonus.plus) ++ " damage"
+
+        Equipment ArmourSlot bonus ->
+            "armour · +" ++ String.fromInt (bonus.defense + bonus.plus) ++ " defense"
+
+        Wand spec ->
+            "wand · " ++ String.fromInt spec.damage ++ " dmg, " ++ String.fromInt spec.charges ++ " charges"
+
+        Key ->
+            "opens a locked door"
+
+        Consumable effect ->
+            describeEffect effect
+
+
+describeEffect : ItemEffect -> String
+describeEffect effect =
+    case effect of
+        HealHp n ->
+            "restores " ++ String.fromInt n ++ " HP"
+
+        HealFull ->
+            "restores all HP"
+
+        MaxHpBonus n ->
+            "+" ++ String.fromInt n ++ " max HP"
+
+        DamageBonus n ->
+            "+" ++ String.fromInt n ++ " damage"
+
+        DefenseBonus n ->
+            "+" ++ String.fromInt n ++ " defense"
+
+        Gold n ->
+            String.fromInt n ++ " gold"
+
+        Regenerate perTurn turns ->
+            "regenerate " ++ String.fromInt perTurn ++ "/turn for " ++ String.fromInt turns
+
+        TeleportSelf ->
+            "teleports you"
+
+        MagicMap ->
+            "reveals the floor"
+
+        IdentifyAll ->
+            "identifies potions"
+
+        UpgradeGear ->
+            "upgrades equipment"
+
+        Feed n ->
+            "food · +" ++ String.fromInt n ++ " nutrition"
+
+        LightFor radius turns ->
+            "light +" ++ String.fromInt radius ++ " for " ++ String.fromInt turns
+
+        HasteFor turns ->
+            "haste for " ++ String.fromInt turns
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}
