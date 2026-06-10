@@ -631,15 +631,57 @@ spawnFeatures ruleset depth features seed =
                     in
                     ( accE, items ++ accI, s2 )
 
+                Dungeon.Library ->
+                    let
+                        scrolls =
+                            ruleset.items
+                                |> List.filter (\i -> String.startsWith "scroll" i.id)
+
+                        ( items, s2 ) =
+                            spawnFrom scrolls depth (List.take 3 feature.cells) s
+                    in
+                    ( accE, items ++ accI, s2 )
+
+                Dungeon.Pool ->
+                    let
+                        ( items, s2 ) =
+                            spawnItems ruleset depth (List.take 2 feature.cells) s
+                    in
+                    ( accE, items ++ accI, s2 )
+
                 Dungeon.Nest ->
                     let
                         ( enemies, s2 ) =
                             spawnEnemies ruleset depth (List.take 4 feature.cells) s
                     in
                     ( enemies ++ accE, accI, s2 )
+
+                Dungeon.Pit ->
+                    ( accE, accI, s )
         )
         ( [], [], seed )
         features
+
+
+{-| Place one of the given item defs (already filtered, e.g. scrolls) on each cell, weighted by spawn
+weight. -}
+spawnFrom : List ItemDef -> Int -> List Pos -> Seed -> ( List ItemOnFloor, Seed )
+spawnFrom defs _ cells seed =
+    case defs of
+        [] ->
+            ( [], seed )
+
+        first :: _ ->
+            List.foldl
+                (\pos ( acc, s ) ->
+                    let
+                        ( def, s2 ) =
+                            Rng.pickWeighted first (List.map (\d -> ( max 1 d.spawnWeight, d )) defs) s
+                    in
+                    ( { def = def, pos = pos } :: acc, s2 )
+                )
+                ( [], seed )
+                cells
 
 
 {-| Stock a generated vault (if any): a couple of bonus items inside, plus a guaranteed key dropped on
@@ -799,6 +841,9 @@ tryMove dir game =
             if Level.at target game.level == LockedDoor then
                 tryUnlock target game
 
+            else if Level.at target game.level == Chasm then
+                fallThroughChasm game
+
             else if Level.isPassableAt target game.level then
                 let
                     hero =
@@ -878,6 +923,38 @@ tryDescend game =
 
     else
         addLog "There are no stairs down here." game
+
+
+{-| Stepping into a chasm drops the hero to the next floor, taking falling damage on landing. -}
+fallThroughChasm : Game -> Game
+fallThroughChasm game =
+    let
+        ( nextSeedA, nextSeedB ) =
+            Rng.split game.seed
+
+        gen =
+            Dungeon.generate (Dungeon.configForDepth (game.depth + 1)) nextSeedA
+
+        fallen =
+            enterLevel game.ruleset
+                (game.depth + 1)
+                game.kills
+                game.idents
+                nextSeedB
+                gen
+                game.hero
+                ("You plunge through the chasm!" :: game.log)
+
+        ( dmg, seed1 ) =
+            Rng.range (game.depth + 1) (game.depth + 4) fallen.seed
+
+        hero =
+            fallen.hero
+    in
+    checkHeroDeath
+        ({ fallen | hero = { hero | hp = hero.hp - dmg }, seed = seed1 }
+            |> addLog ("You hit the ground hard (" ++ String.fromInt dmg ++ " damage).")
+        )
 
 
 

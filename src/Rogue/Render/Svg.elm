@@ -332,7 +332,7 @@ tileColor theme tile dim =
                     ( "#4f8bff", "#23365c" )
 
                 Chasm ->
-                    ( "#04050a", "#04050a" )
+                    ( "#140d20", "#0a0712" )
 
                 Water ->
                     ( "#274b6b", "#16293a" )

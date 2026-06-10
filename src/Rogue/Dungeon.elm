@@ -83,11 +83,14 @@ type alias Generated =
     }
 
 
-{-| A tagged special room the engine populates: a `Treasure` room with extra loot, or a `Nest` packed
-with extra monsters. -}
+{-| A tagged special room. `Treasure`/`Library` get extra loot, `Nest` an extra monster pack, `Pool`
+is flooded with water and `Pit` has a central chasm you can fall through. -}
 type FeatureKind
     = Treasure
     | Nest
+    | Library
+    | Pool
+    | Pit
 
 
 type alias Feature =
@@ -391,8 +394,12 @@ generateRooms cfg seed0 =
         -- Scatter water pools and tall-grass patches (both passable, so connectivity is unaffected).
         ( level8, seed5 ) =
             decorateTerrain rooms level7 seed4
+
+        -- Paint Pool (water) and Pit (central chasm, floor border kept) feature rooms.
+        level9 =
+            List.foldl paintFeature level8 features
     in
-    { level = level8
+    { level = level9
     , rooms = rooms
     , stairsUp = upPos
     , stairsDown = downPos
@@ -549,6 +556,18 @@ pickFeatures rooms seed =
             Rng.shuffle middle seed
     in
     case shuffled of
+        treasure :: nest :: special :: _ ->
+            let
+                ( pick, s2 ) =
+                    Rng.pick Library [ Library, Pool, Pit ] seed1
+            in
+            ( [ { kind = Treasure, cells = roomCells treasure }
+              , { kind = Nest, cells = roomCells nest }
+              , { kind = pick, cells = roomCells special }
+              ]
+            , s2
+            )
+
         treasure :: nest :: _ ->
             ( [ { kind = Treasure, cells = roomCells treasure }, { kind = Nest, cells = roomCells nest } ], seed1 )
 
@@ -562,6 +581,84 @@ pickFeatures rooms seed =
 dropLast : List a -> List a
 dropLast xs =
     List.take (max 0 (List.length xs - 1)) xs
+
+
+{-| Paint a feature room's special terrain: `Pool` floods the interior with water, `Pit` opens a small
+central chasm. Both keep a one-cell floor border so the room stays traversable (connectivity holds). -}
+paintFeature : Feature -> Level -> Level
+paintFeature feature level =
+    case feature.kind of
+        Pool ->
+            paintInterior (\_ _ -> True) Water feature.cells level
+
+        Pit ->
+            let
+                c =
+                    cellsCenter feature.cells
+            in
+            paintInterior (\p _ -> Grid.chebyshev p c <= 1) Chasm feature.cells level
+
+        _ ->
+            level
+
+
+paintInterior : (Pos -> ( Int, Int ) -> Bool) -> Tile -> List Pos -> Level -> Level
+paintInterior keep tile cells level =
+    let
+        xs =
+            List.map .x cells
+
+        ys =
+            List.map .y cells
+
+        ( minX, maxX ) =
+            ( List.minimum xs |> Maybe.withDefault 0, List.maximum xs |> Maybe.withDefault 0 )
+
+        ( minY, maxY ) =
+            ( List.minimum ys |> Maybe.withDefault 0, List.maximum ys |> Maybe.withDefault 0 )
+    in
+    List.foldl
+        (\p lv ->
+            if
+                Level.at p lv
+                    == Floor
+                    && p.x
+                    > minX
+                    && p.x
+                    < maxX
+                    && p.y
+                    > minY
+                    && p.y
+                    < maxY
+                    && keep p ( minX, minY )
+            then
+                Level.set p tile lv
+
+            else
+                lv
+        )
+        level
+        cells
+
+
+cellsCenter : List Pos -> Pos
+cellsCenter cells =
+    let
+        xs =
+            List.map .x cells
+
+        ys =
+            List.map .y cells
+
+        avg ns =
+            case ns of
+                [] ->
+                    0
+
+                _ ->
+                    List.sum ns // List.length ns
+    in
+    { x = avg xs, y = avg ys }
 
 
 {-| Drop `Door` tiles at corridor pinch-points (a floor cell walled on one axis and open on the
