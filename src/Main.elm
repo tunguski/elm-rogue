@@ -12,6 +12,7 @@ import Browser.Events
 import Html exposing (Html)
 import Html.Attributes as HA
 import Json.Decode as Decode
+import Mod.Default
 import Rogue.Game as Game exposing (Game)
 import Rogue.Grid as Grid
 import Rogue.Render.Svg as SvgRenderer
@@ -28,7 +29,7 @@ startSeed =
 
 init : Model
 init =
-    { game = Game.newGame startSeed }
+    { game = Game.newGame Mod.Default.ruleset startSeed }
 
 
 update : Game.Msg -> Model -> Model

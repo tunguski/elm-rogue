@@ -1,28 +1,33 @@
 module Rogue.Game exposing
     ( Game
     , Hero
+    , Enemy
     , Msg(..)
     , newGame
     , update
     , toScene
-    , fovRadius
     )
 
 {-| The game state and its pure update — the heart of the engine.
 
-`Game` is a plain record (level, hero, turn/depth counters, the seen/explored fog sets, a message
-log, a deterministic seed) and `update` maps a player `Msg` to the next `Game`. Everything is pure
-and seed-threaded, so the whole engine runs head-lessly in tests and a replay of the same inputs from
-the same seed is identical.
+`Game` is a plain record (level, hero, the monsters in play, turn/depth counters, the seen/explored
+fog sets, a message log, a deterministic seed and the active `Ruleset`) and `update` maps a player
+`Msg` to the next `Game`. Everything is pure and seed-threaded, so the whole engine runs head-lessly
+and a replay of the same inputs from the same seed is identical.
 
-`toScene` projects a `Game` onto the renderer-agnostic `Rogue.Render.Scene`, which is the *only* thing
-any renderer ever sees — keeping the simulation and the graphics fully decoupled.
+The engine reads all its content from the injected `Rogue.Content.Ruleset`: hero stats, the bestiary
+and (later) items. That is the moddability contract — swap the ruleset and the same engine plays a
+different game.
 
-Milestones 4–5 cover hero movement, the turn counter and fog of war; enemies, combat, items and
-depth progression build on this same record in later milestones.
+`toScene` projects a `Game` onto the renderer-agnostic `Rogue.Render.Scene`, the only thing any
+renderer ever sees.
+
+Milestones 4–6: hero movement, the turn counter, fog of war and a data-driven monster population.
+Combat and AI arrive in M7.
 -}
 
-import Rogue.Dungeon as Dungeon exposing (Generated)
+import Rogue.Content as Content exposing (EnemyDef, Ruleset)
+import Rogue.Dungeon as Dungeon exposing (Generated, Room)
 import Rogue.Fov as Fov
 import Rogue.Grid as Grid exposing (Dir, Pos)
 import Rogue.Level as Level exposing (Level)
@@ -32,22 +37,30 @@ import Rogue.Tile as Tile exposing (Tile(..))
 import Set exposing (Set)
 
 
-fovRadius : Int
-fovRadius =
-    7
-
-
 type alias Hero =
     { pos : Pos
     , hp : Int
     , maxHp : Int
+    , damage : Int
+    , defense : Int
+    }
+
+
+{-| A monster in play: a copy of its `EnemyDef` (so the modded stats are the live stats) plus its
+current position and HP. -}
+type alias Enemy =
+    { def : EnemyDef
+    , pos : Pos
+    , hp : Int
     }
 
 
 type alias Game =
-    { level : Level
-    , rooms : List Dungeon.Room
+    { ruleset : Ruleset
+    , level : Level
+    , rooms : List Room
     , hero : Hero
+    , enemies : List Enemy
     , depth : Int
     , turn : Int
     , seed : Seed
@@ -67,33 +80,46 @@ type Msg
     | NoOp
 
 
-{-| Start a fresh run at depth 1 from a numeric seed. -}
-newGame : Int -> Game
-newGame rawSeed =
+{-| Start a fresh run at depth 1 from a ruleset and a numeric seed. -}
+newGame : Ruleset -> Int -> Game
+newGame ruleset rawSeed =
     let
         gen =
             Dungeon.generate Dungeon.defaultConfig (Rng.seed rawSeed)
+
+        hero =
+            { pos = gen.stairsUp
+            , hp = ruleset.hero.maxHp
+            , maxHp = ruleset.hero.maxHp
+            , damage = ruleset.hero.damage
+            , defense = ruleset.hero.defense
+            }
     in
-    enterLevel 1 gen.seed gen { pos = gen.stairsUp, hp = 20, maxHp = 20 } [ "You descend into the dungeon." ]
+    enterLevel ruleset 1 gen.seed gen hero [ "You enter the dungeon." ]
 
 
-{-| Place the hero on a freshly generated level, recompute fog, and keep the carried-over hero and
-log. Shared by `newGame` and descending. -}
-enterLevel : Int -> Seed -> Generated -> Hero -> List String -> Game
-enterLevel depth seed gen hero log =
+{-| Place the hero on a freshly generated level, spawn its monster population, recompute fog, and keep
+the carried-over hero and log. Shared by `newGame` and descending. -}
+enterLevel : Ruleset -> Int -> Seed -> Generated -> Hero -> List String -> Game
+enterLevel ruleset depth seed gen hero log =
     let
         heroAt =
             { hero | pos = gen.stairsUp }
 
+        ( enemies, seed2 ) =
+            spawnEnemies ruleset depth gen seed
+
         vis =
-            Fov.compute fovRadius heroAt.pos gen.level
+            Fov.compute ruleset.hero.fovRadius heroAt.pos gen.level
     in
-    { level = gen.level
+    { ruleset = ruleset
+    , level = gen.level
     , rooms = gen.rooms
     , hero = heroAt
+    , enemies = enemies
     , depth = depth
     , turn = 0
-    , seed = seed
+    , seed = seed2
     , visible = vis
     , explored = vis
     , log = log
@@ -101,6 +127,82 @@ enterLevel depth seed gen hero log =
     , stairsUp = gen.stairsUp
     , gameOver = False
     }
+
+
+
+-- ENEMY SPAWNING ---------------------------------------------------------------------------------
+
+
+{-| Seed a floor with monsters: pick `spawnCountForDepth` distinct floor cells (never the start room
+or a stair), and at each drop a depth-appropriate, weight-chosen enemy from the ruleset. Returns the
+monsters and the advanced seed. Spawns nothing if the ruleset offers no enemies for this depth. -}
+spawnEnemies : Ruleset -> Int -> Generated -> Seed -> ( List Enemy, Seed )
+spawnEnemies ruleset depth gen seed =
+    let
+        candidates =
+            Content.enemiesForDepth depth ruleset
+    in
+    if List.isEmpty candidates then
+        ( [], seed )
+
+    else
+        let
+            spots =
+                eligibleSpots gen
+
+            ( shuffled, seed1 ) =
+                Rng.shuffle spots seed
+
+            chosen =
+                List.take (Content.spawnCountForDepth depth) shuffled
+        in
+        List.foldl
+            (\pos ( acc, s ) ->
+                case candidates of
+                    ( _, firstDef ) :: _ ->
+                        let
+                            ( def, s2 ) =
+                                Rng.pickWeighted firstDef candidates s
+                        in
+                        ( { def = def, pos = pos, hp = def.maxHp } :: acc, s2 )
+
+                    [] ->
+                        ( acc, s )
+            )
+            ( [], seed1 )
+            chosen
+
+
+{-| Floor cells eligible to host a monster: any floor tile outside the first (start) room and not on
+a stair. -}
+eligibleSpots : Generated -> List Pos
+eligibleSpots gen =
+    let
+        startRoom =
+            List.head gen.rooms
+    in
+    Level.positions gen.level
+        |> List.filter
+            (\p ->
+                (Level.at p gen.level == Floor)
+                    && not (inRoom p startRoom)
+                    && p /= gen.stairsDown
+                    && p /= gen.stairsUp
+            )
+
+
+inRoom : Pos -> Maybe Room -> Bool
+inRoom p maybeRoom =
+    case maybeRoom of
+        Nothing ->
+            False
+
+        Just r ->
+            p.x >= r.x - 1 && p.x <= r.x + r.w && p.y >= r.y - 1 && p.y <= r.y + r.h
+
+
+
+-- UPDATE -----------------------------------------------------------------------------------------
 
 
 update : Msg -> Game -> Game
@@ -123,15 +225,19 @@ update msg game =
                 game
 
 
-{-| Attempt to step the hero one cell. Walking into a wall costs no turn (standard roguelike feel);
-a successful step advances the turn and refreshes fog. -}
+{-| Attempt to step the hero one cell. Walking into a wall costs no turn; a successful step advances
+the turn and refreshes fog. (Bumping a monster will become an attack in M7.) -}
 tryMove : Dir -> Game -> Game
 tryMove dir game =
     let
         target =
             Grid.move game.hero.pos dir
     in
-    if Level.isPassableAt target game.level then
+    if enemyAt target game /= Nothing then
+        -- A monster occupies the target — combat lands in M7; for now it simply blocks.
+        game
+
+    else if Level.isPassableAt target game.level then
         let
             hero =
                 game.hero
@@ -155,7 +261,8 @@ tryDescend game =
             gen =
                 Dungeon.generate Dungeon.defaultConfig nextSeedA
         in
-        enterLevel (game.depth + 1)
+        enterLevel game.ruleset
+            (game.depth + 1)
             nextSeedB
             gen
             game.hero
@@ -165,11 +272,16 @@ tryDescend game =
         addLog "There are no stairs down here." game
 
 
+enemyAt : Pos -> Game -> Maybe Enemy
+enemyAt p game =
+    listFind (\e -> e.pos == p) game.enemies
+
+
 refreshFov : Game -> Game
 refreshFov game =
     let
         vis =
-            Fov.compute fovRadius game.hero.pos game.level
+            Fov.compute game.ruleset.hero.fovRadius game.hero.pos game.level
     in
     { game | visible = vis, explored = Set.union game.explored vis }
 
@@ -184,6 +296,20 @@ addLog line game =
     { game | log = line :: game.log }
 
 
+listFind : (a -> Bool) -> List a -> Maybe a
+listFind pred xs =
+    case xs of
+        [] ->
+            Nothing
+
+        x :: rest ->
+            if pred x then
+                Just x
+
+            else
+                listFind pred rest
+
+
 
 -- PROJECTION TO A RENDER SCENE -------------------------------------------------------------------
 
@@ -193,7 +319,7 @@ toScene game =
     { level = game.level
     , visible = game.visible
     , explored = game.explored
-    , glyphs = [ heroGlyph game.hero ]
+    , glyphs = heroGlyph game.hero :: List.map enemyGlyph game.enemies
     , hud =
         { title = "elm-rouge"
         , depth = game.depth
@@ -219,4 +345,14 @@ heroGlyph hero =
     , color = "#ffe08a"
     , layer = Render.layerHero
     , heavy = True
+    }
+
+
+enemyGlyph : Enemy -> Render.Glyph
+enemyGlyph enemy =
+    { pos = enemy.pos
+    , char = enemy.def.glyph
+    , color = enemy.def.color
+    , layer = Render.layerActor
+    , heavy = False
     }
