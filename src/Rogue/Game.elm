@@ -49,6 +49,7 @@ type alias Hero =
     , gold : Int
     , weapon : Maybe ItemDef
     , armour : Maybe ItemDef
+    , ring : Maybe ItemDef
     , glyph : String
     , color : String
     , fovRadius : Int
@@ -117,16 +118,16 @@ hasStatus kind hero =
     List.any (\s -> s.kind == kind) hero.statuses
 
 
-{-| The hero's attack power including the worn weapon's bonus. -}
+{-| The hero's attack power including the worn weapon's and ring's bonuses. -}
 heroDamage : Hero -> Int
 heroDamage hero =
-    hero.damage + equipBonus .damage hero.weapon
+    hero.damage + equipBonus .damage hero.weapon + equipBonus .damage hero.ring
 
 
-{-| The hero's defense including the worn armour's bonus. -}
+{-| The hero's defense including the worn armour's and ring's bonuses. -}
 heroDefense : Hero -> Int
 heroDefense hero =
-    hero.defense + equipBonus .defense hero.armour
+    hero.defense + equipBonus .defense hero.armour + equipBonus .defense hero.ring
 
 
 equipBonus : (Content.EquipBonus -> Int) -> Maybe ItemDef -> Int
@@ -311,6 +312,7 @@ newGame ruleset class rawSeed =
             , gold = 0
             , weapon = resolve class.startingWeapon
             , armour = resolve class.startingArmour
+            , ring = Nothing
             , glyph = class.glyph
             , color = class.color
             , fovRadius = class.fovRadius
@@ -1179,6 +1181,9 @@ equip index slot def game =
                 Content.ArmourSlot ->
                     hero.armour
 
+                Content.RingSlot ->
+                    hero.ring
+
         packWithoutNew =
             removeAt index hero.inventory
 
@@ -1197,6 +1202,9 @@ equip index slot def game =
 
                 Content.ArmourSlot ->
                     { hero | inventory = pack, armour = Just def }
+
+                Content.RingSlot ->
+                    { hero | inventory = pack, ring = Just def }
     in
     { game | hero = equippedHero }
         |> addLog ("You equip the " ++ def.name ++ ".")
@@ -2125,6 +2133,13 @@ toScene game =
         , hunger = hungerLabel game.hero.nutrition
         , weapon = equippedName game.hero.weapon (heroDamage game.hero) "dmg"
         , armour = equippedName game.hero.armour (heroDefense game.hero) "def"
+        , ring =
+            case game.hero.ring of
+                Just r ->
+                    r.name
+
+                Nothing ->
+                    ""
         , statuses = List.map statusLabel game.hero.statuses
         , inventory = List.map (displayName game.idents) game.hero.inventory
         , log = List.take 7 game.log

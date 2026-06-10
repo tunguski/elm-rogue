@@ -85,6 +85,7 @@ type alias Hud =
     , hunger : String
     , weapon : String
     , armour : String
+    , ring : String
     , statuses : List String
     , inventory : List String
     , log : List String
@@ -109,6 +110,7 @@ emptyHud =
     , hunger = ""
     , weapon = ""
     , armour = ""
+    , ring = ""
     , statuses = []
     , inventory = []
     , log = []

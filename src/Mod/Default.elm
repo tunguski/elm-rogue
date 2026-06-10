@@ -57,6 +57,8 @@ ruleset =
         , scrollOfIdentify
         , scrollOfUpgrade
         , wandMagicMissile
+        , ringOfPower
+        , ringOfProtection
         , ironKey
         , amulet
         ]
@@ -560,6 +562,36 @@ plateArmour =
     , color = "#cfd8e6"
     , kind = Equipment ArmourSlot { damage = 0, defense = 5, maxHp = 0, plus = 0 }
     , minDepth = 5
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+
+-- RINGS ------------------------------------------------------------------------------------------
+
+
+ringOfPower : ItemDef
+ringOfPower =
+    { id = "ring-power"
+    , name = "ring of power"
+    , glyph = "="
+    , color = "#e0a23c"
+    , kind = Equipment RingSlot { damage = 2, defense = 0, maxHp = 0, plus = 0 }
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+ringOfProtection : ItemDef
+ringOfProtection =
+    { id = "ring-protection"
+    , name = "ring of protection"
+    , glyph = "="
+    , color = "#6ad8c0"
+    , kind = Equipment RingSlot { damage = 0, defense = 2, maxHp = 0, plus = 0 }
+    , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 3
     }

@@ -87,6 +87,7 @@ type ItemEffect
 type EquipSlot
     = WeaponSlot
     | ArmourSlot
+    | RingSlot
 
 
 {-| The passive stat bonuses a piece of equipment confers while worn. -}
@@ -218,6 +219,9 @@ describe def =
 
         Equipment ArmourSlot bonus ->
             "armour · +" ++ String.fromInt (bonus.defense + bonus.plus) ++ " defense"
+
+        Equipment RingSlot bonus ->
+            "ring · +" ++ String.fromInt bonus.damage ++ " dmg / +" ++ String.fromInt bonus.defense ++ " def"
 
         Wand spec ->
             "wand · " ++ String.fromInt spec.damage ++ " dmg, " ++ String.fromInt spec.charges ++ " charges"

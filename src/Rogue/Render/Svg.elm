@@ -414,6 +414,11 @@ hudView hud =
         , hpBar hud
         , statLine "Weapon" hud.weapon
         , statLine "Armour" hud.armour
+        , if hud.ring /= "" then
+            statLine "Ring" hud.ring
+
+          else
+            Html.text ""
         , if List.isEmpty hud.statuses then
             Html.text ""
 
