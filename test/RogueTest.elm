@@ -143,6 +143,13 @@ dungeonTests =
                         gen (s * 101 + 7)
                 in
                 Expect.equal True (reachable g.level g.stairsUp g.stairsDown)
+        , fuzz (Fuzz.intRange 1 30) "cave floors are also stair-to-stair connected" <|
+            \s ->
+                let
+                    g =
+                        Dungeon.generate (Dungeon.configForDepth 5) (Rng.seed (s * 131 + 3))
+                in
+                Expect.equal True (reachable g.level g.stairsUp g.stairsDown)
         ]
 
 

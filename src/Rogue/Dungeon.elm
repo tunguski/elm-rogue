@@ -39,6 +39,7 @@ type alias GenConfig =
     , maxRooms : Int
     , minRoomSize : Int
     , maxRoomSize : Int
+    , caves : Bool
     }
 
 
@@ -57,6 +58,7 @@ configForDepth depth =
     , maxRooms = 26 + depth * 3
     , minRoomSize = 5
     , maxRoomSize = 10 + depth // 3
+    , caves = depth == 5 || depth == 6
     }
 
 
@@ -114,6 +116,246 @@ roomsOverlap a b =
 
 generate : GenConfig -> Seed -> Generated
 generate cfg seed0 =
+    if cfg.caves then
+        generateCaves cfg seed0
+
+    else
+        generateRooms cfg seed0
+
+
+
+-- CAVE FLOORS (cellular automata) ----------------------------------------------------------------
+
+
+{-| An organic cavern floor: randomly seed walls, smooth with a few cellular-automata passes, keep the
+largest connected region (so it's always solvable) and drop the stairs at its two extremes. No rooms,
+so the engine just scatters monsters/items across the open cave. -}
+generateCaves : GenConfig -> Seed -> Generated
+generateCaves cfg seed0 =
+    let
+        ( seeded, seed1 ) =
+            caveSeed cfg seed0
+
+        smoothed =
+            applyN 4 (caStep cfg) seeded
+
+        region =
+            largestRegion cfg smoothed
+
+        level =
+            keepOnly cfg region smoothed
+
+        ordered =
+            Set.toList region |> List.map (\( x, y ) -> { x = x, y = y })
+
+        up =
+            List.head ordered |> Maybe.withDefault { x = cfg.width // 2, y = cfg.height // 2 }
+
+        down =
+            farthestFrom up ordered
+
+        withStairs =
+            level |> Level.set up StairsUp |> Level.set down StairsDown
+
+        ( terrained, seed2 ) =
+            decorateCaveTerrain ordered withStairs seed1
+    in
+    { level = terrained
+    , rooms = []
+    , stairsUp = up
+    , stairsDown = down
+    , vaultDoor = Nothing
+    , vaultCells = []
+    , features = []
+    , seed = seed2
+    }
+
+
+{-| Randomly fill the interior with ~45% wall (the border is always wall). -}
+caveSeed : GenConfig -> Seed -> ( Level, Seed )
+caveSeed cfg seed =
+    List.foldl
+        (\p ( lv, s ) ->
+            if p.x == 0 || p.y == 0 || p.x == cfg.width - 1 || p.y == cfg.height - 1 then
+                ( Level.set p Wall lv, s )
+
+            else
+                let
+                    ( r, s2 ) =
+                        Rng.int 100 s
+                in
+                ( Level.set p
+                    (if r < 45 then
+                        Wall
+
+                     else
+                        Floor
+                    )
+                    lv
+                , s2
+                )
+        )
+        ( Level.empty cfg.width cfg.height, seed )
+        (Level.positions (Level.empty cfg.width cfg.height))
+
+
+{-| One cellular-automata smoothing pass: a cell becomes wall if ≥5 of its 8 neighbours are wall (or
+off-map), else floor. -}
+caStep : GenConfig -> Level -> Level
+caStep cfg level =
+    List.foldl
+        (\p lv ->
+            let
+                walls =
+                    List.length (List.filter (\nb -> isWallOrEdge nb level) (Grid.neighbors8 p))
+            in
+            Level.set p
+                (if walls >= 5 then
+                    Wall
+
+                 else
+                    Floor
+                )
+                lv
+        )
+        level
+        (Level.positions level)
+
+
+isWallOrEdge : Pos -> Level -> Bool
+isWallOrEdge p level =
+    not (Level.inBounds p level) || Level.at p level == Wall
+
+
+{-| The largest 4-connected region of floor cells, as a set of `( x, y )` keys. -}
+largestRegion : GenConfig -> Level -> Set ( Int, Int )
+largestRegion cfg level =
+    List.foldl
+        (\p ( best, seen ) ->
+            if Level.at p level == Floor && not (Set.member ( p.x, p.y ) seen) then
+                let
+                    region =
+                        floodRegion level [ p ] (Set.singleton ( p.x, p.y ))
+
+                    seen2 =
+                        Set.union seen region
+                in
+                ( if Set.size region > Set.size best then
+                    region
+
+                  else
+                    best
+                , seen2
+                )
+
+            else
+                ( best, seen )
+        )
+        ( Set.empty, Set.empty )
+        (Level.positions level)
+        |> Tuple.first
+
+
+floodRegion : Level -> List Pos -> Set ( Int, Int ) -> Set ( Int, Int )
+floodRegion level frontier visited =
+    case frontier of
+        [] ->
+            visited
+
+        _ ->
+            let
+                ( nf, nv ) =
+                    List.foldl
+                        (\cur acc ->
+                            List.foldl
+                                (\nb ( fr, vis ) ->
+                                    if Level.at nb level == Floor && not (Set.member ( nb.x, nb.y ) vis) then
+                                        ( nb :: fr, Set.insert ( nb.x, nb.y ) vis )
+
+                                    else
+                                        ( fr, vis )
+                                )
+                                acc
+                                (Grid.neighbors4 cur)
+                        )
+                        ( [], visited )
+                        frontier
+            in
+            floodRegion level nf nv
+
+
+{-| Fill every floor cell not in `region` with wall, so only the chosen cavern remains. -}
+keepOnly : GenConfig -> Set ( Int, Int ) -> Level -> Level
+keepOnly cfg region level =
+    List.foldl
+        (\p lv ->
+            if Level.at p lv == Floor && not (Set.member ( p.x, p.y ) region) then
+                Level.set p Wall lv
+
+            else
+                lv
+        )
+        level
+        (Level.positions level)
+
+
+farthestFrom : Pos -> List Pos -> Pos
+farthestFrom origin cells =
+    List.foldl
+        (\p best ->
+            if Grid.manhattan p origin > Grid.manhattan best origin then
+                p
+
+            else
+                best
+        )
+        origin
+        cells
+
+
+{-| Sprinkle a little water and grass into the cavern floor. -}
+decorateCaveTerrain : List Pos -> Level -> Seed -> ( Level, Seed )
+decorateCaveTerrain cells level seed =
+    List.foldl
+        (\p ( lv, s ) ->
+            if Level.at p lv == Floor then
+                let
+                    ( r, s2 ) =
+                        Rng.int 100 s
+                in
+                ( if r < 8 then
+                    Level.set p Water lv
+
+                  else if r < 18 then
+                    Level.set p Grass lv
+
+                  else
+                    lv
+                , s2
+                )
+
+            else
+                ( lv, s )
+        )
+        ( level, seed )
+        cells
+
+
+applyN : Int -> (a -> a) -> a -> a
+applyN n f x =
+    if n <= 0 then
+        x
+
+    else
+        applyN (n - 1) f (f x)
+
+
+
+-- ROOM FLOORS ------------------------------------------------------------------------------------
+
+
+generateRooms : GenConfig -> Seed -> Generated
+generateRooms cfg seed0 =
     let
         blank =
             Level.empty cfg.width cfg.height
