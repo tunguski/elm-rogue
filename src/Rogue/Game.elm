@@ -187,6 +187,19 @@ type alias Chest =
     }
 
 
+{-| A friendly NPC you bump to talk to. A `Ghost` gifts an item; a `Sage` identifies your potions. -}
+type NpcKind
+    = Ghost
+    | Sage
+
+
+type alias Npc =
+    { pos : Pos
+    , kind : NpcKind
+    , reward : ItemDef
+    }
+
+
 {-| Floors that host a shop. -}
 shopDepth : Int -> Bool
 shopDepth depth =
@@ -233,6 +246,7 @@ type alias Game =
     , shop : List ShopEntry
     , chests : List Chest
     , altar : Maybe Pos
+    , npc : Maybe Npc
     , popups : List Popup
     , traps : List Trap
     , idents : Idents
@@ -445,6 +459,9 @@ enterLevel ruleset depth kills idents seed gen hero log =
         ( altar, seed9 ) =
             buildAltar (List.drop 3 leftover) seed8
 
+        ( npc, seed10 ) =
+            buildNpc ruleset depth (List.drop 6 leftover) seed9
+
         vis =
             Fov.compute (fovRadiusFor heroAt depth) heroAt.pos gen.level
     in
@@ -457,6 +474,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , shop = shop
     , chests = chests
     , altar = altar
+    , npc = npc
     , popups = []
     , traps = traps
     , idents = idents
@@ -464,7 +482,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , turn = 0
     , tempo = 0
     , kills = kills
-    , seed = seed9
+    , seed = seed10
     , visible = vis
     , explored = vis
     , log = bossLog
@@ -607,6 +625,44 @@ isGearLoot def =
 
         _ ->
             False
+
+
+{-| A third of floors host a friendly NPC at a free cell — a ghost bearing a gift or a sage who reads
+your potions. -}
+buildNpc : Ruleset -> Int -> List Pos -> Seed -> ( Maybe Npc, Seed )
+buildNpc ruleset depth spots seed =
+    let
+        ( present, seed1 ) =
+            Rng.chance 33 seed
+
+        ( isGhost, seed2 ) =
+            Rng.chance 60 seed1
+
+        gifts =
+            Content.itemsForDepth depth ruleset
+                |> List.filter (\( _, def ) -> def.id /= "amulet" && def.id /= "gold" && def.id /= "key")
+    in
+    case ( present, spots, gifts ) of
+        ( True, p :: _, ( _, firstDef ) :: _ ) ->
+            let
+                ( reward, seed3 ) =
+                    Rng.pickWeighted firstDef gifts seed2
+            in
+            ( Just
+                { pos = p
+                , kind =
+                    if isGhost then
+                        Ghost
+
+                    else
+                        Sage
+                , reward = reward
+                }
+            , seed3
+            )
+
+        _ ->
+            ( Nothing, seed2 )
 
 
 {-| Half the floors host an altar at a free cell: stepping onto it once fully heals the hero. -}
@@ -973,7 +1029,10 @@ tryMove dir game =
             endTurn (heroAttack enemy game)
 
         Nothing ->
-            if chestAt target game /= Nothing then
+            if npcAt target game then
+                talkToNpc game
+
+            else if chestAt target game /= Nothing then
                 tryOpenChest target game
 
             else if Level.at target game.level == LockedDoor then
@@ -1043,6 +1102,45 @@ applyTerrainStep tile game =
 
         _ ->
             game
+
+
+npcAt : Pos -> Game -> Bool
+npcAt p game =
+    game.npc |> Maybe.map (\n -> n.pos == p) |> Maybe.withDefault False
+
+
+{-| Talk to the NPC on the bumped cell: a ghost gifts its reward, a sage identifies all potions. The
+NPC then departs. Doesn't move the hero. -}
+talkToNpc : Game -> Game
+talkToNpc game =
+    case game.npc of
+        Nothing ->
+            game
+
+        Just n ->
+            let
+                hero =
+                    game.hero
+            in
+            case n.kind of
+                Ghost ->
+                    endTurn
+                        ({ game | npc = Nothing, hero = { hero | inventory = hero.inventory ++ [ n.reward ] } }
+                            |> addLog ("The sad ghost gives you a " ++ displayName game.idents n.reward ++ " and fades away.")
+                        )
+
+                Sage ->
+                    let
+                        idents =
+                            game.idents
+
+                        allPotions =
+                            game.ruleset.items |> List.filter isPotion |> List.map .id
+                    in
+                    endTurn
+                        ({ game | npc = Nothing, idents = { idents | known = Set.union idents.known (Set.fromList allPotions) } }
+                            |> addLog "The sage murmurs over your pack; all potions are now known. They depart."
+                        )
 
 
 chestAt : Pos -> Game -> Maybe Chest
@@ -2629,6 +2727,7 @@ toScene game =
     , glyphs =
         List.map trapGlyph (List.filter .revealed game.traps)
             ++ altarGlyphs game.altar
+            ++ npcGlyphs game.npc
             ++ List.map chestGlyph game.chests
             ++ List.map shopGlyph game.shop
             ++ List.map (itemGlyph game.idents) game.items
@@ -2752,6 +2851,25 @@ itemGlyph idents item =
     , layer = Render.layerItem
     , heavy = False
     }
+
+
+npcGlyphs : Maybe Npc -> List Render.Glyph
+npcGlyphs maybeNpc =
+    case maybeNpc of
+        Just n ->
+            let
+                ( ch, color ) =
+                    case n.kind of
+                        Ghost ->
+                            ( "&", "#a9d6ff" )
+
+                        Sage ->
+                            ( "&", "#d6c27a" )
+            in
+            [ { pos = n.pos, char = ch, color = color, layer = Render.layerActor, heavy = True } ]
+
+        Nothing ->
+            []
 
 
 chestGlyph : Chest -> Render.Glyph
