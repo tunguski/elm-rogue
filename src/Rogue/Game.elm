@@ -293,7 +293,7 @@ newGame : Ruleset -> Content.ClassDef -> Int -> Game
 newGame ruleset class rawSeed =
     let
         gen =
-            Dungeon.generate Dungeon.defaultConfig (Rng.seed rawSeed)
+            Dungeon.generate (Dungeon.configForDepth 1) (Rng.seed rawSeed)
 
         resolve maybeId =
             Maybe.andThen (\id -> Content.findItem id ruleset) maybeId
@@ -851,7 +851,7 @@ tryDescend game =
                 Rng.split game.seed
 
             gen =
-                Dungeon.generate Dungeon.defaultConfig nextSeedA
+                Dungeon.generate (Dungeon.configForDepth (game.depth + 1)) nextSeedA
         in
         enterLevel game.ruleset
             (game.depth + 1)

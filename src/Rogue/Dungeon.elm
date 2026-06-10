@@ -1,6 +1,7 @@
 module Rogue.Dungeon exposing
     ( GenConfig
     , defaultConfig
+    , configForDepth
     , Generated
     , Room
     , Feature
@@ -43,11 +44,19 @@ type alias GenConfig =
 
 defaultConfig : GenConfig
 defaultConfig =
-    { width = 40
-    , height = 26
-    , maxRooms = 12
-    , minRoomSize = 4
-    , maxRoomSize = 9
+    configForDepth 1
+
+
+{-| Floor size and room budget scale gently with depth, so dungeons are large and densely roomed (the
+old 40×26 / 12-room floors left most of the map as unwalkable rock). `maxRooms` is the number of
+placement *attempts*; more attempts pack more rooms into the larger grid. -}
+configForDepth : Int -> GenConfig
+configForDepth depth =
+    { width = min 72 (52 + depth * 2)
+    , height = min 48 (34 + depth)
+    , maxRooms = 26 + depth * 3
+    , minRoomSize = 5
+    , maxRoomSize = 10 + depth // 3
     }
 
 
