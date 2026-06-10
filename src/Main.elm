@@ -44,6 +44,7 @@ type alias Model =
     , showSheet : Bool
     , showBestiary : Bool
     , bestiary : Set String
+    , targeting : Maybe Grid.Pos
     , seedInput : String
     , seedBump : Int
     }
@@ -67,6 +68,7 @@ type Msg
     | ToggleSheet
     | ToggleBestiary
     | SetSeed String
+    | KeyPressed String
     | Loaded (Maybe String)
 
 
@@ -139,6 +141,7 @@ init _ =
       , showSheet = False
       , showBestiary = False
       , bestiary = Set.empty
+      , targeting = Nothing
       , seedInput = ""
       , seedBump = 0
       }
@@ -161,6 +164,9 @@ update msg model =
         SetSeed text ->
             ( { model | seedInput = text }, Cmd.none )
 
+        KeyPressed key ->
+            handleKey (String.toLower key) model
+
         SelectRenderer name ->
             ( { model | rendererName = name }, Cmd.none )
 
@@ -177,7 +183,16 @@ update msg model =
             , Cmd.none
             )
 
-        GameMsg Game.Restart ->
+        GameMsg gm ->
+            runGame gm model
+
+
+{-| Apply a game message: handle restart (back to class select) or step the engine, folding the seen
+monsters into the bestiary and persisting a finished run. Shared by `GameMsg` and key handling. -}
+runGame : Game.Msg -> Model -> ( Model, Cmd Msg )
+runGame gm model =
+    case gm of
+        Game.Restart ->
             ( { model
                 | screen = ClassSelect
                 , seedBump = model.seedBump + model.game.turn + model.game.depth * 1009 + 1
@@ -185,7 +200,7 @@ update msg model =
             , Cmd.none
             )
 
-        GameMsg gm ->
+        _ ->
             let
                 nextGame =
                     Game.update gm model.game
@@ -218,6 +233,83 @@ update msg model =
 
             else
                 ( base, Cmd.none )
+
+
+{-| Route a keypress: overlays and the targeting cursor capture keys first; otherwise it's a normal
+play key. Targeting (entered with `f`) cycles monsters with `Tab`, throws with `f`/Enter, cancels with
+anything else. -}
+handleKey : String -> Model -> ( Model, Cmd Msg )
+handleKey key model =
+    case model.targeting of
+        Just target ->
+            if key == "f" || key == "enter" || key == " " then
+                runGame (Game.ThrowAt target) { model | targeting = Nothing }
+
+            else if key == "tab" then
+                ( { model | targeting = nextTarget model.game target }, Cmd.none )
+
+            else
+                ( { model | targeting = Nothing }, Cmd.none )
+
+        Nothing ->
+            case key of
+                "i" ->
+                    ( { model | showSheet = not model.showSheet }, Cmd.none )
+
+                "m" ->
+                    ( { model | showBestiary = not model.showBestiary }, Cmd.none )
+
+                "f" ->
+                    case nearestTarget model.game of
+                        Just t ->
+                            ( { model | targeting = Just t }, Cmd.none )
+
+                        Nothing ->
+                            runGame Game.Fire model
+
+                _ ->
+                    runGame (keyToGameMsg key) model
+
+
+{-| The nearest visible monster to the hero, if any (the initial target). -}
+nearestTarget : Game -> Maybe Grid.Pos
+nearestTarget game =
+    game.enemies
+        |> List.filter (\e -> Set.member ( e.pos.x, e.pos.y ) game.visible)
+        |> List.foldl
+            (\e best ->
+                case best of
+                    Nothing ->
+                        Just e.pos
+
+                    Just b ->
+                        if Grid.chebyshev e.pos game.hero.pos < Grid.chebyshev b game.hero.pos then
+                            Just e.pos
+
+                        else
+                            best
+            )
+            Nothing
+
+
+{-| Cycle to the next visible monster after `current` (wraps), for Tab-targeting. -}
+nextTarget : Game -> Grid.Pos -> Maybe Grid.Pos
+nextTarget game current =
+    let
+        visible =
+            game.enemies
+                |> List.filter (\e -> Set.member ( e.pos.x, e.pos.y ) game.visible)
+                |> List.map .pos
+
+        after =
+            List.filter (\p -> p /= current) visible
+    in
+    case after of
+        next :: _ ->
+            Just next
+
+        [] ->
+            Just current
 
 
 
@@ -297,8 +389,8 @@ view model =
                 Html.div []
                     [ Html.div
                         [ HA.style "text-align" "center", HA.style "font-size" "12px", HA.style "color" "#5b6b82", HA.style "margin" "10px 0 14px" ]
-                        [ Html.text "move: WASD/HJKL · diag: Y U B N · wait: . · search: Z · throw: F · brew: C · inventory: I · bestiary: M · descend: > · use: 1-9 · restart: R" ]
-                    , (rendererNamed model.rendererName).view (Game.toScene model.game)
+                        [ Html.text "move: WASD/HJKL · diag: Y U B N · wait: . · search: Z · aim: F (Tab cycle, F throw) · brew: C · inventory: I · bestiary: M · descend: > · use: 1-9 · restart: R" ]
+                    , (rendererNamed model.rendererName).view (sceneFor model)
                     , if model.showSheet then
                         sheetView model.game
 
@@ -456,6 +548,16 @@ sheetItem i def =
         [ Html.span [ HA.style "color" def.color ] [ Html.text (String.fromInt (i + 1) ++ ". " ++ def.name) ]
         , Html.span [ HA.style "color" "#7f8ba0", HA.style "font-size" "11.5px" ] [ Html.text (Content.describe def) ]
         ]
+
+
+{-| The render scene for the current frame, with the targeting cursor overlaid when aiming. -}
+sceneFor : Model -> Rogue.Render.Scene
+sceneFor model =
+    let
+        scene =
+            Game.toScene model.game
+    in
+    { scene | cursor = model.targeting }
 
 
 toolbar : Model -> Html Msg
@@ -640,17 +742,6 @@ seenMonsters game =
         |> Set.fromList
 
 
-keyToMsg : String -> Msg
-keyToMsg key =
-    case String.toLower key of
-        "i" ->
-            ToggleSheet
-
-        "m" ->
-            ToggleBestiary
-
-        _ ->
-            GameMsg (keyToGameMsg key)
 
 
 keyToGameMsg : String -> Game.Msg
@@ -737,7 +828,7 @@ keyToGameMsg key =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Browser.Events.onKeyDown (Decode.map keyToMsg (Decode.field "key" Decode.string))
+    Browser.Events.onKeyDown (Decode.map KeyPressed (Decode.field "key" Decode.string))
 
 
 main : Program () Model Msg

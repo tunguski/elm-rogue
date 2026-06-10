@@ -87,6 +87,7 @@ view scene =
                 [ g [] (List.filterMap (cellSvg scene) cells)
                 , g [] (List.filterMap (glyphSvg scene) (List.sortBy .layer (List.filter (\gl -> inWindow gl.pos) scene.glyphs)))
                 , g [] (List.map popupSvg (List.filter (\pp -> inWindow pp.pos) scene.popups))
+                , cursorSvg scene.cursor
                 ]
             , overlayView scene.hud
             ]
@@ -171,6 +172,26 @@ popupSvg pp =
         , SA.dominantBaseline "central"
         ]
         [ Svg.text pp.text ]
+
+
+cursorSvg : Maybe Pos -> Svg msg
+cursorSvg maybeCursor =
+    case maybeCursor of
+        Nothing ->
+            g [] []
+
+        Just c ->
+            rect
+                [ SA.x (px (c.x * cellSize + 1))
+                , SA.y (px (c.y * cellSize + 1))
+                , SA.width (px (cellSize - 2))
+                , SA.height (px (cellSize - 2))
+                , SA.fill "none"
+                , SA.stroke "#ff5a5a"
+                , SA.strokeWidth "2"
+                , SA.rx "2"
+                ]
+                []
 
 
 minimapColor : Tile -> String

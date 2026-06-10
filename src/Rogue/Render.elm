@@ -164,6 +164,7 @@ type alias Scene =
     , popups : List Popup
     , theme : Theme
     , camera : Pos
+    , cursor : Maybe Pos
     , hud : Hud
     }
 

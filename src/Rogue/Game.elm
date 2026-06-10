@@ -283,6 +283,7 @@ type Msg
     | Use Int
     | Search
     | Fire
+    | ThrowAt Pos
     | Brew
     | Drop Int
     | Restart
@@ -804,6 +805,9 @@ update rawMsg rawGame =
             Fire ->
                 tryFire game
 
+            ThrowAt pos ->
+                tryThrowAt pos game
+
             Brew ->
                 tryBrew game
 
@@ -1177,6 +1181,21 @@ zapWand index spec game =
                 endTurn { afterHit | hero = { hero | inventory = drained } }
 
 
+{-| A thrown attack at the monster on a chosen, visible cell (used by manual targeting). -}
+tryThrowAt : Pos -> Game -> Game
+tryThrowAt pos game =
+    case enemyAt pos game of
+        Just target ->
+            if Set.member ( pos.x, pos.y ) game.visible then
+                throwAtEnemy target game
+
+            else
+                addLog "You can't see your target." game
+
+        Nothing ->
+            addLog "Nothing to hit there." game
+
+
 {-| A thrown attack at the nearest visible monster for half the hero's melee power (a sling/dagger
 toss). Free to use but weak; costs a turn. No visible target → no turn spent. -}
 tryFire : Game -> Game
@@ -1186,7 +1205,14 @@ tryFire game =
             addLog "You ready a throw, but see no target." game
 
         Just target ->
-            let
+            throwAtEnemy target game
+
+
+{-| Resolve a thrown attack against a specific enemy: half the hero's melee power, killing or hurting,
+costing a turn. -}
+throwAtEnemy : Enemy -> Game -> Game
+throwAtEnemy target game =
+    let
                 power =
                     max 1 (heroDamage game.hero // 2)
 
@@ -2215,6 +2241,7 @@ toScene game =
     , popups = List.map (\p -> { pos = p.pos, text = p.text, color = p.color }) game.popups
     , theme = Render.themeForDepth game.depth
     , camera = game.hero.pos
+    , cursor = Nothing
     , hud =
         { title = "elm-rogue"
         , region = (Render.themeForDepth game.depth).name
