@@ -34,6 +34,7 @@ suite =
         , levelTests
         , dungeonTests
         , gameTests
+        , resumeTests
         ]
 
 
@@ -224,4 +225,46 @@ gameTests =
             \_ -> Expect.equal newGame.hero.maxHp newGame.hero.hp
         , test "the floor is populated with monsters" <|
             \_ -> Expect.equal True (not (List.isEmpty newGame.enemies))
+        ]
+
+
+resumeSave : Game.SaveData
+resumeSave =
+    { depth = 4
+    , hp = 17
+    , maxHp = 30
+    , damage = 7
+    , defense = 3
+    , gold = 42
+    , level = 3
+    , xp = 12
+    , nutrition = 250
+    , fovRadius = 7
+    , glyph = "@"
+    , color = "#ffe08a"
+    , weaponId = Just "short-sword"
+    , armourId = Just "leather-armour"
+    , ringId = Nothing
+    , inventoryIds = [ "potion-healing" ]
+    , knownIds = [ "potion-healing" ]
+    , seed = 12345
+    }
+
+
+resumedGame : Game.Game
+resumedGame =
+    Game.resume Default.ruleset resumeSave
+
+
+resumeTests : Test
+resumeTests =
+    describe "Game.resume"
+        [ test "resumes at the saved depth" <|
+            \_ -> Expect.equal 4 resumedGame.depth
+        , test "restores the hero's HP" <|
+            \_ -> Expect.equal 17 resumedGame.hero.hp
+        , test "re-resolves the saved weapon by id" <|
+            \_ -> Expect.equal (Just "short-sword") (Maybe.map .id resumedGame.hero.weapon)
+        , test "keeps identified items known" <|
+            \_ -> Expect.equal True (List.member "potion-healing" (Game.knownItemIds resumedGame))
         ]

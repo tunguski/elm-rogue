@@ -3,7 +3,10 @@ module Rogue.Game exposing
     , Hero
     , Enemy
     , Msg(..)
+    , SaveData
     , newGame
+    , resume
+    , knownItemIds
     , update
     , toScene
     )
@@ -358,6 +361,78 @@ newGame ruleset class rawSeed =
     enterLevel ruleset 1 0 idents seedA gen hero [ "You enter the dungeon as " ++ withArticle class.name ++ "." ]
 
 
+{-| A compact, serialisable snapshot of a run: the hero's progression and gear (gear/inventory by item
+id, re-resolved against the ruleset on load) plus the floor depth and a seed. Enough to continue a
+character at the start of a freshly generated floor at the same depth. -}
+type alias SaveData =
+    { depth : Int
+    , hp : Int
+    , maxHp : Int
+    , damage : Int
+    , defense : Int
+    , gold : Int
+    , level : Int
+    , xp : Int
+    , nutrition : Int
+    , fovRadius : Int
+    , glyph : String
+    , color : String
+    , weaponId : Maybe String
+    , armourId : Maybe String
+    , ringId : Maybe String
+    , inventoryIds : List String
+    , knownIds : List String
+    , seed : Int
+    }
+
+
+{-| The ids of every item type the hero has identified — for persisting in a save. -}
+knownItemIds : Game -> List String
+knownItemIds game =
+    Set.toList game.idents.known
+
+
+{-| Continue a saved run: regenerate a floor at the saved depth and reinstate the hero (stats, gear
+and inventory resolved from the ruleset). Within-floor progress isn't kept — you resume your character
+at the start of a fresh floor at that depth. -}
+resume : Ruleset -> SaveData -> Game
+resume ruleset save =
+    let
+        gen =
+            Dungeon.generate (Dungeon.configForDepth save.depth) (Rng.seed save.seed)
+
+        find id =
+            Content.findItem id ruleset
+
+        hero =
+            { pos = gen.stairsUp
+            , hp = save.hp
+            , maxHp = save.maxHp
+            , damage = save.damage
+            , defense = save.defense
+            , inventory = List.filterMap find save.inventoryIds
+            , gold = save.gold
+            , weapon = Maybe.andThen find save.weaponId
+            , armour = Maybe.andThen find save.armourId
+            , ring = Maybe.andThen find save.ringId
+            , glyph = save.glyph
+            , color = save.color
+            , fovRadius = save.fovRadius
+            , statuses = []
+            , level = save.level
+            , xp = save.xp
+            , nutrition = save.nutrition
+            }
+
+        ( looks, seedA ) =
+            assignLooks ruleset gen.seed
+
+        idents =
+            { known = Set.fromList save.knownIds, looks = looks }
+    in
+    enterLevel ruleset save.depth 0 idents seedA gen hero [ "You resume your delve on depth " ++ String.fromInt save.depth ++ "." ]
+
+
 withArticle : String -> String
 withArticle word =
     let
@@ -387,8 +462,9 @@ enterLevel ruleset depth kills idents seed gen hero log =
         floorCount =
             List.length shuffledSpots
 
+        -- Density scales with floor size but is capped, so big floors stay challenging, not swarming.
         enemyCount =
-            min (floorCount // 5) (Content.spawnCountForDepth depth + floorCount // 45)
+            min (floorCount // 6) (Content.spawnCountForDepth depth + floorCount // 55)
 
         ( enemies, seed2 ) =
             spawnEnemies ruleset depth (List.take enemyCount shuffledSpots) seed1
@@ -541,7 +617,7 @@ maybeElite depth def seed =
         ( roll, seed1 ) =
             Rng.int 100 seed
     in
-    if roll < (5 + depth) then
+    if roll < min 14 (4 + depth) then
         ( { def
             | name = "elite " ++ def.name
             , maxHp = def.maxHp * 2

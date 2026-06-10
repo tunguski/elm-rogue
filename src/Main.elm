@@ -46,6 +46,7 @@ type alias Model =
     , bestiary : Set String
     , targeting : Maybe Grid.Pos
     , damaged : Bool
+    , resumeSave : Maybe ( String, Game.SaveData )
     , seedInput : String
     , seedBump : Int
     }
@@ -70,7 +71,9 @@ type Msg
     | ToggleBestiary
     | SetSeed String
     | KeyPressed String
+    | Continue
     | Loaded (Maybe String)
+    | LoadedSave (Maybe String)
 
 
 dailySeed : Int
@@ -86,6 +89,11 @@ startSeed =
 storageKey : String
 storageKey =
     "elm-rogue-history"
+
+
+saveKey : String
+saveKey =
+    "elm-rogue-save"
 
 
 maxHistory : Int
@@ -144,10 +152,11 @@ init _ =
       , bestiary = Set.empty
       , targeting = Nothing
       , damaged = False
+      , resumeSave = Nothing
       , seedInput = ""
       , seedBump = 0
       }
-    , Storage.load storageKey Loaded
+    , Cmd.batch [ Storage.load storageKey Loaded, Storage.load saveKey LoadedSave ]
     )
 
 
@@ -156,6 +165,25 @@ update msg model =
     case msg of
         Loaded stored ->
             ( { model | history = parseHistory stored }, Cmd.none )
+
+        LoadedSave stored ->
+            ( { model | resumeSave = decodeSave stored }, Cmd.none )
+
+        Continue ->
+            case model.resumeSave of
+                Just ( savedMod, save ) ->
+                    ( { model
+                        | game = Game.resume (rulesetNamed savedMod) save
+                        , modName = savedMod
+                        , currentClass = "Wanderer"
+                        , bestiary = Set.empty
+                        , screen = Playing
+                      }
+                    , Cmd.none
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
 
         ToggleSheet ->
             ( { model | showSheet = not model.showSheet }, Cmd.none )
@@ -233,12 +261,15 @@ runGame gm model =
                     history =
                         List.take maxHistory (run :: model.history)
                 in
-                ( { base | history = history }
-                , Storage.save storageKey (encodeHistory history)
+                ( { base | history = history, resumeSave = Nothing }
+                , Cmd.batch
+                    [ Storage.save storageKey (encodeHistory history)
+                    , Storage.save saveKey ""
+                    ]
                 )
 
             else
-                ( base, Cmd.none )
+                ( base, Storage.save saveKey (encodeSave model.modName nextGame) )
 
 
 {-| Route a keypress: overlays and the targeting cursor capture keys first; otherwise it's a normal
@@ -354,6 +385,91 @@ parseHistory stored =
             text
                 |> String.split "\n"
                 |> List.filterMap parseRun
+
+
+{-| The in-progress run, as a single delimited line: `mod|depth|hp|maxHp|dmg|def|gold|lvl|xp|nut|fov|
+glyph|color|weapon|armour|ring|inv,ids|known,ids|seed`. Gear/inventory are stored by item id and
+re-resolved against the ruleset on load. -}
+encodeSave : String -> Game -> String
+encodeSave modName game =
+    let
+        hero =
+            game.hero
+
+        idOr dash maybe =
+            Maybe.map .id maybe |> Maybe.withDefault dash
+    in
+    String.join "|"
+        [ modName
+        , String.fromInt game.depth
+        , String.fromInt hero.hp
+        , String.fromInt hero.maxHp
+        , String.fromInt hero.damage
+        , String.fromInt hero.defense
+        , String.fromInt hero.gold
+        , String.fromInt hero.level
+        , String.fromInt hero.xp
+        , String.fromInt hero.nutrition
+        , String.fromInt hero.fovRadius
+        , hero.glyph
+        , hero.color
+        , idOr "-" hero.weapon
+        , idOr "-" hero.armour
+        , idOr "-" hero.ring
+        , String.join "," (List.map .id hero.inventory)
+        , String.join "," (Game.knownItemIds game)
+        , String.fromInt (game.turn + game.depth * 1009 + 777)
+        ]
+
+
+decodeSave : Maybe String -> Maybe ( String, Game.SaveData )
+decodeSave stored =
+    case stored of
+        Just text ->
+            case String.split "|" text of
+                [ m, d, hp, mhp, dmg, df, gold, lvl, xp, nut, fov, glyph, color, w, a, r, inv, known, sd ] ->
+                    let
+                        int s =
+                            String.toInt s |> Maybe.withDefault 0
+
+                        optId s =
+                            if s == "-" || s == "" then
+                                Nothing
+
+                            else
+                                Just s
+
+                        ids s =
+                            String.split "," s |> List.filter (\x -> x /= "")
+                    in
+                    Just
+                        ( m
+                        , { depth = int d
+                          , hp = int hp
+                          , maxHp = int mhp
+                          , damage = int dmg
+                          , defense = int df
+                          , gold = int gold
+                          , level = int lvl
+                          , xp = int xp
+                          , nutrition = int nut
+                          , fovRadius = int fov
+                          , glyph = glyph
+                          , color = color
+                          , weaponId = optId w
+                          , armourId = optId a
+                          , ringId = optId r
+                          , inventoryIds = ids inv
+                          , knownIds = ids known
+                          , seed = int sd
+                          }
+                        )
+
+                _ ->
+                    Nothing
+
+        Nothing ->
+            Nothing
 
 
 parseRun : String -> Maybe Run
@@ -642,12 +758,36 @@ classSelectView model =
         ]
         [ Html.div [ HA.style "text-align" "center", HA.style "font-size" "16px", HA.style "color" "#9aa7ba" ]
             [ Html.text ("Choose your class — " ++ model.modName ++ " mod") ]
+        , continueRow model
         , seedRow model
         , Html.div
             [ HA.style "display" "flex", HA.style "gap" "14px", HA.style "flex-wrap" "wrap", HA.style "justify-content" "center" ]
             (List.map classCard (rulesetNamed model.modName).classes)
         , historyView model.history
         ]
+
+
+{-| A "Continue" banner offering to resume the saved in-progress run, if one exists. -}
+continueRow : Model -> Html Msg
+continueRow model =
+    case model.resumeSave of
+        Just ( savedMod, save ) ->
+            Html.div [ HA.style "display" "flex", HA.style "justify-content" "center" ]
+                [ Html.button
+                    [ onClick Continue
+                    , HA.style "font" "inherit"
+                    , HA.style "cursor" "pointer"
+                    , HA.style "padding" "9px 18px"
+                    , HA.style "border-radius" "8px"
+                    , HA.style "border" "1px solid #3f7a4f"
+                    , HA.style "background" "#16361f"
+                    , HA.style "color" "#9be08a"
+                    ]
+                    [ Html.text ("▶ Continue saved run — depth " ++ String.fromInt save.depth ++ " (" ++ savedMod ++ ")") ]
+                ]
+
+        Nothing ->
+            Html.text ""
 
 
 seedRow : Model -> Html Msg
