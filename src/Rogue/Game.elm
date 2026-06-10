@@ -108,7 +108,7 @@ equipBonus field maybeItem =
         Just item ->
             case item.kind of
                 Content.Equipment _ bonus ->
-                    field bonus
+                    field bonus + bonus.plus
 
                 _ ->
                     0
@@ -906,6 +906,9 @@ applyEffect def game =
             { game | idents = { idents | known = Set.union idents.known (Set.fromList allPotions) } }
                 |> addLog "You read the scroll. All potions are now familiar."
 
+        UpgradeGear ->
+            upgradeGear game
+
 
 effectOf : ItemDef -> ItemEffect
 effectOf def =
@@ -915,6 +918,40 @@ effectOf def =
 
         _ ->
             HealHp 0
+
+
+{-| A scroll of upgrade enchants the worn weapon (or, lacking one, the worn armour): +1 to its
+enchantment level, which `equipBonus` folds into the relevant stat. -}
+upgradeGear : Game -> Game
+upgradeGear game =
+    let
+        hero =
+            game.hero
+    in
+    case hero.weapon of
+        Just w ->
+            { game | hero = { hero | weapon = Just (enchant w) } }
+                |> addLog ("Your " ++ w.name ++ " glows — it is upgraded!")
+
+        Nothing ->
+            case hero.armour of
+                Just a ->
+                    { game | hero = { hero | armour = Just (enchant a) } }
+                        |> addLog ("Your " ++ a.name ++ " glows — it is upgraded!")
+
+                Nothing ->
+                    addLog "You read the scroll, but have nothing equipped to upgrade." game
+
+
+{-| Return a copy of an equipment item with its enchantment level raised by one. -}
+enchant : ItemDef -> ItemDef
+enchant item =
+    case item.kind of
+        Content.Equipment slot bonus ->
+            { item | kind = Content.Equipment slot { bonus | plus = bonus.plus + 1 } }
+
+        _ ->
+            item
 
 
 
@@ -966,6 +1003,13 @@ displayName idents def =
     case def.kind of
         Content.Wand spec ->
             def.name ++ " (" ++ String.fromInt spec.charges ++ ")"
+
+        Content.Equipment _ bonus ->
+            if bonus.plus > 0 then
+                def.name ++ " +" ++ String.fromInt bonus.plus
+
+            else
+                def.name
 
         _ ->
             if not (isPotion def) || Set.member def.id idents.known then
@@ -1648,14 +1692,24 @@ enemyGlyph enemy =
     }
 
 
-{-| A HUD label for an equipped slot: the item's name (or a dash) plus the resulting total stat. -}
+{-| A HUD label for an equipped slot: the item's name (with enchant level, or a dash) plus the
+resulting total stat. -}
 equippedName : Maybe ItemDef -> Int -> String -> String
 equippedName maybeItem total label =
     let
         prefix =
             case maybeItem of
                 Just item ->
-                    item.name
+                    case item.kind of
+                        Content.Equipment _ bonus ->
+                            if bonus.plus > 0 then
+                                item.name ++ " +" ++ String.fromInt bonus.plus
+
+                            else
+                                item.name
+
+                        _ ->
+                            item.name
 
                 Nothing ->
                     "—"

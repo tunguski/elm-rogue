@@ -76,6 +76,7 @@ type ItemEffect
     | TeleportSelf
     | MagicMap
     | IdentifyAll
+    | UpgradeGear
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -89,6 +90,7 @@ type alias EquipBonus =
     { damage : Int
     , defense : Int
     , maxHp : Int
+    , plus : Int
     }
 
 

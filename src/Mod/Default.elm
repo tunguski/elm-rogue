@@ -52,6 +52,7 @@ ruleset =
         , scrollOfTeleport
         , scrollOfMagicMapping
         , scrollOfIdentify
+        , scrollOfUpgrade
         , wandMagicMissile
         , ironKey
         , amulet
@@ -450,7 +451,7 @@ dagger =
     , name = "dagger"
     , glyph = "/"
     , color = "#b9c2d0"
-    , kind = Equipment WeaponSlot { damage = 2, defense = 0, maxHp = 0 }
+    , kind = Equipment WeaponSlot { damage = 2, defense = 0, maxHp = 0, plus = 0 }
     , minDepth = 1
     , maxDepth = 4
     , spawnWeight = 6
@@ -463,7 +464,7 @@ shortSword =
     , name = "short sword"
     , glyph = "/"
     , color = "#d6deea"
-    , kind = Equipment WeaponSlot { damage = 4, defense = 0, maxHp = 0 }
+    , kind = Equipment WeaponSlot { damage = 4, defense = 0, maxHp = 0, plus = 0 }
     , minDepth = 2
     , maxDepth = 6
     , spawnWeight = 5
@@ -476,7 +477,7 @@ mace =
     , name = "mace"
     , glyph = "/"
     , color = "#e8b06a"
-    , kind = Equipment WeaponSlot { damage = 6, defense = 0, maxHp = 0 }
+    , kind = Equipment WeaponSlot { damage = 6, defense = 0, maxHp = 0, plus = 0 }
     , minDepth = 4
     , maxDepth = 99
     , spawnWeight = 4
@@ -489,7 +490,7 @@ leatherArmour =
     , name = "leather armour"
     , glyph = "["
     , color = "#b08968"
-    , kind = Equipment ArmourSlot { damage = 0, defense = 1, maxHp = 0 }
+    , kind = Equipment ArmourSlot { damage = 0, defense = 1, maxHp = 0, plus = 0 }
     , minDepth = 1
     , maxDepth = 4
     , spawnWeight = 6
@@ -502,7 +503,7 @@ mailArmour =
     , name = "mail armour"
     , glyph = "["
     , color = "#9aa7ba"
-    , kind = Equipment ArmourSlot { damage = 0, defense = 3, maxHp = 0 }
+    , kind = Equipment ArmourSlot { damage = 0, defense = 3, maxHp = 0, plus = 0 }
     , minDepth = 3
     , maxDepth = 7
     , spawnWeight = 5
@@ -515,7 +516,7 @@ plateArmour =
     , name = "plate armour"
     , glyph = "["
     , color = "#cfd8e6"
-    , kind = Equipment ArmourSlot { damage = 0, defense = 5, maxHp = 0 }
+    , kind = Equipment ArmourSlot { damage = 0, defense = 5, maxHp = 0, plus = 0 }
     , minDepth = 5
     , maxDepth = 99
     , spawnWeight = 3
@@ -559,6 +560,19 @@ scrollOfIdentify =
     , glyph = "?"
     , color = "#f0c674"
     , kind = Consumable IdentifyAll
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 4
+    }
+
+
+scrollOfUpgrade : ItemDef
+scrollOfUpgrade =
+    { id = "scroll-upgrade"
+    , name = "scroll of upgrade"
+    , glyph = "?"
+    , color = "#ffd166"
+    , kind = Consumable UpgradeGear
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 4
