@@ -96,6 +96,20 @@ type alias ItemOnFloor =
     }
 
 
+{-| A floor hazard. Hidden until it triggers (you step on it) or you `Search` it out. -}
+type TrapKind
+    = DartTrap
+    | PoisonTrap
+    | TeleportTrap
+
+
+type alias Trap =
+    { pos : Pos
+    , kind : TrapKind
+    , revealed : Bool
+    }
+
+
 type alias Game =
     { ruleset : Ruleset
     , level : Level
@@ -103,6 +117,7 @@ type alias Game =
     , hero : Hero
     , enemies : List Enemy
     , items : List ItemOnFloor
+    , traps : List Trap
     , depth : Int
     , turn : Int
     , kills : Int
@@ -134,6 +149,7 @@ type Msg
     | Descend
     | Wait
     | Use Int
+    | Search
     | Restart
     | NoOp
 
@@ -201,8 +217,14 @@ enterLevel ruleset depth kills seed gen hero log =
         ( enemies, seed2 ) =
             spawnEnemies ruleset depth (List.take enemyCount shuffledSpots) seed1
 
+        itemCount =
+            Content.itemCountForDepth depth
+
         ( items, seed3 ) =
-            spawnItems ruleset depth (List.drop enemyCount shuffledSpots |> List.take (Content.itemCountForDepth depth)) seed2
+            spawnItems ruleset depth (List.drop enemyCount shuffledSpots |> List.take itemCount) seed2
+
+        ( traps, seed4 ) =
+            spawnTraps depth (List.drop (enemyCount + itemCount) shuffledSpots |> List.take (trapCountForDepth depth)) seed3
 
         vis =
             Fov.compute heroAt.fovRadius heroAt.pos gen.level
@@ -213,10 +235,11 @@ enterLevel ruleset depth kills seed gen hero log =
     , hero = heroAt
     , enemies = enemies
     , items = items
+    , traps = traps
     , depth = depth
     , turn = 0
     , kills = kills
-    , seed = seed3
+    , seed = seed4
     , visible = vis
     , explored = vis
     , log = log
@@ -266,6 +289,42 @@ spawnEnemies ruleset depth spots seed =
                 )
                 ( [], seed )
                 spots
+
+
+trapCountForDepth : Int -> Int
+trapCountForDepth depth =
+    min 6 (1 + depth)
+
+
+{-| Seed hidden traps on the given floor cells; their kind is rolled from the depth (teleport traps
+only appear deeper). Returns the traps and the advanced seed. -}
+spawnTraps : Int -> List Pos -> Seed -> ( List Trap, Seed )
+spawnTraps depth spots seed =
+    List.foldl
+        (\pos ( acc, s ) ->
+            let
+                ( kind, s2 ) =
+                    rollTrapKind depth s
+            in
+            ( { pos = pos, kind = kind, revealed = False } :: acc, s2 )
+        )
+        ( [], seed )
+        spots
+
+
+rollTrapKind : Int -> Seed -> ( TrapKind, Seed )
+rollTrapKind depth seed =
+    let
+        candidates =
+            [ ( 5, DartTrap ), ( 4, PoisonTrap ) ]
+                ++ (if depth >= 3 then
+                        [ ( 3, TeleportTrap ) ]
+
+                    else
+                        []
+                   )
+    in
+    Rng.pickWeighted DartTrap candidates seed
 
 
 {-| Drop a depth-appropriate, weight-chosen item on each of the given floor cells. -}
@@ -343,6 +402,9 @@ update msg game =
             Use index ->
                 tryUse index game
 
+            Search ->
+                endTurn (searchTraps game)
+
             Restart ->
                 -- The shell (Main) owns reseeding a new run; inside a game it's a no-op.
                 game
@@ -372,7 +434,7 @@ tryMove dir game =
                     moved =
                         { hero | pos = target }
                 in
-                endTurn (pickUp (refreshFov { game | hero = moved }))
+                endTurn (triggerTrap (pickUp (refreshFov { game | hero = moved })))
 
             else
                 game
@@ -541,6 +603,100 @@ effectOf def =
 
         _ ->
             HealHp 0
+
+
+
+-- TRAPS ------------------------------------------------------------------------------------------
+
+
+{-| If the hero is standing on a trap, spring it: remove it and apply its effect. Triggered whether or
+not it was revealed (you can deliberately walk onto a known trap, but usually you don't mean to). -}
+triggerTrap : Game -> Game
+triggerTrap game =
+    case listFind (\t -> t.pos == game.hero.pos) game.traps of
+        Nothing ->
+            game
+
+        Just trap ->
+            { game | traps = List.filter (\t -> t.pos /= trap.pos) game.traps }
+                |> trapEffect trap.kind
+
+
+trapEffect : TrapKind -> Game -> Game
+trapEffect kind game =
+    case kind of
+        DartTrap ->
+            let
+                ( dmg, s1 ) =
+                    Rng.range (game.depth + 1) (game.depth + 3) game.seed
+            in
+            checkHeroDeath (damageHero dmg { game | seed = s1 } |> addLog ("A dart shoots out! (" ++ String.fromInt dmg ++ ")"))
+
+        PoisonTrap ->
+            let
+                ( dmg, s1 ) =
+                    Rng.range game.depth (game.depth + 2) game.seed
+            in
+            checkHeroDeath (damageHero dmg { game | seed = s1 } |> addLog ("Poison gas hisses out! (" ++ String.fromInt dmg ++ ")"))
+
+        TeleportTrap ->
+            teleportHero game |> addLog "A teleport trap! You are flung across the floor."
+
+
+damageHero : Int -> Game -> Game
+damageHero dmg game =
+    let
+        hero =
+            game.hero
+    in
+    { game | hero = { hero | hp = hero.hp - dmg } }
+
+
+{-| Relocate the hero to a random passable cell (used by teleport traps) and refresh fog. -}
+teleportHero : Game -> Game
+teleportHero game =
+    let
+        spots =
+            List.filter (\p -> Level.isPassableAt p game.level && enemyAt p game == Nothing) (Level.positions game.level)
+
+        ( dest, s1 ) =
+            Rng.pick game.hero.pos spots game.seed
+
+        hero =
+            game.hero
+    in
+    refreshFov { game | hero = { hero | pos = dest }, seed = s1 }
+
+
+{-| Reveal every hidden trap in the hero's eight neighbouring cells (and under foot). -}
+searchTraps : Game -> Game
+searchTraps game =
+    let
+        near p =
+            Grid.chebyshev p game.hero.pos <= 1
+
+        revealed =
+            List.map
+                (\t ->
+                    if near t.pos then
+                        { t | revealed = True }
+
+                    else
+                        t
+                )
+                game.traps
+
+        found =
+            List.length (List.filter (\t -> near t.pos && not t.revealed) game.traps)
+    in
+    { game | traps = revealed }
+        |> addLog
+            (if found > 0 then
+                "You find " ++ String.fromInt found ++ " trap(s) nearby!"
+
+             else
+                "You search but find nothing."
+            )
 
 
 
@@ -780,7 +936,8 @@ toScene game =
     , visible = game.visible
     , explored = game.explored
     , glyphs =
-        List.map itemGlyph game.items
+        List.map trapGlyph (List.filter .revealed game.traps)
+            ++ List.map itemGlyph game.items
             ++ List.map enemyGlyph game.enemies
             ++ [ heroGlyph game ]
     , theme = Render.themeForDepth game.depth
@@ -859,5 +1016,15 @@ itemGlyph item =
     , char = item.def.glyph
     , color = item.def.color
     , layer = Render.layerItem
+    , heavy = False
+    }
+
+
+trapGlyph : Trap -> Render.Glyph
+trapGlyph trap =
+    { pos = trap.pos
+    , char = "^"
+    , color = "#e0824b"
+    , layer = Render.layerTerrain
     , heavy = False
     }
