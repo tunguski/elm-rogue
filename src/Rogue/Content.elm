@@ -55,6 +55,7 @@ type alias EnemyDef =
     , speed : Int
     , ranged : Int
     , ability : MonsterAbility
+    , boss : Bool
     , minDepth : Int
     , maxDepth : Int
     , spawnWeight : Int

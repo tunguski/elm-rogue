@@ -2089,22 +2089,81 @@ stepEnemy enemy ( done, acc ) =
     if not aware then
         ( woken :: done, acc )
 
-    else if dist == 1 then
-        case woken.def.ability of
-            Content.StealsGold amount ->
-                stealAndFlee woken amount done acc
-
-            _ ->
-                attackHero woken (enemy.def.name ++ " hits you") done acc
-
-    else if isFleeing woken then
-        moveEnemy enemy woken (stepAway enemy.pos heroPos acc.level acc.occupied) done acc
-
-    else if woken.def.ranged > 0 && dist <= woken.def.ranged && los then
-        attackHero woken (enemy.def.name ++ " shoots you") done acc
-
     else
-        moveEnemy enemy woken (Path.firstStep acc.level acc.occupied enemy.pos heroPos) done acc
+        let
+            -- A boss may summon a minion before acting (its unique arena mechanic).
+            ( done1, acc1 ) =
+                if woken.def.boss then
+                    trySummon woken done acc
+
+                else
+                    ( done, acc )
+        in
+        if dist == 1 then
+            case woken.def.ability of
+                Content.StealsGold amount ->
+                    stealAndFlee woken amount done1 acc1
+
+                _ ->
+                    attackHero woken (enemy.def.name ++ " hits you") done1 acc1
+
+        else if isFleeing woken then
+            moveEnemy enemy woken (stepAway enemy.pos heroPos acc1.level acc1.occupied) done1 acc1
+
+        else if woken.def.ranged > 0 && dist <= woken.def.ranged && los then
+            attackHero woken (enemy.def.name ++ " shoots you") done1 acc1
+
+        else
+            moveEnemy enemy woken (Path.firstStep acc1.level acc1.occupied enemy.pos heroPos) done1 acc1
+
+
+{-| A boss occasionally summons a weak minion onto a free adjacent cell. -}
+trySummon : Enemy -> List Enemy -> TurnAcc -> ( List Enemy, TurnAcc )
+trySummon boss done acc =
+    let
+        ( roll, seed1 ) =
+            Rng.int 100 acc.seed
+
+        free =
+            Grid.neighbors8 boss.pos
+                |> List.filter (\p -> Level.isPassableAt p acc.level && not (Set.member ( p.x, p.y ) acc.occupied))
+                |> List.head
+    in
+    case ( roll < 12, free ) of
+        ( True, Just spot ) ->
+            let
+                def =
+                    minionDef boss.def
+
+                minion =
+                    { def = def, pos = spot, hp = def.maxHp, alerted = True, fleeing = False, statuses = [] }
+            in
+            ( minion :: done
+            , { acc
+                | seed = seed1
+                , occupied = Set.insert ( spot.x, spot.y ) acc.occupied
+                , log = ("The " ++ boss.def.name ++ " summons a minion!") :: acc.log
+              }
+            )
+
+        _ ->
+            ( done, { acc | seed = seed1 } )
+
+
+{-| A weakened spawn derived from a boss. -}
+minionDef : EnemyDef -> EnemyDef
+minionDef bossDef =
+    { bossDef
+        | name = bossDef.name ++ " spawn"
+        , maxHp = max 4 (bossDef.maxHp // 6)
+        , damage = max 1 (bossDef.damage // 2)
+        , defense = 0
+        , ranged = 0
+        , ability = Content.NoAbility
+        , boss = False
+        , xp = 1
+        , glyph = String.toLower bossDef.glyph
+    }
 
 
 {-| A `Regenerates` monster heals a little at the start of its turn. -}
@@ -2136,17 +2195,25 @@ stealAndFlee enemy amount done acc =
     )
 
 
-{-| A monster flees when badly hurt, or when it has stolen and wants to escape. -}
+{-| A monster flees when badly hurt or after stealing — but bosses never flee, they fight to the end. -}
 isFleeing : Enemy -> Bool
 isFleeing enemy =
-    enemy.fleeing || enemy.hp * 4 < enemy.def.maxHp
+    not enemy.def.boss && (enemy.fleeing || enemy.hp * 4 < enemy.def.maxHp)
 
 
 attackHero : Enemy -> String -> List Enemy -> TurnAcc -> ( List Enemy, TurnAcc )
 attackHero enemy verb done acc =
     let
+        -- An enraged boss (below half HP) hits harder.
+        enrage =
+            if enemy.def.boss && enemy.hp * 2 < enemy.def.maxHp then
+                3
+
+            else
+                0
+
         ( dmg, seed1 ) =
-            rollDamage enemy.def.damage (heroDefense acc.hero) acc.seed
+            rollDamage (enemy.def.damage + enrage) (heroDefense acc.hero) acc.seed
 
         hero =
             acc.hero
