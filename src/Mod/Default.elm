@@ -661,7 +661,7 @@ wandMagicMissile =
     , name = "wand of magic missile"
     , glyph = "-"
     , color = "#82aaff"
-    , kind = Wand { damage = 5, charges = 4, maxCharges = 4 }
+    , kind = Wand { damage = 5, charges = 4, maxCharges = 4, burns = False }
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 4
@@ -674,7 +674,7 @@ wandFirebolt =
     , name = "wand of firebolt"
     , glyph = "-"
     , color = "#ff7a3c"
-    , kind = Wand { damage = 9, charges = 3, maxCharges = 3 }
+    , kind = Wand { damage = 9, charges = 3, maxCharges = 3, burns = True }
     , minDepth = 3
     , maxDepth = 99
     , spawnWeight = 3
@@ -687,7 +687,7 @@ wandLightning =
     , name = "wand of lightning"
     , glyph = "-"
     , color = "#9be0ff"
-    , kind = Wand { damage = 7, charges = 4, maxCharges = 4 }
+    , kind = Wand { damage = 7, charges = 4, maxCharges = 4, burns = False }
     , minDepth = 4
     , maxDepth = 99
     , spawnWeight = 3

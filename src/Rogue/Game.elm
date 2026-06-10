@@ -153,6 +153,7 @@ type alias Enemy =
     , hp : Int
     , alerted : Bool
     , fleeing : Bool
+    , statuses : List Status
     }
 
 
@@ -394,7 +395,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
         bossEnemy =
             case Content.bossForDepth depth ruleset of
                 Just def ->
-                    [ { def = def, pos = bossSpot gen, hp = def.maxHp, alerted = False, fleeing = False } ]
+                    [ { def = def, pos = bossSpot gen, hp = def.maxHp, alerted = False, fleeing = False, statuses = [] } ]
 
                 Nothing ->
                     []
@@ -484,7 +485,7 @@ spawnEnemies ruleset depth spots seed =
                         ( def, s2 ) =
                             Rng.pickWeighted firstDef candidates s
                     in
-                    ( { def = def, pos = pos, hp = def.maxHp, alerted = False, fleeing = False } :: acc, s2 )
+                    ( { def = def, pos = pos, hp = def.maxHp, alerted = False, fleeing = False, statuses = [] } :: acc, s2 )
                 )
                 ( [], seed )
                 spots
@@ -1160,7 +1161,24 @@ zapWand index spec game =
                                 |> gainXp target.def.xp
 
                         else
-                            { game | enemies = updateEnemyAt target.pos (\e -> { e | hp = e.hp - dmg, alerted = True }) game.enemies, seed = seed1 }
+                            { game
+                                | enemies =
+                                    updateEnemyAt target.pos
+                                        (\e ->
+                                            { e
+                                                | hp = e.hp - dmg
+                                                , alerted = True
+                                                , statuses =
+                                                    if spec.burns then
+                                                        addEnemyStatus Burn 2 3 e.statuses
+
+                                                    else
+                                                        e.statuses
+                                            }
+                                        )
+                                        game.enemies
+                                , seed = seed1
+                            }
                                 |> addLog ("Your bolt hits the " ++ target.def.name ++ " (" ++ String.fromInt dmg ++ ").")
                                 |> addPopup target.pos (String.fromInt dmg) "#82aaff"
 
@@ -1701,7 +1719,7 @@ maybeSplit parent parentHp game =
                         max 1 (parentHp // 2)
 
                     child =
-                        { def = parent.def, pos = spot, hp = childHp, alerted = True, fleeing = False }
+                        { def = parent.def, pos = spot, hp = childHp, alerted = True, fleeing = False, statuses = [] }
                 in
                 { game
                     | enemies =
@@ -1979,8 +1997,11 @@ endTurn game =
             else
                 1
 
+        afterEnemyDot =
+            tickEnemyStatuses bumped
+
         afterMonsters =
-            applyTimes enemyPhases enemiesTurn bumped
+            applyTimes enemyPhases enemiesTurn afterEnemyDot
 
         afterPerception =
             passivePerception afterMonsters
@@ -2063,12 +2084,68 @@ maybeWander game =
 
                 else
                     { game
-                        | enemies = { def = def, pos = spot, hp = def.maxHp, alerted = False, fleeing = False } :: game.enemies
+                        | enemies = { def = def, pos = spot, hp = def.maxHp, alerted = False, fleeing = False, statuses = [] } :: game.enemies
                         , seed = s2
                     }
 
             _ ->
                 game
+
+
+{-| Add or refresh a status on a monster (mirrors the hero's `addStatus`). -}
+addEnemyStatus : StatusKind -> Int -> Int -> List Status -> List Status
+addEnemyStatus kind magnitude turns statuses =
+    { kind = kind, magnitude = magnitude, turns = turns } :: List.filter (\s -> s.kind /= kind) statuses
+
+
+{-| Tick every monster's damage-over-time (burn/poison): apply the damage, count down the statuses,
+remove any monster it kills (awarding XP and a popup). -}
+tickEnemyStatuses : Game -> Game
+tickEnemyStatuses game =
+    let
+        step e ( alive, killXp, killN, pops, logs ) =
+            let
+                dot =
+                    e.statuses
+                        |> List.filter (\s -> s.kind == Burn || s.kind == Poison)
+                        |> List.map .magnitude
+                        |> List.sum
+
+                ticked =
+                    e.statuses |> List.map (\s -> { s | turns = s.turns - 1 }) |> List.filter (\s -> s.turns > 0)
+
+                newHp =
+                    e.hp - dot
+            in
+            if dot > 0 && newHp <= 0 then
+                ( alive
+                , killXp + e.def.xp
+                , killN + 1
+                , { pos = e.pos, text = String.fromInt dot, color = "#ff7a3c" } :: pops
+                , ("The " ++ e.def.name ++ " succumbs.") :: logs
+                )
+
+            else if dot > 0 then
+                ( { e | hp = newHp, statuses = ticked } :: alive
+                , killXp
+                , killN
+                , { pos = e.pos, text = String.fromInt dot, color = "#ff7a3c" } :: pops
+                , logs
+                )
+
+            else
+                ( { e | statuses = ticked } :: alive, killXp, killN, pops, logs )
+
+        ( survivors, xp, n, popups, logs ) =
+            List.foldl step ( [], 0, 0, [], [] ) game.enemies
+    in
+    { game
+        | enemies = List.reverse survivors
+        , kills = game.kills + n
+        , popups = popups ++ game.popups
+        , log = logs ++ game.log
+    }
+        |> gainXp xp
 
 
 applyTimes : Int -> (a -> a) -> a -> a

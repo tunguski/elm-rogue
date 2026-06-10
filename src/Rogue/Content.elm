@@ -115,6 +115,7 @@ type alias WandSpec =
     { damage : Int
     , charges : Int
     , maxCharges : Int
+    , burns : Bool
     }
 
 
