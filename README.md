@@ -1,4 +1,4 @@
-# elm-rouge — a moddable roguelike in Elm
+# elm-rogue — a moddable roguelike in Elm
 
 A turn-based, grid dungeon crawler in the spirit of
 [Shattered Pixel Dungeon](https://github.com/00-Evan/shattered-pixel-dungeon), written for the
@@ -15,8 +15,8 @@ names SVG, ASCII, a specific monster or a specific potion — it reads everythin
 Build a standalone HTML file with the elm-lang CLI and open it:
 
 ```sh
-ELM=../../elm.sh ./build.sh          # or: elm make src/Main.elm --project=elm.json -o build/elm-rouge.html --no-check
-# then open build/elm-rouge.html
+ELM=../../elm.sh ./build.sh          # or: elm make src/Main.elm --project=elm.json -o build/elm-rogue.html --no-check
+# then open build/elm-rogue.html
 ```
 
 **Controls** — arrows / `WASD` / `HJKL` to move, `Y U B N` for diagonals, `.` to wait, `>` to

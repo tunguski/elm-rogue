@@ -82,7 +82,7 @@ startSeed =
 
 storageKey : String
 storageKey =
-    "elm-rouge-history"
+    "elm-rogue-history"
 
 
 maxHistory : Int
@@ -467,7 +467,7 @@ toolbar model =
         , HA.style "align-items" "center"
         , HA.style "flex-wrap" "wrap"
         ]
-        [ Html.div [ HA.style "font-size" "20px", HA.style "font-weight" "800", HA.style "letter-spacing" "1px" ] [ Html.text "elm-rouge" ]
+        [ Html.div [ HA.style "font-size" "20px", HA.style "font-weight" "800", HA.style "letter-spacing" "1px" ] [ Html.text "elm-rogue" ]
         , chipGroup "Mod" (List.map Tuple.first mods) model.modName SelectMod
         , chipGroup "Renderer" (List.map Tuple.first renderers) model.rendererName SelectRenderer
         ]

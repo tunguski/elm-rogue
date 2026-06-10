@@ -1,11 +1,11 @@
-# elm-rouge — performance notes & optimization analysis
+# elm-rogue — performance notes & optimization analysis
 
 How to keep rendering seamless and the game fast even on slow machines. This documents what the code
 already does, what was changed in the M41 pass, and the highest-value work still on the table.
 
 ## The shape of the problem
 
-elm-rouge is **turn-based**, so it only re-renders in response to a keypress — there is no
+elm-rogue is **turn-based**, so it only re-renders in response to a keypress — there is no
 per-frame animation loop and no idle CPU use. The cost that matters is therefore **per-keypress
 latency**, which is:
 

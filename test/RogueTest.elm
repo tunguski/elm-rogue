@@ -1,6 +1,6 @@
 module RogueTest exposing (suite)
 
-{-| The elm-rouge test suite: pure, browser-free checks of the deterministic engine. Run with
+{-| The elm-rogue test suite: pure, browser-free checks of the deterministic engine. Run with
 
     elm test test/RogueTest.elm \
       src/Rogue/Rng.elm src/Rogue/Grid.elm src/Rogue/Tile.elm src/Rogue/Level.elm \
@@ -28,7 +28,7 @@ import Test exposing (Test, describe, fuzz, test)
 
 suite : Test
 suite =
-    describe "elm-rouge"
+    describe "elm-rogue"
         [ rngTests
         , gridTests
         , levelTests

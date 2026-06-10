@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# test.sh — run the elm-rouge headless test suite (pure engine checks: RNG, grid, level, dungeon
+# test.sh — run the elm-rogue headless test suite (pure engine checks: RNG, grid, level, dungeon
 # connectivity, newGame). The runner needs the test file plus every source module it touches.
 #
 #   ELM=../../elm.sh ./test.sh

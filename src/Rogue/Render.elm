@@ -96,7 +96,7 @@ type alias Hud =
 
 emptyHud : Hud
 emptyHud =
-    { title = "elm-rouge"
+    { title = "elm-rogue"
     , region = ""
     , level = 1
     , xp = 0
