@@ -26,6 +26,7 @@ Milestones 4–6: hero movement, the turn counter, fog of war and a data-driven 
 Combat and AI arrive in M7.
 -}
 
+import Dict exposing (Dict)
 import Rogue.Content as Content exposing (EnemyDef, ItemDef, ItemEffect(..), Ruleset)
 import Rogue.Dungeon as Dungeon exposing (Generated, Room)
 import Rogue.Fov as Fov
@@ -147,6 +148,21 @@ type alias Trap =
     }
 
 
+{-| Per-run identification of potions. `looks` maps each potion id to the random appearance it wears
+this run (e.g. "murky"); `known` is the set of potion ids the hero has identified by drinking. An
+unknown potion shows its appearance; a known one shows its true name. -}
+type alias Idents =
+    { known : Set String
+    , looks : Dict String Appearance
+    }
+
+
+type alias Appearance =
+    { adjective : String
+    , color : String
+    }
+
+
 type alias Game =
     { ruleset : Ruleset
     , level : Level
@@ -155,6 +171,7 @@ type alias Game =
     , enemies : List Enemy
     , items : List ItemOnFloor
     , traps : List Trap
+    , idents : Idents
     , depth : Int
     , turn : Int
     , kills : Int
@@ -223,7 +240,14 @@ newGame ruleset class rawSeed =
             , xp = 0
             }
     in
-    enterLevel ruleset 1 0 gen.seed gen hero [ "You enter the dungeon as " ++ withArticle class.name ++ "." ]
+    let
+        ( looks, seedA ) =
+            assignLooks ruleset gen.seed
+
+        idents =
+            { known = Set.empty, looks = looks }
+    in
+    enterLevel ruleset 1 0 idents seedA gen hero [ "You enter the dungeon as " ++ withArticle class.name ++ "." ]
 
 
 withArticle : String -> String
@@ -241,8 +265,8 @@ withArticle word =
 
 {-| Place the hero on a freshly generated level, spawn its monster population, recompute fog, and keep
 the carried-over hero, kill count and log. Shared by `newGame` and descending. -}
-enterLevel : Ruleset -> Int -> Int -> Seed -> Generated -> Hero -> List String -> Game
-enterLevel ruleset depth kills seed gen hero log =
+enterLevel : Ruleset -> Int -> Int -> Idents -> Seed -> Generated -> Hero -> List String -> Game
+enterLevel ruleset depth kills idents seed gen hero log =
     let
         heroAt =
             { hero | pos = gen.stairsUp }
@@ -276,6 +300,7 @@ enterLevel ruleset depth kills seed gen hero log =
     , enemies = enemies
     , items = items
     , traps = traps
+    , idents = idents
     , depth = depth
     , turn = 0
     , kills = kills
@@ -493,6 +518,7 @@ tryDescend game =
         enterLevel game.ruleset
             (game.depth + 1)
             game.kills
+            game.idents
             nextSeedB
             gen
             game.hero
@@ -534,7 +560,7 @@ pickUpOne it game =
                     game.hero
             in
             { game | hero = { hero | inventory = hero.inventory ++ [ it.def ] } }
-                |> addLog ("You pick up a " ++ it.def.name ++ ".")
+                |> addLog ("You pick up a " ++ displayName game.idents it.def ++ ".")
 
 
 {-| Use the inventory item at `index` (0-based): drink a consumable (apply effect, remove it) or wear
@@ -551,7 +577,7 @@ tryUse index game =
                 Content.Consumable _ ->
                     let
                         applied =
-                            applyEffect def game
+                            identify def (applyEffect def game)
 
                         hero =
                             applied.hero
@@ -608,27 +634,30 @@ applyEffect def game =
     let
         hero =
             game.hero
+
+        name =
+            displayName game.idents def
     in
     case effectOf def of
         HealHp n ->
             { game | hero = { hero | hp = min hero.maxHp (hero.hp + n) } }
-                |> addLog ("You drink the " ++ def.name ++ ". (+" ++ String.fromInt n ++ " HP)")
+                |> addLog ("You drink the " ++ name ++ ". (+" ++ String.fromInt n ++ " HP)")
 
         HealFull ->
             { game | hero = { hero | hp = hero.maxHp } }
-                |> addLog ("You drink the " ++ def.name ++ ". You feel restored.")
+                |> addLog ("You drink the " ++ name ++ ". You feel restored.")
 
         MaxHpBonus n ->
             { game | hero = { hero | maxHp = hero.maxHp + n, hp = hero.hp + n } }
-                |> addLog ("You drink the " ++ def.name ++ ". (+" ++ String.fromInt n ++ " max HP)")
+                |> addLog ("You drink the " ++ name ++ ". (+" ++ String.fromInt n ++ " max HP)")
 
         DamageBonus n ->
             { game | hero = { hero | damage = hero.damage + n } }
-                |> addLog ("You drink the " ++ def.name ++ ". You feel stronger.")
+                |> addLog ("You drink the " ++ name ++ ". You feel stronger.")
 
         DefenseBonus n ->
             { game | hero = { hero | defense = hero.defense + n } }
-                |> addLog ("You drink the " ++ def.name ++ ". Your skin hardens.")
+                |> addLog ("You drink the " ++ name ++ ". Your skin hardens.")
 
         Gold amount ->
             { game | hero = { hero | gold = hero.gold + amount } }
@@ -636,7 +665,7 @@ applyEffect def game =
 
         Regenerate perTurn turns ->
             addStatus Regen perTurn turns game
-                |> addLog ("You drink the " ++ def.name ++ ". You begin to mend.")
+                |> addLog ("You drink the " ++ name ++ ". You begin to mend.")
 
 
 effectOf : ItemDef -> ItemEffect
@@ -647,6 +676,94 @@ effectOf def =
 
         _ ->
             HealHp 0
+
+
+
+-- IDENTIFICATION ---------------------------------------------------------------------------------
+
+
+{-| The pool of random looks an unidentified potion can wear this run. -}
+palette : List Appearance
+palette =
+    [ { adjective = "murky", color = "#7f8b6a" }
+    , { adjective = "azure", color = "#4f8bff" }
+    , { adjective = "crimson", color = "#e0564b" }
+    , { adjective = "fizzy", color = "#5dd47a" }
+    , { adjective = "golden", color = "#d8b24c" }
+    , { adjective = "violet", color = "#9b6ad8" }
+    , { adjective = "smoky", color = "#9aa7ba" }
+    , { adjective = "amber", color = "#e0824b" }
+    ]
+
+
+{-| Is this item a potion (and so subject to identification)? -}
+isPotion : ItemDef -> Bool
+isPotion def =
+    case def.kind of
+        Content.Consumable _ ->
+            String.startsWith "potion" def.id
+
+        _ ->
+            False
+
+
+{-| Assign each potion id a distinct random appearance for the run. -}
+assignLooks : Ruleset -> Seed -> ( Dict String Appearance, Seed )
+assignLooks ruleset seed =
+    let
+        potionIds =
+            ruleset.items |> List.filter isPotion |> List.map .id
+
+        ( shuffled, seed1 ) =
+            Rng.shuffle palette seed
+    in
+    ( Dict.fromList (List.map2 Tuple.pair potionIds shuffled), seed1 )
+
+
+{-| The name to show for an item: its true name once identified (or if not a potion), else its random
+"<adjective> potion" appearance. -}
+displayName : Idents -> ItemDef -> String
+displayName idents def =
+    if not (isPotion def) || Set.member def.id idents.known then
+        def.name
+
+    else
+        case Dict.get def.id idents.looks of
+            Just look ->
+                look.adjective ++ " potion"
+
+            Nothing ->
+                "potion"
+
+
+{-| The colour to draw an item with: true colour once identified, else its appearance colour. -}
+displayColor : Idents -> ItemDef -> String
+displayColor idents def =
+    if not (isPotion def) || Set.member def.id idents.known then
+        def.color
+
+    else
+        case Dict.get def.id idents.looks of
+            Just look ->
+                look.color
+
+            Nothing ->
+                def.color
+
+
+{-| Mark a potion identified (after drinking), announcing what it was if newly learned. -}
+identify : ItemDef -> Game -> Game
+identify def game =
+    if isPotion def && not (Set.member def.id game.idents.known) then
+        let
+            idents =
+                game.idents
+        in
+        { game | idents = { idents | known = Set.insert def.id idents.known } }
+            |> addLog ("It was a " ++ def.name ++ "!")
+
+    else
+        game
 
 
 
@@ -1104,7 +1221,7 @@ toScene game =
     , explored = game.explored
     , glyphs =
         List.map trapGlyph (List.filter .revealed game.traps)
-            ++ List.map itemGlyph game.items
+            ++ List.map (itemGlyph game.idents) game.items
             ++ List.map enemyGlyph game.enemies
             ++ [ heroGlyph game ]
     , theme = Render.themeForDepth game.depth
@@ -1122,7 +1239,7 @@ toScene game =
         , weapon = equippedName game.hero.weapon (heroDamage game.hero) "dmg"
         , armour = equippedName game.hero.armour (heroDefense game.hero) "def"
         , statuses = List.map statusLabel game.hero.statuses
-        , inventory = List.map .name game.hero.inventory
+        , inventory = List.map (displayName game.idents) game.hero.inventory
         , log = List.take 7 game.log
         , gameOver = game.gameOver
         , won = game.won
@@ -1181,11 +1298,11 @@ equippedName maybeItem total label =
     prefix ++ " (" ++ label ++ " " ++ String.fromInt total ++ ")"
 
 
-itemGlyph : ItemOnFloor -> Render.Glyph
-itemGlyph item =
+itemGlyph : Idents -> ItemOnFloor -> Render.Glyph
+itemGlyph idents item =
     { pos = item.pos
     , char = item.def.glyph
-    , color = item.def.color
+    , color = displayColor idents item.def
     , layer = Render.layerItem
     , heavy = False
     }
