@@ -304,6 +304,21 @@ enterLevel ruleset depth kills idents seed gen hero log =
         ( featureEnemies, featureItems, seed6 ) =
             spawnFeatures ruleset depth gen.features seed5
 
+        bossEnemy =
+            case Content.bossForDepth depth ruleset of
+                Just def ->
+                    [ { def = def, pos = bossSpot gen, hp = def.maxHp, alerted = False, fleeing = False } ]
+
+                Nothing ->
+                    []
+
+        bossLog =
+            if List.isEmpty bossEnemy then
+                log
+
+            else
+                "A powerful presence guards this floor!" :: log
+
         vis =
             Fov.compute heroAt.fovRadius heroAt.pos gen.level
     in
@@ -311,7 +326,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , level = gen.level
     , rooms = gen.rooms
     , hero = heroAt
-    , enemies = enemies ++ featureEnemies
+    , enemies = enemies ++ featureEnemies ++ bossEnemy
     , items = items ++ vaultItems ++ featureItems
     , traps = traps
     , idents = idents
@@ -321,7 +336,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , seed = seed6
     , visible = vis
     , explored = vis
-    , log = log
+    , log = bossLog
     , stairsDown = gen.stairsDown
     , stairsUp = gen.stairsUp
     , gameOver = False
@@ -404,6 +419,16 @@ rollTrapKind depth seed =
                    )
     in
     Rng.pickWeighted DartTrap candidates seed
+
+
+{-| Where the floor's boss stands: a passable cell beside the down-stairs (so it guards the descent),
+falling back to the stairs themselves. -}
+bossSpot : Generated -> Pos
+bossSpot gen =
+    Grid.neighbors8 gen.stairsDown
+        |> List.filter (\p -> Level.isPassableAt p gen.level && p /= gen.stairsUp)
+        |> List.head
+        |> Maybe.withDefault gen.stairsDown
 
 
 {-| Populate the tagged special rooms: a treasure room gets extra loot, a nest gets an extra monster

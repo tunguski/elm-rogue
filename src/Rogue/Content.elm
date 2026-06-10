@@ -10,6 +10,7 @@ module Rogue.Content exposing
     , Ruleset
     , HeroDef
     , enemiesForDepth
+    , bossForDepth
     , itemsForDepth
     , spawnCountForDepth
     , itemCountForDepth
@@ -160,6 +161,7 @@ type alias Ruleset =
     , hero : HeroDef
     , classes : List ClassDef
     , enemies : List EnemyDef
+    , bosses : List EnemyDef
     , items : List ItemDef
     }
 
@@ -171,6 +173,12 @@ enemiesForDepth depth ruleset =
     ruleset.enemies
         |> List.filter (\e -> depth >= e.minDepth && depth <= e.maxDepth)
         |> List.map (\e -> ( e.spawnWeight, e ))
+
+
+{-| The boss guarding this depth, if any (its depth band must contain `depth`). -}
+bossForDepth : Int -> Ruleset -> Maybe EnemyDef
+bossForDepth depth ruleset =
+    findHelp (\b -> depth >= b.minDepth && depth <= b.maxDepth) ruleset.bosses
 
 
 {-| The item archetypes eligible at a given depth, paired with spawn weight (for `pickWeighted`). -}

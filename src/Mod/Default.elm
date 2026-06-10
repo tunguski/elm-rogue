@@ -32,6 +32,10 @@ ruleset =
         , thief
         , gnollBrute
         ]
+    , bosses =
+        [ gnollWarlord
+        , spiderQueen
+        ]
     , items =
         [ healingPotion
         , greaterHealingPotion
@@ -308,6 +312,48 @@ gnollBrute =
     , maxDepth = 8
     , spawnWeight = 4
     , xp = 7
+    }
+
+
+
+-- BOSSES -----------------------------------------------------------------------------------------
+
+
+gnollWarlord : EnemyDef
+gnollWarlord =
+    { id = "gnoll-warlord"
+    , name = "Gnoll Warlord"
+    , glyph = "W"
+    , color = "#e0a83c"
+    , maxHp = 60
+    , damage = 9
+    , defense = 3
+    , speed = 1
+    , ranged = 0
+    , ability = Regenerates 2
+    , minDepth = 4
+    , maxDepth = 4
+    , spawnWeight = 0
+    , xp = 30
+    }
+
+
+spiderQueen : EnemyDef
+spiderQueen =
+    { id = "spider-queen"
+    , name = "Spider Queen"
+    , glyph = "M"
+    , color = "#b06ad8"
+    , maxHp = 90
+    , damage = 12
+    , defense = 4
+    , speed = 1
+    , ranged = 3
+    , ability = Splits
+    , minDepth = 7
+    , maxDepth = 7
+    , spawnWeight = 0
+    , xp = 60
     }
 
 
