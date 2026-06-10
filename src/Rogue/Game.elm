@@ -484,11 +484,38 @@ spawnEnemies ruleset depth spots seed =
                     let
                         ( def, s2 ) =
                             Rng.pickWeighted firstDef candidates s
+
+                        ( edef, s3 ) =
+                            maybeElite depth def s2
                     in
-                    ( { def = def, pos = pos, hp = def.maxHp, alerted = False, fleeing = False, statuses = [] } :: acc, s2 )
+                    ( { def = edef, pos = pos, hp = edef.maxHp, alerted = False, fleeing = False, statuses = [] } :: acc, s3 )
                 )
                 ( [], seed )
                 spots
+
+
+{-| Now and then (more often deeper) a monster is promoted to an **elite**: roughly double HP, harder
+hits, tougher hide and triple XP, marked with a golden tint and an "elite" name. -}
+maybeElite : Int -> EnemyDef -> Seed -> ( EnemyDef, Seed )
+maybeElite depth def seed =
+    let
+        ( roll, seed1 ) =
+            Rng.int 100 seed
+    in
+    if roll < (5 + depth) then
+        ( { def
+            | name = "elite " ++ def.name
+            , maxHp = def.maxHp * 2
+            , damage = def.damage + 2
+            , defense = def.defense + 1
+            , xp = def.xp * 3
+            , color = "#ffcf6a"
+          }
+        , seed1
+        )
+
+    else
+        ( def, seed1 )
 
 
 trapCountForDepth : Int -> Int
