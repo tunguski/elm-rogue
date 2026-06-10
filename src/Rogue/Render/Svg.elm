@@ -73,7 +73,8 @@ view scene =
         , HA.style "flex-wrap" "wrap"
         , HA.style "justify-content" "center"
         ]
-        [ Html.div [ HA.style "position" "relative" ]
+        [ animationStyles
+        , Html.div [ HA.style "position" "relative" ]
             [ svg
                 [ SA.viewBox viewBoxStr
                 , SA.width (String.fromInt pxW)
@@ -170,8 +171,22 @@ popupSvg pp =
         , SA.fontFamily "ui-monospace, Menlo, Consolas, monospace"
         , SA.textAnchor "middle"
         , SA.dominantBaseline "central"
+        , HA.style "animation" "rg-float 0.7s ease-out forwards"
         ]
         [ Svg.text pp.text ]
+
+
+{-| Injected CSS keyframes — combat numbers drift up and fade; the targeting cursor pulses. The game
+is turn-based (renders only on input), so these one-shot/looping CSS animations are the cheap, correct
+way to add motion without an idle render loop. -}
+animationStyles : Html.Html msg
+animationStyles =
+    Html.node "style"
+        []
+        [ Html.text """
+@keyframes rg-float { from { transform: translateY(0px); opacity: 1; } to { transform: translateY(-12px); opacity: 0; } }
+@keyframes rg-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+""" ]
 
 
 cursorSvg : Maybe Pos -> Svg msg
@@ -190,6 +205,7 @@ cursorSvg maybeCursor =
                 , SA.stroke "#ff5a5a"
                 , SA.strokeWidth "2"
                 , SA.rx "2"
+                , HA.style "animation" "rg-pulse 0.9s ease-in-out infinite"
                 ]
                 []
 
