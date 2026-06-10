@@ -1,0 +1,236 @@
+module Rogue.Render.Ascii exposing (renderer)
+
+{-| A second, completely independent rendering engine: a classic text-mode roguelike view built from
+coloured monospace cells, with a plain-text HUD.
+
+It consumes the very same `Rogue.Render.Scene` the SVG renderer does and is a `Renderer` value just
+like it — so `Main` swaps between them at runtime with no change to the engine. This is the concrete
+proof of the "alternative game rendering engine" promise: the simulation has no idea whether it is
+being drawn as SVG tiles or ASCII glyphs.
+-}
+
+import Dict exposing (Dict)
+import Html exposing (Html)
+import Html.Attributes as HA
+import Rogue.Grid exposing (Pos)
+import Rogue.Level as Level exposing (Level)
+import Rogue.Render exposing (Glyph, Hud, Renderer, Scene)
+import Rogue.Tile as Tile exposing (Tile)
+import Set exposing (Set)
+
+
+renderer : Renderer msg
+renderer =
+    { name = "ASCII"
+    , cellSize = 0
+    , view = view
+    }
+
+
+view : Scene -> Html msg
+view scene =
+    renderWith scene
+
+
+{-| Pre-index the topmost glyph per cell so each cell is one dictionary lookup. -}
+topGlyphs : Scene -> Dict ( Int, Int ) Glyph
+topGlyphs scene =
+    List.foldl
+        (\gph acc ->
+            let
+                key =
+                    ( gph.pos.x, gph.pos.y )
+            in
+            case Dict.get key acc of
+                Just existing ->
+                    if gph.layer >= existing.layer then
+                        Dict.insert key gph acc
+
+                    else
+                        acc
+
+                Nothing ->
+                    Dict.insert key gph acc
+        )
+        Dict.empty
+        scene.glyphs
+
+
+renderWith : Scene -> Html msg
+renderWith scene =
+    let
+        glyphs =
+            topGlyphs scene
+    in
+    Html.div
+        [ HA.style "display" "flex"
+        , HA.style "gap" "20px"
+        , HA.style "align-items" "flex-start"
+        , HA.style "flex-wrap" "wrap"
+        , HA.style "justify-content" "center"
+        ]
+        [ Html.div
+            [ HA.style "position" "relative"
+            , HA.style "background" "#05070b"
+            , HA.style "border" "1px solid #1b2433"
+            , HA.style "border-radius" "8px"
+            , HA.style "padding" "10px 14px"
+            , HA.style "line-height" "1.05"
+            , HA.style "font-size" "18px"
+            , HA.style "letter-spacing" "3px"
+            ]
+            (List.map (\y -> rowView scene glyphs y) (List.range 0 (scene.level.height - 1))
+                ++ [ overlayView scene.hud ]
+            )
+        , hudView scene.hud
+        ]
+
+
+rowView : Scene -> Dict ( Int, Int ) Glyph -> Int -> Html msg
+rowView scene glyphs y =
+    Html.div [ HA.style "display" "flex" ]
+        (List.map (\x -> cellView scene glyphs { x = x, y = y }) (List.range 0 (scene.level.width - 1)))
+
+
+cellView : Scene -> Dict ( Int, Int ) Glyph -> Pos -> Html msg
+cellView scene glyphs p =
+    let
+        key =
+            ( p.x, p.y )
+
+        visible =
+            Set.member key scene.visible
+
+        explored =
+            Set.member key scene.explored
+
+        ( ch, color ) =
+            if visible then
+                case Dict.get key glyphs of
+                    Just gph ->
+                        ( gph.char, gph.color )
+
+                    Nothing ->
+                        ( Tile.glyph (Level.at p scene.level), tileColor (Level.at p scene.level) False )
+
+            else if explored then
+                ( Tile.glyph (Level.at p scene.level), tileColor (Level.at p scene.level) True )
+
+            else
+                ( " ", "#05070b" )
+    in
+    Html.span
+        [ HA.style "color" color
+        , HA.style "width" "12px"
+        , HA.style "display" "inline-block"
+        , HA.style "text-align" "center"
+        ]
+        [ Html.text ch ]
+
+
+tileColor : Tile -> Bool -> String
+tileColor tile dim =
+    let
+        lit =
+            case tile of
+                Tile.Wall ->
+                    "#5b6b82"
+
+                Tile.Floor ->
+                    "#39465c"
+
+                Tile.Door ->
+                    "#b07a3c"
+
+                Tile.StairsDown ->
+                    "#d8b24c"
+
+                Tile.StairsUp ->
+                    "#4f8bff"
+
+                _ ->
+                    "#1b2433"
+    in
+    if dim then
+        "#26303f"
+
+    else
+        lit
+
+
+
+-- HUD --------------------------------------------------------------------------------------------
+
+
+hudView : Hud -> Html msg
+hudView hud =
+    Html.div
+        [ HA.style "min-width" "210px"
+        , HA.style "max-width" "260px"
+        , HA.style "display" "flex"
+        , HA.style "flex-direction" "column"
+        , HA.style "gap" "8px"
+        , HA.style "color" "#c7d0dd"
+        , HA.style "font-family" "ui-monospace, Menlo, Consolas, monospace"
+        , HA.style "font-size" "13px"
+        ]
+        ([ Html.div [ HA.style "font-size" "20px", HA.style "font-weight" "700" ] [ Html.text hud.title ]
+         , line ("Depth " ++ String.fromInt hud.depth ++ "   Turn " ++ String.fromInt hud.turn)
+         , line ("HP " ++ String.fromInt (max 0 hud.hp) ++ "/" ++ String.fromInt hud.maxHp ++ "   Gold " ++ String.fromInt hud.gold)
+         , if hud.status /= "" then
+            Html.div [ HA.style "color" "#f0c674" ] [ Html.text hud.status ]
+
+           else
+            Html.text ""
+         , Html.div [ HA.style "color" "#5b6b82", HA.style "margin-top" "4px" ] [ Html.text "Inventory (1-9):" ]
+         ]
+            ++ inventoryLines hud.inventory
+            ++ [ Html.div [ HA.style "color" "#5b6b82", HA.style "margin-top" "6px" ] [ Html.text "Log:" ] ]
+            ++ List.map (\e -> Html.div [ HA.style "color" "#9aa7ba" ] [ Html.text e ]) hud.log
+        )
+
+
+inventoryLines : List String -> List (Html msg)
+inventoryLines items =
+    if List.isEmpty items then
+        [ Html.div [ HA.style "color" "#3f4b5e" ] [ Html.text "  — empty —" ] ]
+
+    else
+        List.indexedMap
+            (\i name -> Html.div [] [ Html.text ("  " ++ String.fromInt (i + 1) ++ ". " ++ name) ])
+            (List.take 9 items)
+
+
+line : String -> Html msg
+line s =
+    Html.div [] [ Html.text s ]
+
+
+overlayView : Hud -> Html msg
+overlayView hud =
+    if not hud.gameOver then
+        Html.text ""
+
+    else
+        let
+            ( title, color ) =
+                if hud.won then
+                    ( "*** VICTORY ***", "#5dd47a" )
+
+                else
+                    ( "*** YOU DIED ***", "#e0564b" )
+        in
+        Html.div
+            [ HA.style "position" "absolute"
+            , HA.style "inset" "0"
+            , HA.style "display" "flex"
+            , HA.style "align-items" "center"
+            , HA.style "justify-content" "center"
+            , HA.style "background" "rgba(3,5,9,0.72)"
+            , HA.style "border-radius" "8px"
+            , HA.style "color" color
+            , HA.style "font-size" "26px"
+            , HA.style "font-weight" "800"
+            , HA.style "letter-spacing" "3px"
+            ]
+            [ Html.text title ]
