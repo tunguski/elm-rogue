@@ -530,6 +530,35 @@ body {
   cursor: pointer;
 }
 
+/* Quickslot / hotbar (the first few inventory items, click/tap to use) */
+
+.rg-quickbar {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 12px auto 0;
+  max-width: 760px;
+}
+
+.rg-quick {
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 10px;
+  color: #c7d0dd;
+  background: #141b29;
+  border: 1px solid #2a3550;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rg-quick-num {
+  color: #f0c674;
+  font-weight: 700;
+}
+
 /* Animation keyframes (referenced by inline `animation` on SVG popups/cursor and by classes above) */
 
 @keyframes rg-float {

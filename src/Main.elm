@@ -553,6 +553,7 @@ view model =
                     [ Html.div [ HA.class "rg-keyhint" ]
                         [ Html.text "move: WASD/HJKL · diag: Y U B N · wait: . · search: Z · aim: F (Tab cycle, F throw) · brew: C · inventory: I · bestiary: M · descend: > · use: 1-9 · restart: R" ]
                     , (rendererNamed model.rendererName).view (sceneFor model)
+                    , quickslotBar model
                     , touchControls model
                     , if model.showSheet then
                         sheetView model.game
@@ -677,6 +678,31 @@ sheetItem i def =
         , Html.button [ onClick (GameMsg (Game.Drop i)), HA.class "rg-btn rg-item-drop" ]
             [ Html.text "✕" ]
         ]
+
+
+{-| A hotbar of the first inventory items: a tappable quick-use button per item (numbered, matching the
+1–9 keys), so items are usable without opening the sheet — essential on touch, handy on desktop. Labels
+reuse the renderer's display names so unidentified items stay disguised. -}
+quickslotBar : Model -> Html Msg
+quickslotBar model =
+    let
+        names =
+            (Game.toScene model.game).hud.inventory |> List.take 8
+    in
+    if List.isEmpty names then
+        Html.text ""
+
+    else
+        Html.div [ HA.class "rg-quickbar" ]
+            (List.indexedMap
+                (\i name ->
+                    Html.button [ onClick (GameMsg (Game.Use i)), HA.class "rg-btn rg-quick" ]
+                        [ Html.span [ HA.class "rg-quick-num" ] [ Html.text (String.fromInt (i + 1)) ]
+                        , Html.text name
+                        ]
+                )
+                names
+            )
 
 
 {-| On-screen touch controls (a directional pad plus action buttons) so the game is playable without a
