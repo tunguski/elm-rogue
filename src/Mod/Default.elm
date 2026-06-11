@@ -43,6 +43,12 @@ ruleset =
         , potionOfShielding
         , potionOfRegeneration
         , potionOfHaste
+        , potionOfInvisibility
+        , potionOfLevitation
+        , potionOfMindVision
+        , potionOfExperience
+        , potionOfLiquidFlame
+        , potionOfCausticGas
         , ration
         , torch
         , goldPile
@@ -460,6 +466,84 @@ potionOfHaste =
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 4
+    }
+
+
+potionOfInvisibility : ItemDef
+potionOfInvisibility =
+    { id = "potion-invisibility"
+    , name = "potion of invisibility"
+    , glyph = "!"
+    , color = "#bcd6ff"
+    , kind = Consumable (Invisibility 14)
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+potionOfLevitation : ItemDef
+potionOfLevitation =
+    { id = "potion-levitation"
+    , name = "potion of levitation"
+    , glyph = "!"
+    , color = "#a7e0d6"
+    , kind = Consumable (Levitation 16)
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+potionOfMindVision : ItemDef
+potionOfMindVision =
+    { id = "potion-mind-vision"
+    , name = "potion of mind vision"
+    , glyph = "!"
+    , color = "#d6a7e0"
+    , kind = Consumable MindVision
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+potionOfExperience : ItemDef
+potionOfExperience =
+    { id = "potion-experience"
+    , name = "potion of experience"
+    , glyph = "!"
+    , color = "#e0d24b"
+    , kind = Consumable (Experience 8)
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+potionOfLiquidFlame : ItemDef
+potionOfLiquidFlame =
+    { id = "potion-liquid-flame"
+    , name = "potion of liquid flame"
+    , glyph = "!"
+    , color = "#ff7a3c"
+    , kind = Consumable (Incinerate 4)
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+potionOfCausticGas : ItemDef
+potionOfCausticGas =
+    { id = "potion-caustic-gas"
+    , name = "potion of caustic gas"
+    , glyph = "!"
+    , color = "#9bbf4a"
+    , kind = Consumable (ToxicGas 3)
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 3
     }
 
 

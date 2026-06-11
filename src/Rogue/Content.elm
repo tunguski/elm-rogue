@@ -85,6 +85,12 @@ type ItemEffect
     | Recharge
     | Terror
     | RemoveCurse
+    | Invisibility Int
+    | Levitation Int
+    | MindVision
+    | Experience Int
+    | Incinerate Int
+    | ToxicGas Int
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -293,6 +299,24 @@ describeEffect effect =
 
         RemoveCurse ->
             "lifts curses from your gear"
+
+        Invisibility turns ->
+            "turns you invisible for " ++ String.fromInt turns
+
+        Levitation turns ->
+            "lets you levitate for " ++ String.fromInt turns
+
+        MindVision ->
+            "reveals nearby minds"
+
+        Experience xp ->
+            "grants " ++ String.fromInt xp ++ " experience"
+
+        Incinerate _ ->
+            "bursts into flame"
+
+        ToxicGas _ ->
+            "releases toxic gas"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}

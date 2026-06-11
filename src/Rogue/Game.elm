@@ -78,6 +78,8 @@ type StatusKind
     | Paralyzed
     | Hasted
     | Slowed
+    | Invisible
+    | Levitating
 
 
 type alias Status =
@@ -112,6 +114,12 @@ statusLabel status =
 
                 Slowed ->
                     "Slow"
+
+                Invisible ->
+                    "Invisible"
+
+                Levitating ->
+                    "Levitating"
     in
     name ++ " (" ++ String.fromInt status.turns ++ ")"
 
@@ -1114,10 +1122,10 @@ tryMove dir game =
             else if Level.at target game.level == LockedDoor then
                 tryUnlock target game
 
-            else if Level.at target game.level == Chasm then
+            else if Level.at target game.level == Chasm && not (hasStatus Levitating game.hero) then
                 fallThroughChasm game
 
-            else if Level.isPassableAt target game.level then
+            else if Level.isPassableAt target game.level || (Level.at target game.level == Chasm && hasStatus Levitating game.hero) then
                 let
                     hero =
                         game.hero
@@ -1783,6 +1791,34 @@ applyEffect def game =
             }
                 |> addLog "You read the scroll. A malign weight lifts from your gear."
 
+        Invisibility turns ->
+            addStatus Invisible 1 turns game
+                |> addLog ("You drink the " ++ name ++ ". You fade from sight.")
+
+        Levitation turns ->
+            addStatus Levitating 1 turns game
+                |> addLog ("You drink the " ++ name ++ ". You drift off the ground.")
+
+        MindVision ->
+            let
+                minds =
+                    Set.fromList (List.map (\e -> ( e.pos.x, e.pos.y )) game.enemies)
+            in
+            { game | explored = Set.union game.explored minds }
+                |> addLog ("You drink the " ++ name ++ ". You sense the minds around you.")
+
+        Experience xp ->
+            gainXp xp game
+                |> addLog ("You drink the " ++ name ++ ". Knowledge floods in.")
+
+        Incinerate magnitude ->
+            addStatus Burn magnitude 4 game
+                |> addLog ("The " ++ name ++ " bursts into flame in your hand!")
+
+        ToxicGas magnitude ->
+            addStatus Poison magnitude 5 game
+                |> addLog ("The " ++ name ++ " erupts in choking gas!")
+
 
 effectOf : ItemDef -> ItemEffect
 effectOf def =
@@ -1877,6 +1913,10 @@ palette =
     , { adjective = "amber", color = "#e0824b" }
     , { adjective = "inky", color = "#6a6f86" }
     , { adjective = "milky", color = "#d6d2c2" }
+    , { adjective = "bubbling", color = "#6ad8c0" }
+    , { adjective = "charcoal", color = "#4a4f5e" }
+    , { adjective = "cloudy", color = "#aeb6c2" }
+    , { adjective = "ivory", color = "#e6e0cf" }
     ]
 
 
@@ -2098,8 +2138,13 @@ triggerTrap game =
             game
 
         Just trap ->
-            { game | traps = List.filter (\t -> t.pos /= trap.pos) game.traps }
-                |> trapEffect trap.kind
+            -- A levitating hero floats over pressure plates without setting them off.
+            if hasStatus Levitating game.hero then
+                game
+
+            else
+                { game | traps = List.filter (\t -> t.pos /= trap.pos) game.traps }
+                    |> trapEffect trap.kind
 
 
 trapEffect : TrapKind -> Game -> Game
@@ -2376,14 +2421,22 @@ stepEnemy enemy ( done, acc ) =
         dist =
             Grid.chebyshev healed.pos heroPos
 
+        heroHidden =
+            hasStatus Invisible acc.hero
+
         los =
             Fov.visibleFrom healed.pos heroPos acc.level
 
+        -- An invisible hero can't be acquired or tracked at range; only an adjacent foe still reacts.
         aware =
-            healed.alerted || (dist <= aggroRange && los)
+            if heroHidden then
+                dist == 1
+
+            else
+                healed.alerted || (dist <= aggroRange && los)
 
         woken =
-            { healed | alerted = aware }
+            { healed | alerted = healed.alerted && not heroHidden || aware }
     in
     if not aware then
         ( woken :: done, acc )
