@@ -1490,15 +1490,19 @@ tryUse index game =
 
         Just def ->
             case def.kind of
-                Content.Consumable _ ->
-                    let
-                        applied =
-                            identify def (applyEffect def game)
+                Content.Consumable eff ->
+                    if isThrown eff then
+                        throwConsumable index def eff game
 
-                        hero =
-                            applied.hero
-                    in
-                    endTurn { applied | hero = { hero | inventory = removeAt index hero.inventory } }
+                    else
+                        let
+                            applied =
+                                identify def (applyEffect def game)
+
+                            hero =
+                                applied.hero
+                        in
+                        endTurn { applied | hero = { hero | inventory = removeAt index hero.inventory } }
 
                 Content.Equipment slot _ ->
                     endTurn (identify def (equip index slot def game))
@@ -1511,6 +1515,97 @@ tryUse index game =
 
                 Content.Key ->
                     addLog "Keys open locked doors — walk into one." game
+
+
+{-| Effects that are *thrown* rather than drunk: they shatter at a target cell (the nearest visible
+monster, or the hero's feet) and unleash their hazard there. -}
+isThrown : ItemEffect -> Bool
+isThrown eff =
+    case eff of
+        Incinerate _ ->
+            True
+
+        ToxicGas _ ->
+            True
+
+        Explode _ ->
+            True
+
+        _ ->
+            False
+
+
+{-| Lob a throwable consumable at the nearest visible monster (or the hero's own cell if none), bursting
+its effect there, then consume it. -}
+throwConsumable : Int -> ItemDef -> ItemEffect -> Game -> Game
+throwConsumable index def eff game =
+    let
+        target =
+            nearestVisibleEnemy game |> Maybe.map .pos |> Maybe.withDefault game.hero.pos
+
+        hero =
+            game.hero
+
+        consumed =
+            { game | hero = { hero | inventory = removeAt index hero.inventory } }
+
+        name =
+            displayName game.idents def
+    in
+    applyThrownEffect eff target { consumed | seed = consumed.seed }
+        |> identify def
+        |> addLog ("You hurl the " ++ name ++ "!")
+        |> endTurn
+
+
+{-| Resolve a thrown effect bursting at `target`. -}
+applyThrownEffect : ItemEffect -> Pos -> Game -> Game
+applyThrownEffect eff target game =
+    case eff of
+        Incinerate _ ->
+            spawnFire target game
+
+        ToxicGas _ ->
+            spawnGas CausticGasCloud 6 target game
+
+        Explode dmg ->
+            let
+                hit e =
+                    Grid.chebyshev e.pos target <= 1
+
+                step e ( alive, xp, kills, pops ) =
+                    if hit e then
+                        let
+                            hp =
+                                e.hp - dmg
+                        in
+                        if hp <= 0 then
+                            ( alive, xp + e.def.xp, kills + 1, { pos = e.pos, text = String.fromInt dmg, color = "#ff7a3c" } :: pops )
+
+                        else
+                            ( { e | hp = hp, alerted = True } :: alive, xp, kills, { pos = e.pos, text = String.fromInt dmg, color = "#ff7a3c" } :: pops )
+
+                    else
+                        ( e :: alive, xp, kills, pops )
+
+                ( survivors, gained, killed, popups ) =
+                    List.foldl step ( [], 0, 0, [] ) game.enemies
+
+                -- A blast also catches the hero if adjacent, and leaves fire.
+                heroHit =
+                    if Grid.chebyshev game.hero.pos target <= 1 then
+                        damageHero (dmg // 2) game |> addLog "The blast scorches you!"
+
+                    else
+                        game
+            in
+            { heroHit | enemies = List.reverse survivors, kills = heroHit.kills + killed, popups = popups ++ heroHit.popups }
+                |> gainXp gained
+                |> spawnFire target
+                |> checkHeroDeath
+
+        _ ->
+            game
 
 
 {-| Invoke an artifact: if it has reached full charge, apply its effect and reset it to empty;

@@ -49,6 +49,7 @@ ruleset =
         , potionOfExperience
         , potionOfLiquidFlame
         , potionOfCausticGas
+        , bomb
         , ration
         , torch
         , goldPile
@@ -550,6 +551,19 @@ potionOfCausticGas =
     , glyph = "!"
     , color = "#9bbf4a"
     , kind = Consumable (ToxicGas 3)
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+bomb : ItemDef
+bomb =
+    { id = "bomb"
+    , name = "bomb"
+    , glyph = "ø"
+    , color = "#9aa0a8"
+    , kind = Consumable (Explode 12)
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 3
