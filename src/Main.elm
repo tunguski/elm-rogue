@@ -54,6 +54,7 @@ type alias Model =
     , targeting : Maybe Grid.Pos
     , damaged : Bool
     , pendingChoice : Maybe Choice
+    , badges : Set String
     , resumeSave : Maybe ( String, Game.SaveData )
     , seedInput : String
     , seedBump : Int
@@ -83,6 +84,7 @@ type Msg
     | Choose String
     | Loaded (Maybe String)
     | LoadedSave (Maybe String)
+    | LoadedBadges (Maybe String)
 
 
 dailySeed : Int
@@ -103,6 +105,11 @@ storageKey =
 saveKey : String
 saveKey =
     "elm-rogue-save"
+
+
+badgesKey : String
+badgesKey =
+    "elm-rogue-badges"
 
 
 maxHistory : Int
@@ -174,11 +181,16 @@ init _ =
       , targeting = Nothing
       , damaged = False
       , pendingChoice = Nothing
+      , badges = Set.empty
       , resumeSave = Nothing
       , seedInput = ""
       , seedBump = 0
       }
-    , Cmd.batch [ Storage.load storageKey Loaded, Storage.load saveKey LoadedSave ]
+    , Cmd.batch
+        [ Storage.load storageKey Loaded
+        , Storage.load saveKey LoadedSave
+        , Storage.load badgesKey LoadedBadges
+        ]
     )
 
 
@@ -190,6 +202,9 @@ update msg model =
 
         LoadedSave stored ->
             ( { model | resumeSave = decodeSave stored }, Cmd.none )
+
+        LoadedBadges stored ->
+            ( { model | badges = stored |> Maybe.withDefault "" |> String.split "," |> List.filter (\x -> x /= "") |> Set.fromList }, Cmd.none )
 
         Continue ->
             case model.resumeSave of
@@ -308,11 +323,15 @@ runGame gm model =
 
                     history =
                         List.take maxHistory (run :: model.history)
+
+                    newBadges =
+                        Set.union model.badges (badgesFromRun run)
                 in
-                ( { base | history = history, resumeSave = Nothing }
+                ( { base | history = history, badges = newBadges, resumeSave = Nothing }
                 , Cmd.batch
                     [ Storage.save storageKey (encodeHistory history)
                     , Storage.save saveKey ""
+                    , Storage.save badgesKey (String.join "," (Set.toList newBadges))
                     ]
                 )
 
@@ -820,6 +839,7 @@ classSelectView model =
         , seedRow model
         , Html.div [ HA.class "rg-cards" ]
             (List.map classCard (rulesetNamed model.modName).classes)
+        , badgesView model.badges
         , historyView model.history
         ]
 
@@ -877,6 +897,51 @@ historyView runs =
                 [ Html.text "Recent delves (saved locally)" ]
                 :: List.map runRow runs
             )
+
+
+{-| Lifetime achievements, each unlocked by a finished run meeting its condition. -}
+badgeDefs : List { id : String, label : String, desc : String, earned : Run -> Bool }
+badgeDefs =
+    [ { id = "first-blood", label = "First Blood", desc = "Slay a monster", earned = \r -> r.kills >= 1 }
+    , { id = "delver", label = "Delver", desc = "Reach depth 3", earned = \r -> r.depth >= 3 }
+    , { id = "spelunker", label = "Spelunker", desc = "Reach depth 5", earned = \r -> r.depth >= 5 }
+    , { id = "deep-diver", label = "Deep Diver", desc = "Reach depth 8", earned = \r -> r.depth >= 8 }
+    , { id = "slayer", label = "Slayer", desc = "25 kills in a run", earned = \r -> r.kills >= 25 }
+    , { id = "survivor", label = "Survivor", desc = "Survive 400 turns", earned = \r -> r.turns >= 400 }
+    , { id = "victor", label = "Victor", desc = "Claim the Amulet", earned = \r -> r.won }
+    ]
+
+
+{-| Badge ids a single finished run unlocks. -}
+badgesFromRun : Run -> Set String
+badgesFromRun run =
+    badgeDefs |> List.filter (\b -> b.earned run) |> List.map .id |> Set.fromList
+
+
+badgesView : Set String -> Html Msg
+badgesView earned =
+    Html.div [ HA.class "rg-history" ]
+        [ Html.div [ HA.class "rg-history-title" ]
+            [ Html.text ("Achievements (" ++ String.fromInt (List.length (List.filter (\b -> Set.member b.id earned) badgeDefs)) ++ "/" ++ String.fromInt (List.length badgeDefs) ++ ")") ]
+        , Html.div [ HA.class "rg-badges" ]
+            (List.map
+                (\b ->
+                    Html.div
+                        [ HA.class
+                            (if Set.member b.id earned then
+                                "rg-badge"
+
+                             else
+                                "rg-badge is-locked"
+                            )
+                        ]
+                        [ Html.div [ HA.class "rg-badge-name" ] [ Html.text b.label ]
+                        , Html.div [ HA.class "rg-badge-desc" ] [ Html.text b.desc ]
+                        ]
+                )
+                badgeDefs
+            )
+        ]
 
 
 runRow : Run -> Html Msg

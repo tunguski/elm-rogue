@@ -196,6 +196,47 @@ body {
   padding-left: 8px;
 }
 
+.rg-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.rg-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #3f7a4f;
+  background: #16361f;
+  color: #9be08a;
+  min-width: 92px;
+}
+
+.rg-badge.is-locked {
+  border-color: #2a3550;
+  background: #11161f;
+  color: #46506280;
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.rg-badge-name {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.rg-badge-desc {
+  font-size: 10.5px;
+  color: #7f8ba0;
+  text-align: center;
+}
+
 /* In-game shell ---------------------------------------------------------------------------------- */
 
 .rg-keyhint {
