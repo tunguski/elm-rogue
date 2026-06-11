@@ -1340,7 +1340,10 @@ isKey def =
 
 tryDescend : Game -> Game
 tryDescend game =
-    if Level.at game.hero.pos game.level == StairsDown then
+    if Level.at game.hero.pos game.level == StairsDown && List.any (\e -> e.def.boss) game.enemies then
+        addLog "A magical seal binds the stairs shut — the floor's guardian must fall first." game
+
+    else if Level.at game.hero.pos game.level == StairsDown then
         let
             ( nextSeedA, nextSeedB ) =
                 Rng.split game.seed
@@ -2887,6 +2890,33 @@ applyRegen enemy =
             enemy
 
 
+{-| An enraged boss (below half HP) occasionally unleashes a signature blast of paralytic gas around
+itself — a slam shockwave / web burst that makes its arena dangerous to stand near. -}
+applyBossHazards : Game -> Game
+applyBossHazards game =
+    let
+        enragedBoss =
+            game.enemies
+                |> List.filter (\e -> e.def.boss && e.alerted && e.hp * 2 < e.def.maxHp)
+                |> List.head
+    in
+    case enragedBoss of
+        Just boss ->
+            let
+                ( roll, seed1 ) =
+                    Rng.int 100 game.seed
+            in
+            if roll < 18 then
+                spawnGas ParalyticGasCloud 4 boss.pos { game | seed = seed1 }
+                    |> addLog ("The " ++ boss.def.name ++ " unleashes a paralysing burst!")
+
+            else
+                { game | seed = seed1 }
+
+        Nothing ->
+            game
+
+
 {-| Caster auras: a `Heals` monster (a shaman) mends every nearby ally (and itself) each turn. -}
 applyEnemyAuras : Game -> Game
 applyEnemyAuras game =
@@ -3076,8 +3106,11 @@ endTurn game =
         afterAuras =
             applyEnemyAuras afterEnemyDot
 
+        afterHazards =
+            applyBossHazards afterAuras
+
         afterMonsters =
-            applyTimes enemyPhases enemiesTurn afterAuras
+            applyTimes enemyPhases enemiesTurn afterHazards
 
         afterGas =
             tickGas afterMonsters
