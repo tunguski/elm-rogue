@@ -243,16 +243,29 @@ type alias Chest =
     }
 
 
-{-| A friendly NPC you bump to talk to. A `Ghost` gifts an item; a `Sage` identifies your potions. -}
+{-| A friendly NPC you bump to talk to. `Ghost` gifts an item; `Sage` identifies potions; `Wandmaker`
+hands over a wand; `Blacksmith` reforges your weapon (+1); `Imp` strikes a bounty bargain. -}
 type NpcKind
     = Ghost
     | Sage
+    | Wandmaker
+    | Blacksmith
+    | Imp
 
 
 type alias Npc =
     { pos : Pos
     , kind : NpcKind
     , reward : ItemDef
+    }
+
+
+{-| An accepted bounty (the imp's quest): slay monsters until `targetKills`, then the reward is
+delivered automatically. Carried across floors. -}
+type alias Quest =
+    { targetKills : Int
+    , reward : ItemDef
+    , giver : String
     }
 
 
@@ -316,6 +329,7 @@ type alias Game =
     , chests : List Chest
     , altar : Maybe Pos
     , npc : Maybe Npc
+    , quest : Maybe Quest
     , popups : List Popup
     , traps : List Trap
     , gas : Dict ( Int, Int ) Gas
@@ -679,6 +693,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , chests = chests
     , altar = altar
     , npc = npc
+    , quest = Nothing
     , popups = []
     , traps = traps
     , gas = Dict.empty
@@ -847,39 +862,53 @@ isGearLoot def =
             False
 
 
-{-| A third of floors host a friendly NPC at a free cell — a ghost bearing a gift or a sage who reads
-your potions. -}
+{-| A third of floors host a friendly NPC at a free cell — a ghost, a sage, a wandmaker, a blacksmith
+or a bounty-offering imp, chosen at random. -}
 buildNpc : Ruleset -> Int -> List Pos -> Seed -> ( Maybe Npc, Seed )
 buildNpc ruleset depth spots seed =
     let
         ( present, seed1 ) =
             Rng.chance 33 seed
 
-        ( isGhost, seed2 ) =
-            Rng.chance 60 seed1
+        ( pick, seed2 ) =
+            Rng.int 5 seed1
 
-        gifts =
+        kind =
+            case pick of
+                0 ->
+                    Sage
+
+                1 ->
+                    Wandmaker
+
+                2 ->
+                    Blacksmith
+
+                3 ->
+                    Imp
+
+                _ ->
+                    Ghost
+
+        -- Wandmakers/imps reward a wand; others, any gift.
+        pool =
             Content.itemsForDepth depth ruleset
-                |> List.filter (\( _, def ) -> def.id /= "amulet" && def.id /= "gold" && def.id /= "key")
+                |> List.filter
+                    (\( _, def ) ->
+                        if kind == Wandmaker || kind == Imp then
+                            isWand def
+
+                        else
+                            def.id /= "amulet" && def.id /= "gold" && def.id /= "key"
+                    )
     in
-    case ( present, spots, gifts ) of
+    case ( present, spots, pool ) of
         ( True, p :: _, ( _, firstDef ) :: _ ) ->
             let
                 ( reward, seed3 ) =
-                    Rng.pickWeighted firstDef gifts seed2
+                    Rng.pickWeighted firstDef pool seed2
             in
-            ( Just
-                { pos = p
-                , kind =
-                    if isGhost then
-                        Ghost
-
-                    else
-                        Sage
-                , reward = reward
-                }
-            , seed3
-            )
+            ( Just { pos = p, kind = kind, reward = reward }, seed3 )
 
         _ ->
             ( Nothing, seed2 )
@@ -1362,6 +1391,35 @@ talkToNpc game =
                             |> addLog "The sage murmurs over your pack; all potions are now known. They depart."
                         )
 
+                Wandmaker ->
+                    endTurn
+                        ({ game | npc = Nothing, hero = { hero | inventory = hero.inventory ++ [ n.reward ] } }
+                            |> addLog ("The wandmaker thanks you and presses " ++ withArticle (displayName game.idents n.reward) ++ " into your hands.")
+                        )
+
+                Blacksmith ->
+                    case hero.weapon of
+                        Just _ ->
+                            endTurn
+                                ({ game | npc = Nothing, hero = { hero | weapon = Maybe.map enchant hero.weapon } }
+                                    |> addLog "The blacksmith reforges your weapon — it gleams sharper (+1)."
+                                )
+
+                        Nothing ->
+                            endTurn
+                                ({ game | npc = Nothing }
+                                    |> addLog "The blacksmith shrugs — you carry no weapon to reforge."
+                                )
+
+                Imp ->
+                    endTurn
+                        ({ game
+                            | npc = Nothing
+                            , quest = Just { targetKills = game.kills + 6, reward = n.reward, giver = "imp" }
+                         }
+                            |> addLog "The ambitious imp offers a bounty: slay 6 more monsters and a reward is yours."
+                        )
+
 
 chestAt : Pos -> Game -> Maybe Chest
 chestAt p game =
@@ -1455,15 +1513,18 @@ tryDescend game =
 
             gen =
                 Dungeon.generate (Dungeon.configForDepth (game.depth + 1)) nextSeedA
+
+            descended =
+                enterLevel game.ruleset
+                    (game.depth + 1)
+                    game.kills
+                    game.idents
+                    nextSeedB
+                    gen
+                    game.hero
+                    (("You descend to depth " ++ String.fromInt (game.depth + 1) ++ ".") :: game.log)
         in
-        enterLevel game.ruleset
-            (game.depth + 1)
-            game.kills
-            game.idents
-            nextSeedB
-            gen
-            game.hero
-            (("You descend to depth " ++ String.fromInt (game.depth + 1) ++ ".") :: game.log)
+        { descended | quest = game.quest }
 
     else
         addLog "There are no stairs down here." game
@@ -3299,7 +3360,27 @@ endTurn game =
         recharged =
             rechargeWands { afterHunger | turn = afterHunger.turn + 1 }
     in
-    maybeWander recharged
+    checkQuest (maybeWander recharged)
+
+
+{-| Deliver the imp's bounty once its kill target is reached. -}
+checkQuest : Game -> Game
+checkQuest game =
+    case game.quest of
+        Just quest ->
+            if game.kills >= quest.targetKills then
+                let
+                    hero =
+                        game.hero
+                in
+                { game | quest = Nothing, hero = { hero | inventory = hero.inventory ++ [ quest.reward ] } }
+                    |> addLog ("The " ++ quest.giver ++ "'s bounty is fulfilled — " ++ withArticle (displayName game.idents quest.reward) ++ " appears in your pack!")
+
+            else
+                game
+
+        Nothing ->
+            game
 
 
 {-| Recharge carried relics each turn: wands regain a charge every 12 turns; artifacts build one
@@ -4017,6 +4098,15 @@ npcGlyphs maybeNpc =
 
                         Sage ->
                             ( "&", "#d6c27a" )
+
+                        Wandmaker ->
+                            ( "&", "#9be0ff" )
+
+                        Blacksmith ->
+                            ( "&", "#e0884b" )
+
+                        Imp ->
+                            ( "&", "#c97fe0" )
             in
             [ { pos = n.pos, char = ch, color = color, layer = Render.layerActor, heavy = True } ]
 
