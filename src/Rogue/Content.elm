@@ -45,6 +45,7 @@ type MonsterAbility
     | Burns
     | Heals Int
     | SummonsAllies
+    | Aquatic
 
 
 {-| A monster archetype. Instances in play (`Rogue.Game.Enemy`) carry a copy of their `EnemyDef`, so

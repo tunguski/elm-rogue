@@ -2783,13 +2783,28 @@ stepEnemy enemy ( done, acc ) =
 
     else
         let
-            -- A boss may summon a minion before acting (its unique arena mechanic).
+            -- A boss or a necromancer may summon a minion before acting.
             ( done1, acc1 ) =
-                if woken.def.boss then
+                if woken.def.boss || woken.def.ability == Content.SummonsAllies then
                     trySummon woken done acc
 
                 else
                     ( done, acc )
+
+            -- An aquatic monster (piranha) only advances through water; on land it lurks in place.
+            stepCell =
+                Path.firstStep acc1.level acc1.occupied enemy.pos heroPos
+
+            landlocked =
+                woken.def.ability
+                    == Content.Aquatic
+                    && (case stepCell of
+                            Just p ->
+                                Level.at p acc1.level /= Water
+
+                            Nothing ->
+                                True
+                       )
         in
         if dist == 1 then
             case woken.def.ability of
@@ -2805,8 +2820,11 @@ stepEnemy enemy ( done, acc ) =
         else if woken.def.ranged > 0 && dist <= woken.def.ranged && los then
             attackHero woken (enemy.def.name ++ " shoots you") done1 acc1
 
+        else if landlocked then
+            ( woken :: done1, acc1 )
+
         else
-            moveEnemy enemy woken (Path.firstStep acc1.level acc1.occupied enemy.pos heroPos) done1 acc1
+            moveEnemy enemy woken stepCell done1 acc1
 
 
 {-| A boss occasionally summons a weak minion onto a free adjacent cell. -}
@@ -2867,6 +2885,44 @@ applyRegen enemy =
 
         _ ->
             enemy
+
+
+{-| Caster auras: a `Heals` monster (a shaman) mends every nearby ally (and itself) each turn. -}
+applyEnemyAuras : Game -> Game
+applyEnemyAuras game =
+    let
+        healers =
+            game.enemies
+                |> List.filterMap
+                    (\e ->
+                        case e.def.ability of
+                            Content.Heals n ->
+                                Just ( e.pos, n )
+
+                            _ ->
+                                Nothing
+                    )
+    in
+    if List.isEmpty healers then
+        game
+
+    else
+        let
+            mend e =
+                let
+                    bonus =
+                        healers
+                            |> List.filter (\( hp, _ ) -> Grid.chebyshev hp e.pos <= 3)
+                            |> List.map Tuple.second
+                            |> List.sum
+                in
+                if bonus > 0 && e.hp < e.def.maxHp then
+                    { e | hp = min e.def.maxHp (e.hp + bonus) }
+
+                else
+                    e
+        in
+        { game | enemies = List.map mend game.enemies }
 
 
 {-| A thief grabs gold and bolts for the exit. -}
@@ -3017,8 +3073,11 @@ endTurn game =
         afterEnemyDot =
             tickEnemyStatuses bumped
 
+        afterAuras =
+            applyEnemyAuras afterEnemyDot
+
         afterMonsters =
-            applyTimes enemyPhases enemiesTurn afterEnemyDot
+            applyTimes enemyPhases enemiesTurn afterAuras
 
         afterGas =
             tickGas afterMonsters
