@@ -11,6 +11,8 @@ module Rogue.Game exposing
     , learnTalent
     , subclassChoices
     , talentChoices
+    , startChallenges
+    , challengeChoices
     , update
     , toScene
     )
@@ -330,6 +332,7 @@ type alias Game =
     , altar : Maybe Pos
     , npc : Maybe Npc
     , quest : Maybe Quest
+    , challenges : List String
     , popups : List Popup
     , traps : List Trap
     , gas : Dict ( Int, Int ) Gas
@@ -556,6 +559,34 @@ learnTalent name game =
         |> addLog ("You master the " ++ name ++ " talent.")
 
 
+{-| Apply chosen run-modifier challenges to a fresh game (records them; some, like "Frailty", also
+adjust the starting hero). Ids are checked at the relevant engine hooks. -}
+startChallenges : List String -> Game -> Game
+startChallenges ids game =
+    let
+        hero =
+            game.hero
+
+        frail =
+            if List.member "frailty" ids then
+                { hero | maxHp = max 8 (hero.maxHp - 8), hp = max 8 (hero.hp - 8) }
+
+            else
+                hero
+    in
+    { game | challenges = ids, hero = frail }
+
+
+{-| The optional run-modifier challenges (id, label, one-line effect). -}
+challengeChoices : List ( String, ( String, String ) )
+challengeChoices =
+    [ ( "no-healing", ( "Pharmacophobia", "no healing potions spawn" ) )
+    , ( "glass-cannon", ( "Glass Cannon", "you deal and take double damage" ) )
+    , ( "darkness", ( "Into Darkness", "your sight is dimmed (−2 FOV)" ) )
+    , ( "frailty", ( "Frailty", "start with 8 less max HP" ) )
+    ]
+
+
 {-| The subclasses offered at the depth threshold (label + one-line effect). -}
 subclassChoices : List ( String, String )
 subclassChoices =
@@ -694,6 +725,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , altar = altar
     , npc = npc
     , quest = Nothing
+    , challenges = []
     , popups = []
     , traps = traps
     , gas = Dict.empty
@@ -1524,7 +1556,7 @@ tryDescend game =
                     game.hero
                     (("You descend to depth " ++ String.fromInt (game.depth + 1) ++ ".") :: game.log)
         in
-        { descended | quest = game.quest }
+        { descended | quest = game.quest, challenges = game.challenges }
 
     else
         addLog "There are no stairs down here." game
@@ -1557,7 +1589,7 @@ fallThroughChasm game =
             fallen.hero
     in
     checkHeroDeath
-        ({ fallen | hero = { hero | hp = hero.hp - dmg }, seed = seed1 }
+        ({ fallen | hero = { hero | hp = hero.hp - dmg }, seed = seed1, quest = game.quest, challenges = game.challenges }
             |> addLog ("You hit the ground hard (" ++ String.fromInt dmg ++ " damage).")
         )
 
@@ -2020,12 +2052,20 @@ applyEffect def game =
     in
     case effectOf def of
         HealHp n ->
-            { game | hero = { hero | hp = min hero.maxHp (hero.hp + n) } }
-                |> addLog ("You drink the " ++ name ++ ". (+" ++ String.fromInt n ++ " HP)")
+            if List.member "no-healing" game.challenges then
+                addLog ("You drink the " ++ name ++ ", but your phobia turns the healing to ash.") game
+
+            else
+                { game | hero = { hero | hp = min hero.maxHp (hero.hp + n) } }
+                    |> addLog ("You drink the " ++ name ++ ". (+" ++ String.fromInt n ++ " HP)")
 
         HealFull ->
-            { game | hero = { hero | hp = hero.maxHp } }
-                |> addLog ("You drink the " ++ name ++ ". You feel restored.")
+            if List.member "no-healing" game.challenges then
+                addLog ("You drink the " ++ name ++ ", but your phobia turns the healing to ash.") game
+
+            else
+                { game | hero = { hero | hp = hero.maxHp } }
+                    |> addLog ("You drink the " ++ name ++ ". You feel restored.")
 
         MaxHpBonus n ->
             { game | hero = { hero | maxHp = hero.maxHp + n, hp = hero.hp + n } }
@@ -2654,8 +2694,15 @@ damageHero dmg game =
     let
         hero =
             game.hero
+
+        actual =
+            if List.member "glass-cannon" game.challenges then
+                dmg * 2
+
+            else
+                dmg
     in
-    { game | hero = { hero | hp = hero.hp - dmg } }
+    { game | hero = { hero | hp = hero.hp - actual } }
 
 
 {-| Relocate the hero to a random passable cell (used by teleport traps) and refresh fog. -}
@@ -2775,18 +2822,27 @@ heroAttack enemy game =
         ( base, seed1 ) =
             rollDamage (heroDamage game.hero) enemy.def.defense game.seed
 
-        dmg =
-            if surprised then
-                base
-                    * (if game.hero.subclass == Just "Stalker" then
-                        3
-
-                       else
-                        2
-                      )
+        glass =
+            if List.member "glass-cannon" game.challenges then
+                2
 
             else
-                base
+                1
+
+        dmg =
+            glass
+                * (if surprised then
+                    base
+                        * (if game.hero.subclass == Just "Stalker" then
+                            3
+
+                           else
+                            2
+                          )
+
+                   else
+                    base
+                  )
 
         color =
             if surprised then
@@ -2922,7 +2978,7 @@ enemiesTurn game =
                 Set.fromList (( game.hero.pos.x, game.hero.pos.y ) :: List.map (\e -> ( e.pos.x, e.pos.y )) game.enemies)
 
             ( newEnemiesRev, acc ) =
-                List.foldl stepEnemy ( [], { hero = game.hero, seed = game.seed, log = game.log, occupied = occupied0, level = game.level } ) game.enemies
+                List.foldl stepEnemy ( [], { hero = game.hero, seed = game.seed, log = game.log, occupied = occupied0, level = game.level, glassCannon = List.member "glass-cannon" game.challenges } ) game.enemies
         in
         checkHeroDeath
             { game
@@ -2939,6 +2995,7 @@ type alias TurnAcc =
     , log : List String
     , occupied : Set ( Int, Int )
     , level : Level
+    , glassCannon : Bool
     }
 
 
@@ -3187,8 +3244,15 @@ attackHero enemy verb done acc =
             else
                 0
 
-        ( dmg, seed1 ) =
+        ( rolled, seed1 ) =
             rollDamage (enemy.def.damage + enrage) (heroDefense acc.hero) acc.seed
+
+        dmg =
+            if acc.glassCannon then
+                rolled * 2
+
+            else
+                rolled
 
         hero =
             acc.hero
@@ -3302,8 +3366,18 @@ updateEnemyAt p f enemies =
 refreshFov : Game -> Game
 refreshFov game =
     let
+        darkness =
+            if List.member "darkness" game.challenges then
+                2
+
+            else
+                0
+
+        radius =
+            max 2 (fovRadiusFor game.hero game.depth - darkness)
+
         vis =
-            Fov.compute (fovRadiusFor game.hero game.depth) game.hero.pos game.level
+            Fov.compute radius game.hero.pos game.level
     in
     { game | visible = vis, explored = Set.union game.explored vis }
 

@@ -55,6 +55,7 @@ type alias Model =
     , damaged : Bool
     , pendingChoice : Maybe Choice
     , badges : Set String
+    , challenges : Set String
     , resumeSave : Maybe ( String, Game.SaveData )
     , seedInput : String
     , seedBump : Int
@@ -79,6 +80,7 @@ type Msg
     | ToggleSheet
     | ToggleBestiary
     | SetSeed String
+    | ToggleChallenge String
     | KeyPressed String
     | Continue
     | Choose String
@@ -182,6 +184,7 @@ init _ =
       , damaged = False
       , pendingChoice = Nothing
       , badges = Set.empty
+      , challenges = Set.empty
       , resumeSave = Nothing
       , seedInput = ""
       , seedBump = 0
@@ -231,6 +234,18 @@ update msg model =
         SetSeed text ->
             ( { model | seedInput = text }, Cmd.none )
 
+        ToggleChallenge id ->
+            ( { model
+                | challenges =
+                    if Set.member id model.challenges then
+                        Set.remove id model.challenges
+
+                    else
+                        Set.insert id model.challenges
+              }
+            , Cmd.none
+            )
+
         KeyPressed key ->
             if model.pendingChoice /= Nothing then
                 ( model, Cmd.none )
@@ -257,7 +272,9 @@ update msg model =
 
         StartGame class ->
             ( { model
-                | game = Game.newGame (rulesetNamed model.modName) class (chosenSeed model)
+                | game =
+                    Game.newGame (rulesetNamed model.modName) class (chosenSeed model)
+                        |> Game.startChallenges (Set.toList model.challenges)
                 , currentClass = class.name
                 , bestiary = Set.empty
                 , screen = Playing
@@ -837,6 +854,7 @@ classSelectView model =
             [ Html.text ("Choose your class — " ++ model.modName ++ " mod") ]
         , continueRow model
         , seedRow model
+        , challengeRow model
         , Html.div [ HA.class "rg-cards" ]
             (List.map classCard (rulesetNamed model.modName).classes)
         , badgesView model.badges
@@ -856,6 +874,19 @@ continueRow model =
 
         Nothing ->
             Html.text ""
+
+
+{-| Optional run-modifier challenge toggles, applied to the next game started. -}
+challengeRow : Model -> Html Msg
+challengeRow model =
+    Html.div [ HA.class "rg-seedrow", HA.style "flex-wrap" "wrap" ]
+        (Html.span [ HA.class "rg-seed-label" ] [ Html.text "Challenges" ]
+            :: List.map
+                (\( id, ( label, desc ) ) ->
+                    chip (label ++ " — " ++ desc) (Set.member id model.challenges) (ToggleChallenge id)
+                )
+                Game.challengeChoices
+        )
 
 
 seedRow : Model -> Html Msg

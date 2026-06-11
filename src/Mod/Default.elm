@@ -555,7 +555,7 @@ healingPotion =
     , kind = Consumable (HealHp 10)
     , minDepth = 1
     , maxDepth = 99
-    , spawnWeight = 10
+    , spawnWeight = 16
     }
 
 
@@ -568,7 +568,7 @@ greaterHealingPotion =
     , kind = Consumable HealFull
     , minDepth = 3
     , maxDepth = 99
-    , spawnWeight = 4
+    , spawnWeight = 6
     }
 
 
