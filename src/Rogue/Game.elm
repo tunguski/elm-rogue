@@ -7,6 +7,10 @@ module Rogue.Game exposing
     , newGame
     , resume
     , knownItemIds
+    , chooseSubclass
+    , learnTalent
+    , subclassChoices
+    , talentChoices
     , update
     , toScene
     )
@@ -60,6 +64,8 @@ type alias Hero =
     , level : Int
     , xp : Int
     , nutrition : Int
+    , subclass : Maybe String
+    , talents : List String
     }
 
 
@@ -129,16 +135,55 @@ hasStatus kind hero =
     List.any (\s -> s.kind == kind) hero.statuses
 
 
-{-| The hero's attack power including the worn weapon's and ring's bonuses. -}
+{-| The hero's attack power including the worn weapon's and ring's bonuses, plus subclass/talent
+modifiers (the Duellist's flat bonus, the Berserker's low-HP rage, Sharpened-Edge talent). -}
 heroDamage : Hero -> Int
 heroDamage hero =
-    hero.damage + equipBonus .damage hero.weapon + equipBonus .damage hero.ring
+    let
+        sub =
+            case hero.subclass of
+                Just "Duellist" ->
+                    2
+
+                Just "Berserker" ->
+                    if hero.hp * 3 <= hero.maxHp then
+                        4
+
+                    else
+                        0
+
+                _ ->
+                    0
+
+        talent =
+            if List.member "Sharpened Edge" hero.talents then
+                1
+
+            else
+                0
+    in
+    hero.damage + equipBonus .damage hero.weapon + equipBonus .damage hero.ring + sub + talent
 
 
-{-| The hero's defense including the worn armour's and ring's bonuses. -}
+{-| The hero's defense including the worn armour's, ring's and subclass/talent bonuses. -}
 heroDefense : Hero -> Int
 heroDefense hero =
-    hero.defense + equipBonus .defense hero.armour + equipBonus .defense hero.ring
+    let
+        sub =
+            if hero.subclass == Just "Sentinel" then
+                2
+
+            else
+                0
+
+        talent =
+            if List.member "Iron Will" hero.talents then
+                1
+
+            else
+                0
+    in
+    hero.defense + equipBonus .defense hero.armour + equipBonus .defense hero.ring + sub + talent
 
 
 equipBonus : (Content.EquipBonus -> Int) -> Maybe ItemDef -> Int
@@ -372,6 +417,8 @@ newGame ruleset class rawSeed =
             , level = 1
             , xp = 0
             , nutrition = 400
+            , subclass = Nothing
+            , talents = []
             }
     in
     let
@@ -445,6 +492,8 @@ resume ruleset save =
             , level = save.level
             , xp = save.xp
             , nutrition = save.nutrition
+            , subclass = Nothing
+            , talents = []
             }
 
         ( looks, seedA ) =
@@ -454,6 +503,62 @@ resume ruleset save =
             { known = Set.fromList save.knownIds, looks = looks }
     in
     enterLevel ruleset save.depth 0 idents seedA gen hero [ "You resume your delve on depth " ++ String.fromInt save.depth ++ "." ]
+
+
+{-| Commit to a subclass (chosen at the depth threshold). Some subclasses grant an immediate bonus
+(the Sentinel's extra vitality); all confer a passive read by `heroDamage`/`heroDefense`/`heroAttack`. -}
+chooseSubclass : String -> Game -> Game
+chooseSubclass name game =
+    let
+        hero =
+            game.hero
+
+        bonusHp =
+            if name == "Sentinel" then
+                8
+
+            else
+                0
+    in
+    { game | hero = { hero | subclass = Just name, maxHp = hero.maxHp + bonusHp, hp = hero.hp + bonusHp } }
+        |> addLog ("You embrace the path of the " ++ name ++ "!")
+
+
+{-| Learn a talent (chosen on level-up). `Toughness` raises max HP at once; the rest are passives. -}
+learnTalent : String -> Game -> Game
+learnTalent name game =
+    let
+        hero =
+            game.hero
+
+        bonusHp =
+            if name == "Toughness" then
+                5
+
+            else
+                0
+    in
+    { game | hero = { hero | talents = name :: hero.talents, maxHp = hero.maxHp + bonusHp, hp = hero.hp + bonusHp } }
+        |> addLog ("You master the " ++ name ++ " talent.")
+
+
+{-| The subclasses offered at the depth threshold (label + one-line effect). -}
+subclassChoices : List ( String, String )
+subclassChoices =
+    [ ( "Duellist", "+2 damage to every strike" )
+    , ( "Berserker", "+4 damage while badly wounded" )
+    , ( "Sentinel", "+8 max HP and +2 defense" )
+    , ( "Stalker", "surprise strikes deal triple" )
+    ]
+
+
+{-| The talents the hero can learn on level-up (label + one-line effect). -}
+talentChoices : List ( String, String )
+talentChoices =
+    [ ( "Sharpened Edge", "+1 damage" )
+    , ( "Iron Will", "+1 defense" )
+    , ( "Toughness", "+5 max HP" )
+    ]
 
 
 withArticle : String -> String
@@ -2608,7 +2713,13 @@ heroAttack enemy game =
 
         dmg =
             if surprised then
-                base * 2
+                base
+                    * (if game.hero.subclass == Just "Stalker" then
+                        3
+
+                       else
+                        2
+                      )
 
             else
                 base

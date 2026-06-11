@@ -34,6 +34,13 @@ type Screen
     | Playing
 
 
+{-| A pending mid-run pick that pauses play with a modal: a subclass (at the depth threshold) or a
+talent (on level-up). -}
+type Choice
+    = SubclassChoice
+    | TalentChoice
+
+
 type alias Model =
     { game : Game
     , screen : Screen
@@ -46,6 +53,7 @@ type alias Model =
     , bestiary : Set String
     , targeting : Maybe Grid.Pos
     , damaged : Bool
+    , pendingChoice : Maybe Choice
     , resumeSave : Maybe ( String, Game.SaveData )
     , seedInput : String
     , seedBump : Int
@@ -72,6 +80,7 @@ type Msg
     | SetSeed String
     | KeyPressed String
     | Continue
+    | Choose String
     | Loaded (Maybe String)
     | LoadedSave (Maybe String)
 
@@ -139,6 +148,18 @@ rendererNamed name =
     lookup name renderers |> Maybe.withDefault SvgRenderer.renderer
 
 
+{-| The depth at which the hero is offered a subclass. -}
+subclassDepth : Int
+subclassDepth =
+    3
+
+
+{-| Talents the hero hasn't learned yet (offered on level-up). -}
+unlearnedTalents : Game -> List ( String, String )
+unlearnedTalents game =
+    Game.talentChoices |> List.filter (\( name, _ ) -> not (List.member name game.hero.talents))
+
+
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { game = Game.newGame Mod.Default.ruleset (Content.defaultClass Mod.Default.ruleset) startSeed
@@ -152,6 +173,7 @@ init _ =
       , bestiary = Set.empty
       , targeting = Nothing
       , damaged = False
+      , pendingChoice = Nothing
       , resumeSave = Nothing
       , seedInput = ""
       , seedBump = 0
@@ -195,7 +217,22 @@ update msg model =
             ( { model | seedInput = text }, Cmd.none )
 
         KeyPressed key ->
-            handleKey (String.toLower key) model
+            if model.pendingChoice /= Nothing then
+                ( model, Cmd.none )
+
+            else
+                handleKey (String.toLower key) model
+
+        Choose name ->
+            case model.pendingChoice of
+                Just SubclassChoice ->
+                    ( { model | game = Game.chooseSubclass name model.game, pendingChoice = Nothing }, Cmd.none )
+
+                Just TalentChoice ->
+                    ( { model | game = Game.learnTalent name model.game, pendingChoice = Nothing }, Cmd.none )
+
+                Nothing ->
+                    ( model, Cmd.none )
 
         SelectRenderer name ->
             ( { model | rendererName = name }, Cmd.none )
@@ -241,11 +278,22 @@ runGame gm model =
                 bestiary =
                     Set.union model.bestiary (seenMonsters nextGame)
 
+                pending =
+                    if nextGame.hero.subclass == Nothing && nextGame.depth >= subclassDepth then
+                        Just SubclassChoice
+
+                    else if nextGame.hero.level > model.game.hero.level && not (List.isEmpty (unlearnedTalents nextGame)) then
+                        Just TalentChoice
+
+                    else
+                        model.pendingChoice
+
                 base =
                     { model
                         | game = nextGame
                         , bestiary = bestiary
                         , damaged = nextGame.hero.hp < model.game.hero.hp
+                        , pendingChoice = pending
                     }
             in
             if justEnded then
@@ -516,7 +564,41 @@ view model =
 
                       else
                         Html.text ""
+                    , choiceOverlay model
                     ]
+        ]
+
+
+{-| A modal that pauses play to pick a subclass (at the depth threshold) or a talent (on level-up). -}
+choiceOverlay : Model -> Html Msg
+choiceOverlay model =
+    case model.pendingChoice of
+        Nothing ->
+            Html.text ""
+
+        Just choice ->
+            let
+                ( title, options ) =
+                    case choice of
+                        SubclassChoice ->
+                            ( "Choose your path", Game.subclassChoices )
+
+                        TalentChoice ->
+                            ( "Level up — learn a talent", unlearnedTalents model.game )
+            in
+            Html.div [ HA.class "rg-overlay" ]
+                [ Html.div [ HA.class "rg-modal" ]
+                    (Html.div [ HA.class "rg-modal-title" ] [ Html.text title ]
+                        :: List.map choiceCard options
+                    )
+                ]
+
+
+choiceCard : ( String, String ) -> Html Msg
+choiceCard ( name, desc ) =
+    Html.button [ onClick (Choose name), HA.class "rg-btn rg-card", HA.style "width" "100%", HA.style "margin-bottom" "6px" ]
+        [ Html.div [ HA.class "rg-card-name" ] [ Html.text name ]
+        , Html.div [ HA.class "rg-card-stats" ] [ Html.text desc ]
         ]
 
 
