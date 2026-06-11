@@ -1875,6 +1875,24 @@ palette =
     , { adjective = "violet", color = "#9b6ad8" }
     , { adjective = "smoky", color = "#9aa7ba" }
     , { adjective = "amber", color = "#e0824b" }
+    , { adjective = "inky", color = "#6a6f86" }
+    , { adjective = "milky", color = "#d6d2c2" }
+    ]
+
+
+{-| The pool of runic labels an unidentified scroll can wear this run. -}
+scrollPalette : List Appearance
+scrollPalette =
+    [ { adjective = "GORO", color = "#c9b88a" }
+    , { adjective = "KAUNAN", color = "#caa472" }
+    , { adjective = "OYEE", color = "#b8c46a" }
+    , { adjective = "ZID", color = "#9ab0d6" }
+    , { adjective = "TIWAZ", color = "#d4a06a" }
+    , { adjective = "ELAR", color = "#a7c46a" }
+    , { adjective = "VARK", color = "#c79ad6" }
+    , { adjective = "WERG", color = "#d6c27a" }
+    , { adjective = "NYX", color = "#9aa7ba" }
+    , { adjective = "RETH", color = "#caa0a0" }
     ]
 
 
@@ -1889,21 +1907,46 @@ isPotion def =
             False
 
 
-{-| Assign each potion id a distinct random appearance for the run. -}
+{-| Is this item a scroll? -}
+isScroll : ItemDef -> Bool
+isScroll def =
+    case def.kind of
+        Content.Consumable _ ->
+            String.startsWith "scroll" def.id
+
+        _ ->
+            False
+
+
+{-| Items subject to per-run identification (potions and scrolls). -}
+unidentifiable : ItemDef -> Bool
+unidentifiable def =
+    isPotion def || isScroll def
+
+
+{-| Assign each potion and scroll id a distinct random appearance for the run. -}
 assignLooks : Ruleset -> Seed -> ( Dict String Appearance, Seed )
 assignLooks ruleset seed =
     let
-        potionIds =
-            ruleset.items |> List.filter isPotion |> List.map .id
+        idsOf pred =
+            ruleset.items |> List.filter pred |> List.map .id
 
-        ( shuffled, seed1 ) =
+        ( potionLooks, seed1 ) =
             Rng.shuffle palette seed
+
+        ( scrollLooks, seed2 ) =
+            Rng.shuffle scrollPalette seed1
     in
-    ( Dict.fromList (List.map2 Tuple.pair potionIds shuffled), seed1 )
+    ( Dict.fromList
+        (List.map2 Tuple.pair (idsOf isPotion) potionLooks
+            ++ List.map2 Tuple.pair (idsOf isScroll) scrollLooks
+        )
+    , seed2
+    )
 
 
-{-| The name to show for an item: its true name once identified (or if not a potion), else its random
-"<adjective> potion" appearance. -}
+{-| The name to show for an item: its true name once identified (or if not randomized), else its
+random "<adjective> potion" / "scroll labeled <RUNE>" appearance. -}
 displayName : Idents -> ItemDef -> String
 displayName idents def =
     case def.kind of
@@ -1918,22 +1961,25 @@ displayName idents def =
                 def.name
 
         _ ->
-            if not (isPotion def) || Set.member def.id idents.known then
+            if not (unidentifiable def) || Set.member def.id idents.known then
                 def.name
 
             else
-                case Dict.get def.id idents.looks of
-                    Just look ->
+                case ( Dict.get def.id idents.looks, isScroll def ) of
+                    ( Just look, True ) ->
+                        "scroll labeled " ++ look.adjective
+
+                    ( Just look, False ) ->
                         look.adjective ++ " potion"
 
-                    Nothing ->
-                        "potion"
+                    ( Nothing, _ ) ->
+                        def.name
 
 
 {-| The colour to draw an item with: true colour once identified, else its appearance colour. -}
 displayColor : Idents -> ItemDef -> String
 displayColor idents def =
-    if not (isPotion def) || Set.member def.id idents.known then
+    if not (unidentifiable def) || Set.member def.id idents.known then
         def.color
 
     else
@@ -1945,16 +1991,16 @@ displayColor idents def =
                 def.color
 
 
-{-| Mark a potion identified (after drinking), announcing what it was if newly learned. -}
+{-| Mark a potion or scroll identified (after use), announcing what it was if newly learned. -}
 identify : ItemDef -> Game -> Game
 identify def game =
-    if isPotion def && not (Set.member def.id game.idents.known) then
+    if unidentifiable def && not (Set.member def.id game.idents.known) then
         let
             idents =
                 game.idents
         in
         { game | idents = { idents | known = Set.insert def.id idents.known } }
-            |> addLog ("It was a " ++ def.name ++ "!")
+            |> addLog ("It was " ++ withArticle def.name ++ "!")
 
     else
         game
