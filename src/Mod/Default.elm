@@ -56,6 +56,7 @@ ruleset =
         , potionOfLiquidFlame
         , potionOfCausticGas
         , bomb
+        , ankh
         , ration
         , torch
         , goldPile
@@ -711,6 +712,19 @@ bomb =
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 3
+    }
+
+
+ankh : ItemDef
+ankh =
+    { id = "ankh"
+    , name = "ankh"
+    , glyph = "Ω"
+    , color = "#e0d24b"
+    , kind = Consumable HealFull
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 2
     }
 
 

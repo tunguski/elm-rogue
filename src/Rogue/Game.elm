@@ -1610,7 +1610,10 @@ tryUse index game =
         Just def ->
             case def.kind of
                 Content.Consumable eff ->
-                    if isThrown eff then
+                    if def.id == "ankh" then
+                        addLog "The ankh hums with protective magic — it will revive you when you fall." game
+
+                    else if isThrown eff then
                         throwConsumable index def eff game
 
                     else
@@ -3175,10 +3178,46 @@ stepAway from to level occupied =
 checkHeroDeath : Game -> Game
 checkHeroDeath game =
     if game.hero.hp <= 0 && not game.gameOver then
-        { game | gameOver = True } |> addLog "You die. Press R to restart."
+        case findIndex (\it -> it.id == "ankh") game.hero.inventory of
+            Just idx ->
+                -- An ankh shatters to pull the hero back from death, restoring half their health.
+                let
+                    hero =
+                        game.hero
+                in
+                { game
+                    | hero =
+                        { hero
+                            | inventory = removeAt idx hero.inventory
+                            , hp = max 1 (hero.maxHp // 2)
+                            , statuses = []
+                        }
+                }
+                    |> addLog "Your ankh blazes and shatters — you are wrenched back from death!"
+
+            Nothing ->
+                { game | gameOver = True } |> addLog "You die. Press R to restart."
 
     else
         game
+
+
+findIndex : (a -> Bool) -> List a -> Maybe Int
+findIndex pred xs =
+    let
+        go i ys =
+            case ys of
+                [] ->
+                    Nothing
+
+                y :: rest ->
+                    if pred y then
+                        Just i
+
+                    else
+                        go (i + 1) rest
+    in
+    go 0 xs
 
 
 enemyAt : Pos -> Game -> Maybe Enemy
