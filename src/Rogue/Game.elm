@@ -1473,10 +1473,10 @@ tryUse index game =
                     endTurn { applied | hero = { hero | inventory = removeAt index hero.inventory } }
 
                 Content.Equipment slot _ ->
-                    endTurn (equip index slot def game)
+                    endTurn (identify def (equip index slot def game))
 
                 Content.Wand spec ->
-                    zapWand index spec game
+                    identify def (zapWand index spec game)
 
                 Content.Key ->
                     addLog "Keys open locked doors — walk into one." game
@@ -1918,13 +1918,60 @@ isScroll def =
             False
 
 
-{-| Items subject to per-run identification (potions and scrolls). -}
+isRing : ItemDef -> Bool
+isRing def =
+    case def.kind of
+        Content.Equipment Content.RingSlot _ ->
+            True
+
+        _ ->
+            False
+
+
+isWand : ItemDef -> Bool
+isWand def =
+    case def.kind of
+        Content.Wand _ ->
+            True
+
+        _ ->
+            False
+
+
+{-| The gem/wood labels unidentified rings and wands wear this run. -}
+ringPalette : List Appearance
+ringPalette =
+    [ { adjective = "diamond", color = "#9be0ff" }
+    , { adjective = "ruby", color = "#e0564b" }
+    , { adjective = "emerald", color = "#5dd47a" }
+    , { adjective = "topaz", color = "#d8b24c" }
+    , { adjective = "agate", color = "#c79ad6" }
+    , { adjective = "onyx", color = "#9aa7ba" }
+    , { adjective = "sapphire", color = "#4f8bff" }
+    , { adjective = "garnet", color = "#caa0a0" }
+    ]
+
+
+wandPalette : List Appearance
+wandPalette =
+    [ { adjective = "yew", color = "#caa472" }
+    , { adjective = "ebony", color = "#6a6f86" }
+    , { adjective = "birch", color = "#d6d2c2" }
+    , { adjective = "holly", color = "#5dd47a" }
+    , { adjective = "willow", color = "#a7c46a" }
+    , { adjective = "rowan", color = "#e0824b" }
+    , { adjective = "teak", color = "#b8895a" }
+    , { adjective = "elm", color = "#9ab0d6" }
+    ]
+
+
+{-| Items subject to per-run identification (potions, scrolls, rings and wands). -}
 unidentifiable : ItemDef -> Bool
 unidentifiable def =
-    isPotion def || isScroll def
+    isPotion def || isScroll def || isRing def || isWand def
 
 
-{-| Assign each potion and scroll id a distinct random appearance for the run. -}
+{-| Assign each randomized item id a distinct appearance for the run. -}
 assignLooks : Ruleset -> Seed -> ( Dict String Appearance, Seed )
 assignLooks ruleset seed =
     let
@@ -1936,44 +1983,76 @@ assignLooks ruleset seed =
 
         ( scrollLooks, seed2 ) =
             Rng.shuffle scrollPalette seed1
+
+        ( ringLooks, seed3 ) =
+            Rng.shuffle ringPalette seed2
+
+        ( wandLooks, seed4 ) =
+            Rng.shuffle wandPalette seed3
     in
     ( Dict.fromList
         (List.map2 Tuple.pair (idsOf isPotion) potionLooks
             ++ List.map2 Tuple.pair (idsOf isScroll) scrollLooks
+            ++ List.map2 Tuple.pair (idsOf isRing) ringLooks
+            ++ List.map2 Tuple.pair (idsOf isWand) wandLooks
         )
-    , seed2
+    , seed4
     )
 
 
-{-| The name to show for an item: its true name once identified (or if not randomized), else its
-random "<adjective> potion" / "scroll labeled <RUNE>" appearance. -}
+lookAdjective : Idents -> ItemDef -> String
+lookAdjective idents def =
+    Dict.get def.id idents.looks |> Maybe.map .adjective |> Maybe.withDefault ""
+
+
+{-| The name to show for an item: its true name once identified, else its per-run disguised appearance
+("<adjective> potion", "scroll labeled <RUNE>", "<gem> ring", "<wood> wand"). -}
 displayName : Idents -> ItemDef -> String
 displayName idents def =
+    let
+        known =
+            Set.member def.id idents.known
+    in
     case def.kind of
         Content.Wand spec ->
-            def.name ++ " (" ++ String.fromInt spec.charges ++ ")"
+            (if known then
+                def.name
+
+             else
+                lookAdjective idents def ++ " wand"
+            )
+                ++ " ("
+                ++ String.fromInt spec.charges
+                ++ ")"
+
+        Content.Equipment Content.RingSlot bonus ->
+            if known then
+                def.name ++ plusSuffix bonus
+
+            else
+                lookAdjective idents def ++ " ring"
 
         Content.Equipment _ bonus ->
-            if bonus.plus > 0 then
-                def.name ++ " +" ++ String.fromInt bonus.plus
-
-            else
-                def.name
+            def.name ++ plusSuffix bonus
 
         _ ->
-            if not (unidentifiable def) || Set.member def.id idents.known then
+            if not (unidentifiable def) || known then
                 def.name
 
+            else if isScroll def then
+                "scroll labeled " ++ lookAdjective idents def
+
             else
-                case ( Dict.get def.id idents.looks, isScroll def ) of
-                    ( Just look, True ) ->
-                        "scroll labeled " ++ look.adjective
+                lookAdjective idents def ++ " potion"
 
-                    ( Just look, False ) ->
-                        look.adjective ++ " potion"
 
-                    ( Nothing, _ ) ->
-                        def.name
+plusSuffix : Content.EquipBonus -> String
+plusSuffix bonus =
+    if bonus.plus > 0 then
+        " +" ++ String.fromInt bonus.plus
+
+    else
+        ""
 
 
 {-| The colour to draw an item with: true colour once identified, else its appearance colour. -}
