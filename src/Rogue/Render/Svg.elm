@@ -87,6 +87,7 @@ view scene =
                 , HA.style "height" "auto"
                 ]
                 [ g [] (List.filterMap (cellSvg scene) cells)
+                , g [] (List.map gasSvg (List.filter (\gc -> inWindow gc.pos) scene.gas))
                 , g [] (List.filterMap (glyphSvg scene) (List.sortBy .layer (List.filter (\gl -> inWindow gl.pos) scene.glyphs)))
                 , g [] (List.map popupSvg (List.filter (\pp -> inWindow pp.pos) scene.popups))
                 , cursorSvg scene.cursor
@@ -187,6 +188,19 @@ lowHpVignette hud =
 
     else
         Html.text ""
+
+
+gasSvg : Rogue.Render.GasCell -> Svg msg
+gasSvg gc =
+    rect
+        [ SA.x (px (gc.pos.x * cellSize))
+        , SA.y (px (gc.pos.y * cellSize))
+        , SA.width (px cellSize)
+        , SA.height (px cellSize)
+        , SA.fill gc.color
+        , HA.style "opacity" (String.fromFloat gc.alpha)
+        ]
+        []
 
 
 cursorSvg : Maybe Pos -> Svg msg

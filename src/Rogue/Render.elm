@@ -162,6 +162,7 @@ type alias Scene =
     , explored : Set ( Int, Int )
     , glyphs : List Glyph
     , popups : List Popup
+    , gas : List GasCell
     , theme : Theme
     , camera : Pos
     , cursor : Maybe Pos
@@ -175,6 +176,14 @@ type alias Popup =
     { pos : Pos
     , text : String
     , color : String
+    }
+
+
+{-| A translucent gas overlay on a cell; `alpha` (0–1) scales with the cloud's density. -}
+type alias GasCell =
+    { pos : Pos
+    , color : String
+    , alpha : Float
     }
 
 

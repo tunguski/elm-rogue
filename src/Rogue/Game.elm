@@ -232,6 +232,19 @@ type alias Trap =
     }
 
 
+{-| A volatile gas occupying a cell: it spreads to neighbours and thins by one each turn. -}
+type GasKind
+    = ToxicGasCloud
+    | CausticGasCloud
+    | ParalyticGasCloud
+
+
+type alias Gas =
+    { kind : GasKind
+    , density : Int
+    }
+
+
 {-| Per-run identification of potions. `looks` maps each potion id to the random appearance it wears
 this run (e.g. "murky"); `known` is the set of potion ids the hero has identified by drinking. An
 unknown potion shows its appearance; a known one shows its true name. -}
@@ -260,6 +273,7 @@ type alias Game =
     , npc : Maybe Npc
     , popups : List Popup
     , traps : List Trap
+    , gas : Dict ( Int, Int ) Gas
     , idents : Idents
     , depth : Int
     , turn : Int
@@ -561,6 +575,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , npc = npc
     , popups = []
     , traps = traps
+    , gas = Dict.empty
     , idents = idents
     , depth = depth
     , turn = 0
@@ -1840,9 +1855,9 @@ applyEffect def game =
             addStatus Burn magnitude 4 game
                 |> addLog ("The " ++ name ++ " bursts into flame in your hand!")
 
-        ToxicGas magnitude ->
-            addStatus Poison magnitude 5 game
-                |> addLog ("The " ++ name ++ " erupts in choking gas!")
+        ToxicGas _ ->
+            spawnGas CausticGasCloud 6 game.hero.pos game
+                |> addLog ("The " ++ name ++ " shatters into a cloud of caustic gas!")
 
         Lullaby turns ->
             let
@@ -2343,8 +2358,8 @@ trapEffect kind game =
             checkHeroDeath (damageHero dmg { game | seed = s1 } |> addLog ("A dart shoots out! (" ++ String.fromInt dmg ++ ")"))
 
         PoisonTrap ->
-            addStatus Poison 2 5 game
-                |> addLog "Poison gas hisses out! You are poisoned."
+            spawnGas ToxicGasCloud 5 game.hero.pos game
+                |> addLog "Toxic gas billows out of the floor!"
 
         TeleportTrap ->
             teleportHero game |> addLog "A teleport trap! You are flung across the floor."
@@ -2861,8 +2876,11 @@ endTurn game =
         afterMonsters =
             applyTimes enemyPhases enemiesTurn afterEnemyDot
 
+        afterGas =
+            tickGas afterMonsters
+
         afterPerception =
-            passivePerception afterMonsters
+            passivePerception afterGas
 
         afterHunger =
             tickHunger afterPerception
@@ -2955,6 +2973,144 @@ maybeWander game =
 
             _ ->
                 game
+
+
+-- GAS CLOUDS -------------------------------------------------------------------------------------
+
+
+{-| Stamp a gas cloud (and a one-cell border) onto the passable cells around `center`. -}
+spawnGas : GasKind -> Int -> Pos -> Game -> Game
+spawnGas kind density center game =
+    let
+        cells =
+            (center :: Grid.neighbors4 center)
+                |> List.filter (\p -> Level.isPassableAt p game.level)
+
+        added =
+            List.foldl (\p d -> Dict.insert ( p.x, p.y ) { kind = kind, density = density } d) game.gas cells
+    in
+    { game | gas = added }
+
+
+{-| Diffuse every gas cloud one cell outward and thin it by one, then apply its effect to whoever
+stands in it. Each non-wall cell takes the strongest of (its own density - 1) and (a neighbour's
+density - 1); at zero it clears. -}
+tickGas : Game -> Game
+tickGas game =
+    if Dict.isEmpty game.gas then
+        game
+
+    else
+        let
+            at key =
+                Dict.get key game.gas
+
+            candidateKeys =
+                Dict.keys game.gas
+                    |> List.concatMap
+                        (\( x, y ) ->
+                            ( x, y ) :: List.map (\p -> ( p.x, p.y )) (Grid.neighbors4 { x = x, y = y })
+                        )
+                    |> Set.fromList
+                    |> Set.toList
+
+            sourcesFor ( x, y ) =
+                (( x, y ) :: List.map (\p -> ( p.x, p.y )) (Grid.neighbors4 { x = x, y = y }))
+                    |> List.filterMap (\k -> at k |> Maybe.map (\g -> { kind = g.kind, density = g.density - 1 }))
+
+            next ( x, y ) =
+                if Level.isPassableAt { x = x, y = y } game.level then
+                    case maximumBy .density (sourcesFor ( x, y )) of
+                        Just best ->
+                            if best.density > 0 then
+                                Just ( ( x, y ), { kind = best.kind, density = best.density } )
+
+                            else
+                                Nothing
+
+                        Nothing ->
+                            Nothing
+
+                else
+                    Nothing
+
+            newGas =
+                List.filterMap next candidateKeys
+        in
+        applyGasEffects { game | gas = Dict.fromList newGas }
+
+
+{-| Apply the gas under the hero (status) and under each monster (status) this turn. -}
+applyGasEffects : Game -> Game
+applyGasEffects game =
+    let
+        hero =
+            game.hero
+
+        afterHero =
+            case Dict.get ( hero.pos.x, hero.pos.y ) game.gas of
+                Just g ->
+                    addStatus (gasStatus g.kind) (gasMagnitude g.kind) 2 game
+                        |> addLog (gasLog g.kind)
+
+                Nothing ->
+                    game
+
+        affected e =
+            case Dict.get ( e.pos.x, e.pos.y ) afterHero.gas of
+                Just g ->
+                    { e | statuses = addEnemyStatus (gasStatus g.kind) (gasMagnitude g.kind) 2 e.statuses, alerted = True }
+
+                Nothing ->
+                    e
+    in
+    { afterHero | enemies = List.map affected afterHero.enemies }
+
+
+gasStatus : GasKind -> StatusKind
+gasStatus kind =
+    case kind of
+        ParalyticGasCloud ->
+            Paralyzed
+
+        _ ->
+            Poison
+
+
+gasMagnitude : GasKind -> Int
+gasMagnitude kind =
+    case kind of
+        ToxicGasCloud ->
+            2
+
+        CausticGasCloud ->
+            3
+
+        ParalyticGasCloud ->
+            1
+
+
+gasLog : GasKind -> String
+gasLog kind =
+    case kind of
+        ParalyticGasCloud ->
+            "Paralytic gas seizes your muscles!"
+
+        _ ->
+            "Choking gas burns your lungs!"
+
+
+gasColor : GasKind -> String
+gasColor kind =
+    case kind of
+        ToxicGasCloud ->
+            "#7fae5a"
+
+        CausticGasCloud ->
+            "#b6d24a"
+
+        ParalyticGasCloud ->
+            "#d6c24a"
 
 
 {-| Add or refresh a status on a monster (mirrors the hero's `addStatus`). -}
@@ -3197,6 +3353,17 @@ toScene game =
             ++ List.map enemyGlyph game.enemies
             ++ [ heroGlyph game ]
     , popups = List.map (\p -> { pos = p.pos, text = p.text, color = p.color }) game.popups
+    , gas =
+        game.gas
+            |> Dict.toList
+            |> List.filterMap
+                (\( ( x, y ), g ) ->
+                    if Set.member ( x, y ) game.visible then
+                        Just { pos = { x = x, y = y }, color = gasColor g.kind, alpha = min 0.6 (0.12 + toFloat g.density * 0.08) }
+
+                    else
+                        Nothing
+                )
     , theme = Render.themeForDepth game.depth
     , camera = game.hero.pos
     , cursor = Nothing
