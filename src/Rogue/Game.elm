@@ -1819,6 +1819,150 @@ applyEffect def game =
             addStatus Poison magnitude 5 game
                 |> addLog ("The " ++ name ++ " erupts in choking gas!")
 
+        Lullaby turns ->
+            let
+                lulled =
+                    List.map
+                        (\e ->
+                            if Set.member ( e.pos.x, e.pos.y ) game.visible then
+                                { e | alerted = False, fleeing = False, statuses = addEnemyStatus Paralyzed 1 turns e.statuses }
+
+                            else
+                                e
+                        )
+                        game.enemies
+            in
+            { game | enemies = lulled }
+                |> addLog "You read the scroll. A soothing melody lulls the nearby monsters to sleep."
+
+        Retribution magnitude ->
+            psionicBlast (magnitude + game.depth) game
+                |> addLog "You read the scroll. A wave of force erupts outward!"
+
+        Transmute ->
+            transmuteItem game
+
+        GrowGrass ->
+            let
+                grown =
+                    List.foldl
+                        (\p lv ->
+                            if Level.at p lv == Floor then
+                                Level.set p Grass lv
+
+                            else
+                                lv
+                        )
+                        game.level
+                        (cellsWithin 2 game.hero.pos)
+            in
+            { game | level = grown }
+                |> addLog "You read the scroll. Tall grass bursts from the ground around you."
+
+        Aggravate ->
+            { game | enemies = List.map (\e -> { e | alerted = True }) game.enemies }
+                |> addLog "You read the scroll. A blaring note rouses every monster on the floor!"
+
+
+{-| Damage every monster the hero can see (a psionic blast / scroll of retribution). -}
+psionicBlast : Int -> Game -> Game
+psionicBlast power game =
+    let
+        step e ( alive, xp, kills, pops ) =
+            if Set.member ( e.pos.x, e.pos.y ) game.visible then
+                let
+                    hp =
+                        e.hp - power
+                in
+                if hp <= 0 then
+                    ( alive, xp + e.def.xp, kills + 1, { pos = e.pos, text = String.fromInt power, color = "#c9a0ff" } :: pops )
+
+                else
+                    ( { e | hp = hp, alerted = True } :: alive, xp, kills, { pos = e.pos, text = String.fromInt power, color = "#c9a0ff" } :: pops )
+
+            else
+                ( e :: alive, xp, kills, pops )
+
+        ( survivors, gained, killed, popups ) =
+            List.foldl step ( [], 0, 0, [] ) game.enemies
+    in
+    { game | enemies = List.reverse survivors, kills = game.kills + killed, popups = popups ++ game.popups }
+        |> gainXp gained
+
+
+{-| Reroll one random non-equipped pack item into another of the same kind (scroll of transmutation). -}
+transmuteItem : Game -> Game
+transmuteItem game =
+    let
+        hero =
+            game.hero
+    in
+    case hero.inventory of
+        [] ->
+            addLog "You read the scroll, but have nothing to transmute." game
+
+        _ ->
+            let
+                ( idx, seed1 ) =
+                    Rng.int (List.length hero.inventory) game.seed
+
+                target =
+                    nth idx hero.inventory
+
+                sameKind a b =
+                    sameItemKind a.kind b.kind
+            in
+            case target of
+                Nothing ->
+                    { game | seed = seed1 }
+
+                Just old ->
+                    let
+                        pool =
+                            Content.itemsForDepth game.depth game.ruleset
+                                |> List.filter (\( _, d ) -> sameKind d old && d.id /= old.id)
+                    in
+                    case pool of
+                        ( _, firstDef ) :: _ ->
+                            let
+                                ( fresh, seed2 ) =
+                                    Rng.pickWeighted firstDef pool seed1
+                            in
+                            { game
+                                | seed = seed2
+                                , hero = { hero | inventory = replaceAt idx fresh hero.inventory }
+                            }
+                                |> identify fresh
+                                |> addLog ("You read the scroll. Your " ++ old.name ++ " becomes " ++ withArticle (displayName game.idents fresh) ++ "!")
+
+                        [] ->
+                            { game | seed = seed1 }
+                                |> addLog "You read the scroll, but nothing changes."
+
+
+{-| Two item kinds count as the same category for transmutation (consumable↔consumable, etc.). -}
+sameItemKind : Content.ItemKind -> Content.ItemKind -> Bool
+sameItemKind a b =
+    case ( a, b ) of
+        ( Content.Consumable _, Content.Consumable _ ) ->
+            True
+
+        ( Content.Equipment sa _, Content.Equipment sb _ ) ->
+            sa == sb
+
+        ( Content.Wand _, Content.Wand _ ) ->
+            True
+
+        _ ->
+            False
+
+
+cellsWithin : Int -> Pos -> List Pos
+cellsWithin r center =
+    List.concatMap
+        (\dy -> List.map (\dx -> { x = center.x + dx, y = center.y + dy }) (List.range -r r))
+        (List.range -r r)
+
 
 effectOf : ItemDef -> ItemEffect
 effectOf def =
@@ -1933,6 +2077,10 @@ scrollPalette =
     , { adjective = "WERG", color = "#d6c27a" }
     , { adjective = "NYX", color = "#9aa7ba" }
     , { adjective = "RETH", color = "#caa0a0" }
+    , { adjective = "MOTH", color = "#b8c0a0" }
+    , { adjective = "QORN", color = "#c0a0c8" }
+    , { adjective = "FENG", color = "#a0c0c0" }
+    , { adjective = "ULAR", color = "#c8b890" }
     ]
 
 
@@ -2438,7 +2586,11 @@ stepEnemy enemy ( done, acc ) =
         woken =
             { healed | alerted = healed.alerted && not heroHidden || aware }
     in
-    if not aware then
+    if List.any (\s -> s.kind == Paralyzed) enemy.statuses then
+        -- Asleep / paralysed: it idles this turn (its status counts down in tickEnemyStatuses).
+        ( woken :: done, acc )
+
+    else if not aware then
         ( woken :: done, acc )
 
     else
@@ -2933,6 +3085,19 @@ nth i xs =
 removeAt : Int -> List a -> List a
 removeAt i xs =
     List.take i xs ++ List.drop (i + 1) xs
+
+
+replaceAt : Int -> a -> List a -> List a
+replaceAt i x xs =
+    List.indexedMap
+        (\j old ->
+            if j == i then
+                x
+
+            else
+                old
+        )
+        xs
 
 
 maximumBy : (a -> comparable) -> List a -> Maybe a

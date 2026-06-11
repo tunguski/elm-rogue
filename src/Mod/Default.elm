@@ -65,6 +65,11 @@ ruleset =
         , scrollOfRecharging
         , scrollOfTerror
         , scrollOfRemoveCurse
+        , scrollOfLullaby
+        , scrollOfRetribution
+        , scrollOfTransmutation
+        , scrollOfGrowth
+        , scrollOfRage
         , wandMagicMissile
         , wandFirebolt
         , wandLightning
@@ -790,6 +795,71 @@ scrollOfRemoveCurse =
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 4
+    }
+
+
+scrollOfLullaby : ItemDef
+scrollOfLullaby =
+    { id = "scroll-lullaby"
+    , name = "scroll of lullaby"
+    , glyph = "?"
+    , color = "#a7b0e0"
+    , kind = Consumable (Lullaby 6)
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+scrollOfRetribution : ItemDef
+scrollOfRetribution =
+    { id = "scroll-retribution"
+    , name = "scroll of retribution"
+    , glyph = "?"
+    , color = "#e06ad8"
+    , kind = Consumable (Retribution 6)
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+scrollOfTransmutation : ItemDef
+scrollOfTransmutation =
+    { id = "scroll-transmutation"
+    , name = "scroll of transmutation"
+    , glyph = "?"
+    , color = "#6ad8c0"
+    , kind = Consumable Transmute
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+scrollOfGrowth : ItemDef
+scrollOfGrowth =
+    { id = "scroll-growth"
+    , name = "scroll of sunlight"
+    , glyph = "?"
+    , color = "#9be08a"
+    , kind = Consumable GrowGrass
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+scrollOfRage : ItemDef
+scrollOfRage =
+    { id = "scroll-rage"
+    , name = "scroll of rage"
+    , glyph = "?"
+    , color = "#e0824b"
+    , kind = Consumable Aggravate
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 2
     }
 
 

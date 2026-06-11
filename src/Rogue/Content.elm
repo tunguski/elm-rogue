@@ -91,6 +91,11 @@ type ItemEffect
     | Experience Int
     | Incinerate Int
     | ToxicGas Int
+    | Lullaby Int
+    | Retribution Int
+    | Transmute
+    | GrowGrass
+    | Aggravate
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -317,6 +322,21 @@ describeEffect effect =
 
         ToxicGas _ ->
             "releases toxic gas"
+
+        Lullaby _ ->
+            "lulls nearby monsters to sleep"
+
+        Retribution _ ->
+            "blasts visible monsters"
+
+        Transmute ->
+            "transmutes a carried item"
+
+        GrowGrass ->
+            "grows sheltering grass"
+
+        Aggravate ->
+            "enrages the whole floor"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}
