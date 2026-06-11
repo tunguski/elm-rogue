@@ -1664,6 +1664,7 @@ zapWand index spec game =
                                 |> addLog ("Your bolt destroys the " ++ target.def.name ++ "!")
                                 |> addPopup target.pos (String.fromInt dmg) "#82aaff"
                                 |> gainXp target.def.xp
+                                |> dropLoot target
 
                         else
                             { game
@@ -2572,6 +2573,26 @@ rollDamage attack defense seed =
 
 
 {-| The hero strikes a monster; a lethal blow removes it and counts a kill. -}
+{-| Roll a slain monster's loot-table drop onto its cell: bosses always drop their relic, others ~30%. -}
+dropLoot : Enemy -> Game -> Game
+dropLoot enemy game =
+    case enemy.def.drop |> Maybe.andThen (\itemId -> Content.findItem itemId game.ruleset) of
+        Just def ->
+            let
+                ( roll, seed1 ) =
+                    Rng.int 100 game.seed
+            in
+            if enemy.def.boss || roll < 30 then
+                { game | items = { def = def, pos = enemy.pos } :: game.items, seed = seed1 }
+                    |> addLog ("The " ++ enemy.def.name ++ " drops " ++ withArticle (displayName game.idents def) ++ "!")
+
+            else
+                { game | seed = seed1 }
+
+        Nothing ->
+            game
+
+
 heroAttack : Enemy -> Game -> Game
 heroAttack enemy game =
     let
@@ -2618,6 +2639,7 @@ heroAttack enemy game =
             |> addLog ("You kill the " ++ enemy.def.name ++ "." ++ surpriseNote)
             |> addPopup enemy.pos (String.fromInt dmg) color
             |> gainXp enemy.def.xp
+            |> dropLoot enemy
 
     else
         { game

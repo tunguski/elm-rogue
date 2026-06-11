@@ -66,6 +66,7 @@ type alias EnemyDef =
     , maxDepth : Int
     , spawnWeight : Int
     , xp : Int
+    , drop : Maybe String
     }
 
 

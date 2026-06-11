@@ -175,6 +175,7 @@ rat =
     , maxDepth = 3
     , spawnWeight = 10
     , xp = 1
+    , drop = Nothing
     }
 
 
@@ -195,6 +196,7 @@ marsupialRat =
     , maxDepth = 4
     , spawnWeight = 6
     , xp = 2
+    , drop = Nothing
     }
 
 
@@ -215,6 +217,7 @@ gnollScout =
     , maxDepth = 5
     , spawnWeight = 8
     , xp = 3
+    , drop = Nothing
     }
 
 
@@ -235,6 +238,7 @@ gnollArcher =
     , maxDepth = 6
     , spawnWeight = 5
     , xp = 4
+    , drop = Nothing
     }
 
 
@@ -255,6 +259,7 @@ crab =
     , maxDepth = 6
     , spawnWeight = 6
     , xp = 4
+    , drop = Nothing
     }
 
 
@@ -275,6 +280,7 @@ skeleton =
     , maxDepth = 8
     , spawnWeight = 5
     , xp = 6
+    , drop = Nothing
     }
 
 
@@ -295,6 +301,7 @@ swarm =
     , maxDepth = 7
     , spawnWeight = 4
     , xp = 2
+    , drop = Nothing
     }
 
 
@@ -316,6 +323,7 @@ slime =
     , maxDepth = 6
     , spawnWeight = 4
     , xp = 3
+    , drop = Nothing
     }
 
 
@@ -336,6 +344,7 @@ thief =
     , maxDepth = 7
     , spawnWeight = 3
     , xp = 4
+    , drop = Just "gold"
     }
 
 
@@ -356,6 +365,7 @@ gnollBrute =
     , maxDepth = 8
     , spawnWeight = 4
     , xp = 7
+    , drop = Nothing
     }
 
 
@@ -376,6 +386,7 @@ gnollShaman =
     , maxDepth = 6
     , spawnWeight = 4
     , xp = 5
+    , drop = Just "scroll-magic-mapping"
     }
 
 
@@ -396,6 +407,7 @@ prisonGuard =
     , maxDepth = 6
     , spawnWeight = 4
     , xp = 6
+    , drop = Nothing
     }
 
 
@@ -416,6 +428,7 @@ caveBat =
     , maxDepth = 8
     , spawnWeight = 5
     , xp = 5
+    , drop = Nothing
     }
 
 
@@ -436,6 +449,7 @@ piranha =
     , maxDepth = 8
     , spawnWeight = 3
     , xp = 6
+    , drop = Nothing
     }
 
 
@@ -456,6 +470,7 @@ stoneGolem =
     , maxDepth = 8
     , spawnWeight = 4
     , xp = 10
+    , drop = Just "mail-armour"
     }
 
 
@@ -476,6 +491,7 @@ necromancer =
     , maxDepth = 8
     , spawnWeight = 3
     , xp = 9
+    , drop = Just "wand-magic-missile"
     }
 
 
@@ -500,6 +516,7 @@ gnollWarlord =
     , maxDepth = 4
     , spawnWeight = 0
     , xp = 30
+    , drop = Just "mace"
     }
 
 
@@ -520,6 +537,7 @@ spiderQueen =
     , maxDepth = 7
     , spawnWeight = 0
     , xp = 60
+    , drop = Just "wand-firebolt"
     }
 
 
