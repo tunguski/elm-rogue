@@ -626,7 +626,7 @@ spawnEnemies ruleset depth spots seed =
                             Rng.pickWeighted firstDef candidates s
 
                         ( edef, s3 ) =
-                            maybeElite depth def s2
+                            maybeChampion depth def s2
                     in
                     ( { def = edef, pos = pos, hp = edef.maxHp, alerted = False, fleeing = False, statuses = [] } :: acc, s3 )
                 )
@@ -634,25 +634,36 @@ spawnEnemies ruleset depth spots seed =
                 spots
 
 
-{-| Now and then (more often deeper) a monster is promoted to an **elite**: roughly double HP, harder
-hits, tougher hide and triple XP, marked with a golden tint and an "elite" name. -}
-maybeElite : Int -> EnemyDef -> Seed -> ( EnemyDef, Seed )
-maybeElite depth def seed =
+{-| Now and then (more often deeper) a monster is promoted to a **champion** with one of four
+modifiers, each a distinct buff, tint and name: a **giant** (huge HP, heavy hits), a **blazing** one
+(sets you alight on contact), a **projecting** one (gains a ranged bolt) or a **blessed** one (much
+tougher to wound). Champions are worth triple XP. -}
+maybeChampion : Int -> EnemyDef -> Seed -> ( EnemyDef, Seed )
+maybeChampion depth def seed =
     let
         ( roll, seed1 ) =
             Rng.int 100 seed
     in
     if roll < min 14 (4 + depth) then
-        ( { def
-            | name = "elite " ++ def.name
-            , maxHp = def.maxHp * 2
-            , damage = def.damage + 2
-            , defense = def.defense + 1
-            , xp = def.xp * 3
-            , color = "#ffcf6a"
-          }
-        , seed1
-        )
+        let
+            ( pick, seed2 ) =
+                Rng.int 4 seed1
+
+            champ =
+                case pick of
+                    0 ->
+                        { def | name = "giant " ++ def.name, maxHp = def.maxHp * 2 + 6, damage = def.damage + 3, color = "#e0884b" }
+
+                    1 ->
+                        { def | name = "blazing " ++ def.name, maxHp = (def.maxHp * 3) // 2, ability = Content.Burns, color = "#ff7a3c" }
+
+                    2 ->
+                        { def | name = "projecting " ++ def.name, maxHp = (def.maxHp * 3) // 2, ranged = max 4 def.ranged, color = "#9be0ff" }
+
+                    _ ->
+                        { def | name = "blessed " ++ def.name, maxHp = (def.maxHp * 3) // 2, defense = def.defense + 3, color = "#ffe08a" }
+        in
+        ( { champ | xp = def.xp * 3 }, seed2 )
 
     else
         ( def, seed1 )
@@ -2898,12 +2909,20 @@ attackHero enemy verb done acc =
 
         hero =
             acc.hero
+
+        -- A blazing champion sets the hero alight on a hit.
+        ( burnt, burnLog ) =
+            if enemy.def.ability == Content.Burns then
+                ( addEnemyStatus Burn 3 3 hero.statuses, " You catch fire!" )
+
+            else
+                ( hero.statuses, "" )
     in
     ( enemy :: done
     , { acc
-        | hero = { hero | hp = hero.hp - dmg }
+        | hero = { hero | hp = hero.hp - dmg, statuses = burnt }
         , seed = seed1
-        , log = ("The " ++ verb ++ " (" ++ String.fromInt dmg ++ ").") :: acc.log
+        , log = ("The " ++ verb ++ " (" ++ String.fromInt dmg ++ ")." ++ burnLog) :: acc.log
       }
     )
 

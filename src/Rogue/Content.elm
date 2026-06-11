@@ -42,6 +42,9 @@ type MonsterAbility
     | Regenerates Int
     | Splits
     | StealsGold Int
+    | Burns
+    | Heals Int
+    | SummonsAllies
 
 
 {-| A monster archetype. Instances in play (`Rogue.Game.Enemy`) carry a copy of their `EnemyDef`, so
