@@ -274,6 +274,7 @@ type alias Game =
     , popups : List Popup
     , traps : List Trap
     , gas : Dict ( Int, Int ) Gas
+    , fire : Dict ( Int, Int ) Int
     , idents : Idents
     , depth : Int
     , turn : Int
@@ -576,6 +577,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , popups = []
     , traps = traps
     , gas = Dict.empty
+    , fire = Dict.empty
     , idents = idents
     , depth = depth
     , turn = 0
@@ -1851,9 +1853,9 @@ applyEffect def game =
             gainXp xp game
                 |> addLog ("You drink the " ++ name ++ ". Knowledge floods in.")
 
-        Incinerate magnitude ->
-            addStatus Burn magnitude 4 game
-                |> addLog ("The " ++ name ++ " bursts into flame in your hand!")
+        Incinerate _ ->
+            spawnFire game.hero.pos game
+                |> addLog ("The " ++ name ++ " shatters and bursts into flame!")
 
         ToxicGas _ ->
             spawnGas CausticGasCloud 6 game.hero.pos game
@@ -2879,8 +2881,11 @@ endTurn game =
         afterGas =
             tickGas afterMonsters
 
+        afterFire =
+            tickFire afterGas
+
         afterPerception =
-            passivePerception afterGas
+            passivePerception afterFire
 
         afterHunger =
             tickHunger afterPerception
@@ -3111,6 +3116,104 @@ gasColor kind =
 
         ParalyticGasCloud ->
             "#d6c24a"
+
+
+-- FIRE -------------------------------------------------------------------------------------------
+
+
+{-| A cell catches fire (floor or grass only — never water, walls or chasm). -}
+flammable : Pos -> Game -> Bool
+flammable p game =
+    case Level.at p game.level of
+        Floor ->
+            True
+
+        Grass ->
+            True
+
+        _ ->
+            False
+
+
+{-| Ignite `center` and the flammable cells around it. -}
+spawnFire : Pos -> Game -> Game
+spawnFire center game =
+    let
+        cells =
+            (center :: Grid.neighbors4 center)
+                |> List.filter (\p -> flammable p game)
+
+        lit =
+            List.foldl (\p d -> Dict.insert ( p.x, p.y ) 4 d) game.fire cells
+    in
+    { game | fire = lit }
+
+
+{-| Advance every fire: it spreads into adjacent tall grass, burns whoever stands in it, dies down by
+one each turn, and leaves scorched floor where grass burns away. -}
+tickFire : Game -> Game
+tickFire game =
+    if Dict.isEmpty game.fire then
+        game
+
+    else
+        let
+            burning =
+                Dict.keys game.fire
+
+            -- Tall grass next to a flame catches.
+            ignited =
+                burning
+                    |> List.concatMap
+                        (\( x, y ) ->
+                            Grid.neighbors4 { x = x, y = y }
+                                |> List.filter (\nb -> Level.at nb game.level == Grass && not (Dict.member ( nb.x, nb.y ) game.fire))
+                        )
+
+            withIgnited =
+                List.foldl (\nb d -> Dict.insert ( nb.x, nb.y ) 4 d) game.fire ignited
+
+            stepped =
+                Dict.toList withIgnited |> List.map (\( k, t ) -> ( k, t - 1 ))
+
+            ( alive, expired ) =
+                List.partition (\( _, t ) -> t > 0) stepped
+
+            -- Grass that finished burning becomes scorched floor.
+            scorched =
+                List.foldl
+                    (\( ( x, y ), _ ) lv ->
+                        if Level.at { x = x, y = y } lv == Grass then
+                            Level.set { x = x, y = y } Floor lv
+
+                        else
+                            lv
+                    )
+                    game.level
+                    expired
+        in
+        applyFireEffects { game | fire = Dict.fromList alive, level = scorched }
+
+
+{-| Burn the hero and any monster standing in fire this turn. -}
+applyFireEffects : Game -> Game
+applyFireEffects game =
+    let
+        afterHero =
+            if Dict.member ( game.hero.pos.x, game.hero.pos.y ) game.fire then
+                addStatus Burn 3 3 game |> addLog "Flames lick at you!"
+
+            else
+                game
+
+        affected e =
+            if Dict.member ( e.pos.x, e.pos.y ) afterHero.fire then
+                { e | statuses = addEnemyStatus Burn 3 3 e.statuses, alerted = True }
+
+            else
+                e
+    in
+    { afterHero | enemies = List.map affected afterHero.enemies }
 
 
 {-| Add or refresh a status on a monster (mirrors the hero's `addStatus`). -}
@@ -3354,7 +3457,7 @@ toScene game =
             ++ [ heroGlyph game ]
     , popups = List.map (\p -> { pos = p.pos, text = p.text, color = p.color }) game.popups
     , gas =
-        game.gas
+        (game.gas
             |> Dict.toList
             |> List.filterMap
                 (\( ( x, y ), g ) ->
@@ -3364,6 +3467,18 @@ toScene game =
                     else
                         Nothing
                 )
+        )
+            ++ (game.fire
+                    |> Dict.toList
+                    |> List.filterMap
+                        (\( ( x, y ), t ) ->
+                            if Set.member ( x, y ) game.visible then
+                                Just { pos = { x = x, y = y }, color = "#ff6a2a", alpha = min 0.7 (0.3 + toFloat t * 0.1) }
+
+                            else
+                                Nothing
+                        )
+               )
     , theme = Render.themeForDepth game.depth
     , camera = game.hero.pos
     , cursor = Nothing
