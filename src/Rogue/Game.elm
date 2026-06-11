@@ -2466,11 +2466,39 @@ rollDamage attack defense seed =
 heroAttack : Enemy -> Game -> Game
 heroAttack enemy game =
     let
-        ( dmg, seed1 ) =
+        -- A foe that hasn't noticed you (unaware), is asleep, or that you strike from cover (you stand
+        -- in tall grass) takes a surprise attack for doubled damage.
+        surprised =
+            not enemy.alerted
+                || List.any (\s -> s.kind == Paralyzed) enemy.statuses
+                || (Level.at game.hero.pos game.level == Grass)
+
+        ( base, seed1 ) =
             rollDamage (heroDamage game.hero) enemy.def.defense game.seed
+
+        dmg =
+            if surprised then
+                base * 2
+
+            else
+                base
+
+        color =
+            if surprised then
+                "#ff7adf"
+
+            else
+                "#ffd166"
 
         remaining =
             enemy.hp - dmg
+
+        surpriseNote =
+            if surprised then
+                " (surprise!)"
+
+            else
+                ""
     in
     if remaining <= 0 then
         { game
@@ -2478,8 +2506,8 @@ heroAttack enemy game =
             , seed = seed1
             , kills = game.kills + 1
         }
-            |> addLog ("You kill the " ++ enemy.def.name ++ ".")
-            |> addPopup enemy.pos (String.fromInt dmg) "#ffd166"
+            |> addLog ("You kill the " ++ enemy.def.name ++ "." ++ surpriseNote)
+            |> addPopup enemy.pos (String.fromInt dmg) color
             |> gainXp enemy.def.xp
 
     else
@@ -2487,8 +2515,8 @@ heroAttack enemy game =
             | enemies = updateEnemyAt enemy.pos (\e -> { e | hp = remaining, alerted = True }) game.enemies
             , seed = seed1
         }
-            |> addLog ("You hit the " ++ enemy.def.name ++ " (" ++ String.fromInt dmg ++ ").")
-            |> addPopup enemy.pos (String.fromInt dmg) "#ffd166"
+            |> addLog ("You hit the " ++ enemy.def.name ++ " (" ++ String.fromInt dmg ++ ")" ++ surpriseNote ++ ".")
+            |> addPopup enemy.pos (String.fromInt dmg) color
             |> maybeSplit enemy remaining
 
 
