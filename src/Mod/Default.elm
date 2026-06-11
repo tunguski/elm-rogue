@@ -75,6 +75,10 @@ ruleset =
         , wandLightning
         , ringOfPower
         , ringOfProtection
+        , cloakOfShadows
+        , hornOfPlenty
+        , chaliceOfBlood
+        , timekeepersHourglass
         , ironKey
         , amulet
         ]
@@ -700,6 +704,62 @@ ringOfProtection =
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 3
+    }
+
+
+
+-- ARTIFACTS (charge-up relics) -------------------------------------------------------------------
+
+
+cloakOfShadows : ItemDef
+cloakOfShadows =
+    { id = "cloak-shadows"
+    , name = "cloak of shadows"
+    , glyph = "*"
+    , color = "#8a7fd6"
+    , kind = Artifact { charge = 0, maxCharge = 35, effect = Invisibility 8 }
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+hornOfPlenty : ItemDef
+hornOfPlenty =
+    { id = "horn-plenty"
+    , name = "horn of plenty"
+    , glyph = "*"
+    , color = "#e0c24b"
+    , kind = Artifact { charge = 0, maxCharge = 30, effect = Feed 250 }
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+chaliceOfBlood : ItemDef
+chaliceOfBlood =
+    { id = "chalice-blood"
+    , name = "chalice of blood"
+    , glyph = "*"
+    , color = "#e0564b"
+    , kind = Artifact { charge = 0, maxCharge = 40, effect = HealHp 12 }
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+timekeepersHourglass : ItemDef
+timekeepersHourglass =
+    { id = "hourglass"
+    , name = "timekeeper's hourglass"
+    , glyph = "*"
+    , color = "#d6d2c2"
+    , kind = Artifact { charge = 0, maxCharge = 45, effect = HasteFor 10 }
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 2
     }
 
 

@@ -707,6 +707,9 @@ isGearLoot def =
         Content.Wand _ ->
             True
 
+        Content.Artifact _ ->
+            True
+
         _ ->
             False
 
@@ -1486,8 +1489,30 @@ tryUse index game =
                 Content.Wand spec ->
                     identify def (zapWand index spec game)
 
+                Content.Artifact spec ->
+                    useArtifact index spec def game
+
                 Content.Key ->
                     addLog "Keys open locked doors — walk into one." game
+
+
+{-| Invoke an artifact: if it has reached full charge, apply its effect and reset it to empty;
+otherwise it isn't ready yet (no turn spent). -}
+useArtifact : Int -> Content.ArtifactSpec -> ItemDef -> Game -> Game
+useArtifact index spec def game =
+    if spec.charge < spec.maxCharge then
+        addLog ("The " ++ def.name ++ " is still charging (" ++ String.fromInt spec.charge ++ "/" ++ String.fromInt spec.maxCharge ++ ").") game
+
+    else
+        let
+            drained =
+                { def | kind = Content.Artifact { spec | charge = 0 } }
+
+            hero =
+                game.hero
+        in
+        applyEffect def { game | hero = { hero | inventory = replaceAt index drained hero.inventory } }
+            |> endTurn
 
 
 {-| Zap the wand in inventory slot `index` at the nearest visible monster, spending a charge. A
@@ -1970,6 +1995,9 @@ effectOf def =
         Content.Consumable eff ->
             eff
 
+        Content.Artifact spec ->
+            spec.effect
+
         _ ->
             HealHp 0
 
@@ -2212,6 +2240,15 @@ displayName idents def =
                 ++ " ("
                 ++ String.fromInt spec.charges
                 ++ ")"
+
+        Content.Artifact spec ->
+            def.name
+                ++ (if spec.charge >= spec.maxCharge then
+                        " ✦"
+
+                    else
+                        " (" ++ String.fromInt spec.charge ++ "/" ++ String.fromInt spec.maxCharge ++ ")"
+                   )
 
         Content.Equipment Content.RingSlot bonus ->
             if known then
@@ -2836,34 +2873,41 @@ endTurn game =
     maybeWander recharged
 
 
-{-| Every 12 turns each wand in the pack regains one charge, up to its maximum. -}
+{-| Recharge carried relics each turn: wands regain a charge every 12 turns; artifacts build one
+charge per turn toward their maximum. -}
 rechargeWands : Game -> Game
 rechargeWands game =
-    if modBy 12 game.turn /= 0 then
-        game
+    let
+        wandTick =
+            modBy 12 game.turn == 0
 
-    else
-        let
-            hero =
-                game.hero
+        hero =
+            game.hero
 
-            bumped =
-                List.map
-                    (\it ->
-                        case it.kind of
-                            Content.Wand spec ->
-                                if spec.charges < spec.maxCharges then
-                                    { it | kind = Content.Wand { spec | charges = spec.charges + 1 } }
+        bumped =
+            List.map
+                (\it ->
+                    case it.kind of
+                        Content.Wand spec ->
+                            if wandTick && spec.charges < spec.maxCharges then
+                                { it | kind = Content.Wand { spec | charges = spec.charges + 1 } }
 
-                                else
-                                    it
-
-                            _ ->
+                            else
                                 it
-                    )
-                    hero.inventory
-        in
-        { game | hero = { hero | inventory = bumped } }
+
+                        Content.Artifact spec ->
+                            if spec.charge < spec.maxCharge then
+                                { it | kind = Content.Artifact { spec | charge = spec.charge + 1 } }
+
+                            else
+                                it
+
+                        _ ->
+                            it
+                )
+                hero.inventory
+    in
+    { game | hero = { hero | inventory = bumped } }
 
 
 {-| Every so often a fresh monster wanders onto the floor — out of the hero's sight — so camping isn't

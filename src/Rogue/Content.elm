@@ -4,6 +4,8 @@ module Rogue.Content exposing
     , ItemDef
     , ItemEffect(..)
     , ItemKind(..)
+    , WandSpec
+    , ArtifactSpec
     , EquipSlot(..)
     , EquipBonus
     , ClassDef
@@ -122,7 +124,17 @@ type ItemKind
     = Consumable ItemEffect
     | Equipment EquipSlot EquipBonus
     | Wand WandSpec
+    | Artifact ArtifactSpec
     | Key
+
+
+{-| An artifact: a reusable relic that charges up over time and, when full, unleashes an `ItemEffect`
+(then resets to empty). Unlike a wand it isn't aimed — it acts on the hero / the floor. -}
+type alias ArtifactSpec =
+    { charge : Int
+    , maxCharge : Int
+    , effect : ItemEffect
+    }
 
 
 {-| A wand: zaps the nearest visible monster for `damage`. Each zap spends a charge; the wand slowly
@@ -243,6 +255,9 @@ describe def =
 
         Wand spec ->
             "wand · " ++ String.fromInt spec.damage ++ " dmg, " ++ String.fromInt spec.charges ++ " charges"
+
+        Artifact spec ->
+            "artifact · " ++ describeEffect spec.effect
 
         Key ->
             "opens a locked door"
