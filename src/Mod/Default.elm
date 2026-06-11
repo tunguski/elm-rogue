@@ -31,6 +31,12 @@ ruleset =
         , slime
         , thief
         , gnollBrute
+        , gnollShaman
+        , prisonGuard
+        , caveBat
+        , piranha
+        , stoneGolem
+        , necromancer
         ]
     , bosses =
         [ gnollWarlord
@@ -350,6 +356,126 @@ gnollBrute =
     , maxDepth = 8
     , spawnWeight = 4
     , xp = 7
+    }
+
+
+gnollShaman : EnemyDef
+gnollShaman =
+    { id = "gnoll-shaman"
+    , name = "gnoll shaman"
+    , glyph = "h"
+    , color = "#8ad6c0"
+    , maxHp = 14
+    , damage = 5
+    , defense = 1
+    , speed = 1
+    , ranged = 5
+    , ability = Heals 3
+    , boss = False
+    , minDepth = 3
+    , maxDepth = 6
+    , spawnWeight = 4
+    , xp = 5
+    }
+
+
+prisonGuard : EnemyDef
+prisonGuard =
+    { id = "prison-guard"
+    , name = "prison guard"
+    , glyph = "G"
+    , color = "#b0a890"
+    , maxHp = 24
+    , damage = 6
+    , defense = 4
+    , speed = 1
+    , ranged = 0
+    , ability = NoAbility
+    , boss = False
+    , minDepth = 3
+    , maxDepth = 6
+    , spawnWeight = 4
+    , xp = 6
+    }
+
+
+caveBat : EnemyDef
+caveBat =
+    { id = "cave-bat"
+    , name = "cave bat"
+    , glyph = "b"
+    , color = "#a07fc0"
+    , maxHp = 12
+    , damage = 5
+    , defense = 1
+    , speed = 2
+    , ranged = 0
+    , ability = NoAbility
+    , boss = False
+    , minDepth = 5
+    , maxDepth = 8
+    , spawnWeight = 5
+    , xp = 5
+    }
+
+
+piranha : EnemyDef
+piranha =
+    { id = "piranha"
+    , name = "piranha"
+    , glyph = "p"
+    , color = "#d4756a"
+    , maxHp = 16
+    , damage = 8
+    , defense = 3
+    , speed = 1
+    , ranged = 0
+    , ability = NoAbility
+    , boss = False
+    , minDepth = 5
+    , maxDepth = 8
+    , spawnWeight = 3
+    , xp = 6
+    }
+
+
+stoneGolem : EnemyDef
+stoneGolem =
+    { id = "stone-golem"
+    , name = "stone golem"
+    , glyph = "8"
+    , color = "#9a9aa0"
+    , maxHp = 40
+    , damage = 9
+    , defense = 6
+    , speed = 1
+    , ranged = 0
+    , ability = NoAbility
+    , boss = False
+    , minDepth = 7
+    , maxDepth = 8
+    , spawnWeight = 4
+    , xp = 10
+    }
+
+
+necromancer : EnemyDef
+necromancer =
+    { id = "necromancer"
+    , name = "necromancer"
+    , glyph = "n"
+    , color = "#b06ad8"
+    , maxHp = 20
+    , damage = 6
+    , defense = 2
+    , speed = 1
+    , ranged = 4
+    , ability = SummonsAllies
+    , boss = False
+    , minDepth = 6
+    , maxDepth = 8
+    , spawnWeight = 3
+    , xp = 9
     }
 
 
