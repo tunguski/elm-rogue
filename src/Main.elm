@@ -57,6 +57,8 @@ type alias Model =
     , badges : Set String
     , challenges : Set String
     , remains : Maybe { depth : Int, gold : Int, itemId : String }
+    , reduceMotion : Bool
+    , showHints : Bool
     , resumeSave : Maybe ( String, Game.SaveData )
     , seedInput : String
     , seedBump : Int
@@ -82,6 +84,8 @@ type Msg
     | ToggleBestiary
     | SetSeed String
     | ToggleChallenge String
+    | ToggleMotion
+    | ToggleHints
     | KeyPressed String
     | Continue
     | Choose String
@@ -195,6 +199,8 @@ init _ =
       , badges = Set.empty
       , challenges = Set.empty
       , remains = Nothing
+      , reduceMotion = False
+      , showHints = True
       , resumeSave = Nothing
       , seedInput = ""
       , seedBump = 0
@@ -247,6 +253,12 @@ update msg model =
 
         SetSeed text ->
             ( { model | seedInput = text }, Cmd.none )
+
+        ToggleMotion ->
+            ( { model | reduceMotion = not model.reduceMotion }, Cmd.none )
+
+        ToggleHints ->
+            ( { model | showHints = not model.showHints }, Cmd.none )
 
         ToggleChallenge id ->
             ( { model
@@ -632,7 +644,15 @@ parseRun line =
 
 view : Model -> Html Msg
 view model =
-    Html.div [ HA.class "rg-root" ]
+    Html.div
+        [ HA.class
+            (if model.reduceMotion then
+                "rg-root rg-reduce-motion"
+
+             else
+                "rg-root"
+            )
+        ]
         [ toolbar model
         , case model.screen of
             ClassSelect ->
@@ -927,6 +947,11 @@ toolbar model =
         [ Html.div [ HA.class "rg-title" ] [ Html.text "elm-rogue" ]
         , chipGroup "Mod" (List.map Tuple.first mods) model.modName SelectMod
         , chipGroup "Renderer" (List.map Tuple.first renderers) model.rendererName SelectRenderer
+        , Html.div [ HA.class "rg-chipgroup" ]
+            [ Html.span [ HA.class "rg-chiplabel" ] [ Html.text "Settings" ]
+            , chip "Reduce motion" model.reduceMotion ToggleMotion
+            , chip "Hints" model.showHints ToggleHints
+            ]
         ]
 
 
