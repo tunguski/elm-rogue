@@ -13,6 +13,7 @@ module Rogue.Game exposing
     , talentChoices
     , startChallenges
     , challengeChoices
+    , alchemyRecipes
     , update
     , toScene
     )
@@ -1872,8 +1873,74 @@ duelistLunge game =
 
 {-| Alchemy: brew two potions from the pack into one fresh, depth-appropriate potion (a sink for
 surplus potions, with a chance of something better). Needs at least two potions. -}
+{-| Known alchemy recipes: exact ingredient ids → a guaranteed output. Checked before the random brew. -}
+alchemyRecipes : List { inputs : List String, output : String, name : String }
+alchemyRecipes =
+    [ { inputs = [ "potion-healing", "potion-healing" ], output = "potion-greater-healing", name = "Full Healing" }
+    , { inputs = [ "potion-liquid-flame", "potion-caustic-gas" ], output = "bomb", name = "Bomb" }
+    , { inputs = [ "potion-strength", "potion-healing" ], output = "potion-experience", name = "Experience" }
+    , { inputs = [ "darts", "potion-liquid-flame" ], output = "javelin", name = "Javelin" }
+    , { inputs = [ "potion-haste", "potion-invisibility" ], output = "potion-levitation", name = "Levitation" }
+    ]
+
+
+{-| Alchemy: if the pack holds a known recipe's exact ingredients, brew its guaranteed output; otherwise
+fall back to fusing any two potions into a random one. -}
 tryBrew : Game -> Game
 tryBrew game =
+    case List.filter (\r -> hasIngredients r.inputs game.hero.inventory) alchemyRecipes of
+        recipe :: _ ->
+            case Content.findItem recipe.output game.ruleset of
+                Just out ->
+                    let
+                        hero =
+                            game.hero
+                    in
+                    { game | hero = { hero | inventory = removeIngredients recipe.inputs hero.inventory ++ [ out ] } }
+                        |> identify out
+                        |> addLog ("Following the recipe, you brew " ++ withArticle (displayName game.idents out) ++ "!")
+                        |> endTurn
+
+                Nothing ->
+                    randomBrew game
+
+        [] ->
+            randomBrew game
+
+
+{-| Does the inventory contain every ingredient id (with multiplicity)? -}
+hasIngredients : List String -> List ItemDef -> Bool
+hasIngredients inputs inventory =
+    case inputs of
+        [] ->
+            True
+
+        first :: rest ->
+            case findIndex (\it -> it.id == first) inventory of
+                Just idx ->
+                    hasIngredients rest (removeAt idx inventory)
+
+                Nothing ->
+                    False
+
+
+removeIngredients : List String -> List ItemDef -> List ItemDef
+removeIngredients inputs inventory =
+    case inputs of
+        [] ->
+            inventory
+
+        first :: rest ->
+            case findIndex (\it -> it.id == first) inventory of
+                Just idx ->
+                    removeIngredients rest (removeAt idx inventory)
+
+                Nothing ->
+                    removeIngredients rest inventory
+
+
+randomBrew : Game -> Game
+randomBrew game =
     let
         hero =
             game.hero
@@ -1896,11 +1963,11 @@ tryBrew game =
                 , seed = seed1
             }
                 |> identify brewed
-                |> addLog ("You brew " ++ withArticle (displayName game.idents brewed) ++ " from two potions.")
+                |> addLog ("You fuse two potions into " ++ withArticle (displayName game.idents brewed) ++ ".")
                 |> endTurn
 
         _ ->
-            addLog "You need two potions to brew something." game
+            addLog "You need a known recipe's ingredients, or two potions, to brew." game
 
 
 {-| Drop the inventory item at `index` onto the hero's cell. Instant (no turn spent). -}

@@ -690,6 +690,15 @@ sheetView game =
 
               else
                 Html.div [] (List.indexedMap sheetItem hero.inventory)
+            , Html.div [ HA.class "rg-inv-hint" ] [ Html.text "Alchemy recipes (brew with C)" ]
+            , Html.div []
+                (List.map
+                    (\r ->
+                        Html.div [ HA.style "font-size" "11.5px", HA.style "color" "#7f8ba0", HA.style "padding" "1px 0" ]
+                            [ Html.text (String.join " + " r.inputs ++ " → " ++ r.name) ]
+                    )
+                    Game.alchemyRecipes
+                )
             , Html.button [ onClick ToggleSheet, HA.class "rg-modal-close" ]
                 [ Html.text "Close (I)" ]
             ]
