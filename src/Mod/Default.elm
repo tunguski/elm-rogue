@@ -66,9 +66,12 @@ ruleset =
         , shortSword
         , mace
         , rapier
+        , vampiricDagger
+        , blazingMace
         , leatherArmour
         , mailArmour
         , plateArmour
+        , thornedMail
         , scrollOfTeleport
         , scrollOfMagicMapping
         , scrollOfIdentify
@@ -814,7 +817,7 @@ dagger =
     , name = "dagger"
     , glyph = "/"
     , color = "#b9c2d0"
-    , kind = Equipment WeaponSlot { damage = 2, defense = 0, maxHp = 0, plus = 0, cursed = False }
+    , kind = Equipment WeaponSlot { damage = 2, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "" }
     , minDepth = 1
     , maxDepth = 4
     , spawnWeight = 6
@@ -827,7 +830,7 @@ shortSword =
     , name = "short sword"
     , glyph = "/"
     , color = "#d6deea"
-    , kind = Equipment WeaponSlot { damage = 4, defense = 0, maxHp = 0, plus = 0, cursed = False }
+    , kind = Equipment WeaponSlot { damage = 4, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "" }
     , minDepth = 2
     , maxDepth = 6
     , spawnWeight = 5
@@ -840,7 +843,7 @@ mace =
     , name = "mace"
     , glyph = "/"
     , color = "#e8b06a"
-    , kind = Equipment WeaponSlot { damage = 6, defense = 0, maxHp = 0, plus = 0, cursed = False }
+    , kind = Equipment WeaponSlot { damage = 6, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "" }
     , minDepth = 4
     , maxDepth = 99
     , spawnWeight = 4
@@ -853,10 +856,49 @@ rapier =
     , name = "rapier"
     , glyph = "/"
     , color = "#e0c0d0"
-    , kind = Equipment WeaponSlot { damage = 5, defense = 0, maxHp = 0, plus = 0, cursed = False }
+    , kind = Equipment WeaponSlot { damage = 5, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "" }
     , minDepth = 2
     , maxDepth = 7
     , spawnWeight = 4
+    }
+
+
+vampiricDagger : ItemDef
+vampiricDagger =
+    { id = "vampiric-dagger"
+    , name = "vampiric dagger"
+    , glyph = "/"
+    , color = "#e0564b"
+    , kind = Equipment WeaponSlot { damage = 4, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "vampiric" }
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+blazingMace : ItemDef
+blazingMace =
+    { id = "blazing-mace"
+    , name = "blazing mace"
+    , glyph = "/"
+    , color = "#ff7a3c"
+    , kind = Equipment WeaponSlot { damage = 6, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "blazing" }
+    , minDepth = 4
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+thornedMail : ItemDef
+thornedMail =
+    { id = "thorned-mail"
+    , name = "thorned mail"
+    , glyph = "["
+    , color = "#c08a6a"
+    , kind = Equipment ArmourSlot { damage = 0, defense = 4, maxHp = 0, plus = 0, cursed = False, enchant = "thorns" }
+    , minDepth = 4
+    , maxDepth = 99
+    , spawnWeight = 2
     }
 
 
@@ -866,7 +908,7 @@ leatherArmour =
     , name = "leather armour"
     , glyph = "["
     , color = "#b08968"
-    , kind = Equipment ArmourSlot { damage = 0, defense = 1, maxHp = 0, plus = 0, cursed = False }
+    , kind = Equipment ArmourSlot { damage = 0, defense = 1, maxHp = 0, plus = 0, cursed = False, enchant = "" }
     , minDepth = 1
     , maxDepth = 4
     , spawnWeight = 6
@@ -879,7 +921,7 @@ mailArmour =
     , name = "mail armour"
     , glyph = "["
     , color = "#9aa7ba"
-    , kind = Equipment ArmourSlot { damage = 0, defense = 3, maxHp = 0, plus = 0, cursed = False }
+    , kind = Equipment ArmourSlot { damage = 0, defense = 3, maxHp = 0, plus = 0, cursed = False, enchant = "" }
     , minDepth = 3
     , maxDepth = 7
     , spawnWeight = 5
@@ -892,7 +934,7 @@ plateArmour =
     , name = "plate armour"
     , glyph = "["
     , color = "#cfd8e6"
-    , kind = Equipment ArmourSlot { damage = 0, defense = 5, maxHp = 0, plus = 0, cursed = False }
+    , kind = Equipment ArmourSlot { damage = 0, defense = 5, maxHp = 0, plus = 0, cursed = False, enchant = "" }
     , minDepth = 5
     , maxDepth = 99
     , spawnWeight = 3
@@ -909,7 +951,7 @@ ringOfPower =
     , name = "ring of power"
     , glyph = "="
     , color = "#e0a23c"
-    , kind = Equipment RingSlot { damage = 2, defense = 0, maxHp = 0, plus = 0, cursed = False }
+    , kind = Equipment RingSlot { damage = 2, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "" }
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 3
@@ -922,7 +964,7 @@ ringOfProtection =
     , name = "ring of protection"
     , glyph = "="
     , color = "#6ad8c0"
-    , kind = Equipment RingSlot { damage = 0, defense = 2, maxHp = 0, plus = 0, cursed = False }
+    , kind = Equipment RingSlot { damage = 0, defense = 2, maxHp = 0, plus = 0, cursed = False, enchant = "" }
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 3

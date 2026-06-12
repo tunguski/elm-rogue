@@ -190,6 +190,22 @@ heroDefense hero =
     hero.defense + equipBonus .defense hero.armour + equipBonus .defense hero.ring + sub + talent
 
 
+{-| The enchantment id on an equipped item (weapon or armour), or "" if none / unenchanted. -}
+itemEnchant : Maybe ItemDef -> String
+itemEnchant maybeItem =
+    case maybeItem of
+        Just it ->
+            case it.kind of
+                Content.Equipment _ bonus ->
+                    bonus.enchant
+
+                _ ->
+                    ""
+
+        Nothing ->
+            ""
+
+
 equipBonus : (Content.EquipBonus -> Int) -> Maybe ItemDef -> Int
 equipBonus field maybeItem =
     case maybeItem of
@@ -3013,6 +3029,7 @@ heroAttack enemy game =
             |> addPopup enemy.pos (String.fromInt dmg) color
             |> gainXp enemy.def.xp
             |> dropLoot enemy
+            |> applyHitEnchant enemy dmg
 
     else
         { game
@@ -3021,7 +3038,31 @@ heroAttack enemy game =
         }
             |> addLog ("You hit the " ++ enemy.def.name ++ " (" ++ String.fromInt dmg ++ ")" ++ surpriseNote ++ ".")
             |> addPopup enemy.pos (String.fromInt dmg) color
+            |> applyHitEnchant enemy dmg
             |> maybeSplit enemy remaining
+
+
+{-| On-hit weapon enchantment effects: **blazing** ignites the struck foe, **vampiric** heals the hero
+for a third of the blow. -}
+applyHitEnchant : Enemy -> Int -> Game -> Game
+applyHitEnchant enemy dmg game =
+    let
+        hero =
+            game.hero
+    in
+    case itemEnchant hero.weapon of
+        "blazing" ->
+            { game | enemies = updateEnemyAt enemy.pos (\e -> { e | statuses = addEnemyStatus Burn 2 3 e.statuses }) game.enemies }
+
+        "vampiric" ->
+            let
+                heal =
+                    max 1 (dmg // 3)
+            in
+            { game | hero = { hero | hp = min hero.maxHp (hero.hp + heal) } }
+
+        _ ->
+            game
 
 
 {-| A `Splits` monster cleaves in two when wounded (but not killed): a fresh copy at half the parent's
@@ -3406,12 +3447,20 @@ attackHero enemy verb done acc =
 
             else
                 ( hero.statuses, "" )
+
+        -- Thorns armour reflects a barb of damage back at the attacker.
+        ( reflectedEnemy, thornLog ) =
+            if itemEnchant hero.armour == "thorns" then
+                ( { enemy | hp = enemy.hp - 3 }, " Thorns bite back!" )
+
+            else
+                ( enemy, "" )
     in
-    ( enemy :: done
+    ( reflectedEnemy :: done
     , { acc
         | hero = { hero | hp = hero.hp - dmg, statuses = burnt }
         , seed = seed1
-        , log = ("The " ++ verb ++ " (" ++ String.fromInt dmg ++ ")." ++ burnLog) :: acc.log
+        , log = ("The " ++ verb ++ " (" ++ String.fromInt dmg ++ ")." ++ burnLog ++ thornLog) :: acc.log
       }
     )
 

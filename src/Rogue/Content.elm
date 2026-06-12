@@ -120,6 +120,7 @@ type alias EquipBonus =
     , maxHp : Int
     , plus : Int
     , cursed : Bool
+    , enchant : String
     }
 
 
@@ -247,14 +248,23 @@ itemCountForDepth depth =
 
 
 {-| A one-line human description of what an item does, for the inventory screen. -}
+enchantSuffix : String -> String
+enchantSuffix enchant =
+    if enchant == "" then
+        ""
+
+    else
+        " · " ++ enchant
+
+
 describe : ItemDef -> String
 describe def =
     case def.kind of
         Equipment WeaponSlot bonus ->
-            "weapon · +" ++ String.fromInt (bonus.damage + bonus.plus) ++ " damage"
+            "weapon · +" ++ String.fromInt (bonus.damage + bonus.plus) ++ " damage" ++ enchantSuffix bonus.enchant
 
         Equipment ArmourSlot bonus ->
-            "armour · +" ++ String.fromInt (bonus.defense + bonus.plus) ++ " defense"
+            "armour · +" ++ String.fromInt (bonus.defense + bonus.plus) ++ " defense" ++ enchantSuffix bonus.enchant
 
         Equipment RingSlot bonus ->
             "ring · +" ++ String.fromInt bonus.damage ++ " dmg / +" ++ String.fromInt bonus.defense ++ " def"
