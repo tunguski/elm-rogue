@@ -104,6 +104,7 @@ type ItemEffect
     | GrowGrass
     | Aggravate
     | Explode Int
+    | ThrownHit Int
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -371,6 +372,9 @@ describeEffect effect =
 
         Explode dmg ->
             "thrown: explodes for " ++ String.fromInt dmg
+
+        ThrownHit dmg ->
+            "thrown weapon: " ++ String.fromInt dmg ++ " damage"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}

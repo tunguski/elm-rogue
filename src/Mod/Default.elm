@@ -58,6 +58,9 @@ ruleset =
         , potionOfLiquidFlame
         , potionOfCausticGas
         , bomb
+        , darts
+        , javelin
+        , shuriken
         , ankh
         , ration
         , torch
@@ -178,7 +181,7 @@ huntress =
     , fovRadius = 10
     , startingWeapon = Just "dagger"
     , startingArmour = Nothing
-    , startingItems = [ "potion-mind-vision", "potion-healing" ]
+    , startingItems = [ "darts", "darts", "darts" ]
     }
 
 
@@ -750,6 +753,45 @@ bomb =
     , color = "#9aa0a8"
     , kind = Consumable (Explode 12)
     , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+darts : ItemDef
+darts =
+    { id = "darts"
+    , name = "darts"
+    , glyph = "↑"
+    , color = "#b9c2d0"
+    , kind = Consumable (ThrownHit 4)
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 5
+    }
+
+
+javelin : ItemDef
+javelin =
+    { id = "javelin"
+    , name = "javelin"
+    , glyph = "↑"
+    , color = "#d6deea"
+    , kind = Consumable (ThrownHit 9)
+    , minDepth = 4
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+shuriken : ItemDef
+shuriken =
+    { id = "shuriken"
+    , name = "shuriken"
+    , glyph = "↑"
+    , color = "#c9a0ff"
+    , kind = Consumable (ThrownHit 6)
+    , minDepth = 3
     , maxDepth = 99
     , spawnWeight = 3
     }

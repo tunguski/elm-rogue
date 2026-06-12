@@ -1904,6 +1904,9 @@ isThrown eff =
         Explode _ ->
             True
 
+        ThrownHit _ ->
+            True
+
         _ ->
             False
 
@@ -1940,6 +1943,26 @@ applyThrownEffect eff target game =
 
         ToxicGas _ ->
             spawnGas CausticGasCloud 6 target game
+
+        ThrownHit power ->
+            case enemyAt target game of
+                Just e ->
+                    let
+                        hp =
+                            e.hp - power
+                    in
+                    if hp <= 0 then
+                        { game | enemies = List.filter (\x -> x.pos /= target) game.enemies, kills = game.kills + 1 }
+                            |> addPopup target (String.fromInt power) "#d6deea"
+                            |> gainXp e.def.xp
+                            |> dropLoot e
+
+                    else
+                        { game | enemies = updateEnemyAt target (\x -> { x | hp = hp, alerted = True }) game.enemies }
+                            |> addPopup target (String.fromInt power) "#d6deea"
+
+                Nothing ->
+                    game
 
         Explode dmg ->
             let
