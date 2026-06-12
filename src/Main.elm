@@ -662,6 +662,7 @@ view model =
                 Html.div []
                     [ Html.div [ HA.class "rg-keyhint" ]
                         [ Html.text "move: WASD/HJKL · diag: Y U B N · wait: . · search: Z · aim: F · ability: Q · examine: X · explore: O · brew: C · inventory: I · bestiary: M · descend: > · use: 1-9 · restart: R" ]
+                    , hintBar model
                     , (rendererNamed model.rendererName).view (sceneFor model)
                     , quickslotBar model
                     , touchControls model
@@ -877,6 +878,54 @@ quickslotBar model =
                 )
                 names
             )
+
+
+{-| A single line of contextual coaching, shown only while the "Hints" setting is on (M122 toggle).
+
+Pixel-Dungeon-style onboarding: rather than a wall of tutorial text, surface one timely tip for the
+*current* situation — wounded, ability charged, carrying the Amulet, or just starting out. The most
+urgent condition wins, and once the player is mid-run with nothing pressing the line disappears, so it
+never nags. Everything it needs is already in the `Hud`, so the engine stays untouched. -}
+hintBar : Model -> Html Msg
+hintBar model =
+    if not model.showHints then
+        Html.text ""
+
+    else
+        case hintFor model of
+            Nothing ->
+                Html.text ""
+
+            Just tip ->
+                Html.div [ HA.class "rg-hint" ] [ Html.text ("💡 " ++ tip) ]
+
+
+hintFor : Model -> Maybe String
+hintFor model =
+    let
+        hud =
+            (Game.toScene model.game).hud
+    in
+    if hud.gameOver then
+        Nothing
+
+    else if model.game.ascending then
+        Just "You carry the Amulet — flee upward! Reach the surface stairs to win."
+
+    else if hud.maxHp > 0 && hud.hp * 4 <= hud.maxHp then
+        Just "Badly wounded — drink a healing potion (press its slot number) or retreat to safety."
+
+    else if String.contains "READY" hud.ability then
+        Just "Your class ability is charged — press Q to unleash it."
+
+    else if hud.turn == 0 then
+        Just "Bump into monsters to attack. Press O to auto-explore, X to examine, I for your sheet."
+
+    else if hud.turn < 8 && List.isEmpty hud.inventory then
+        Just "Step onto items to pick them up; descend with > once you find the stairs down."
+
+    else
+        Nothing
 
 
 {-| On-screen touch controls (a directional pad plus action buttons) so the game is playable without a
