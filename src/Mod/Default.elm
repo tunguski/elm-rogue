@@ -39,6 +39,9 @@ ruleset =
         , piranha
         , stoneGolem
         , necromancer
+        , dwarfMonk
+        , demon
+        , succubus
         ]
     , bosses =
         [ gnollWarlord
@@ -321,7 +324,7 @@ skeleton =
     , ability = NoAbility
     , boss = False
     , minDepth = 4
-    , maxDepth = 8
+    , maxDepth = 12
     , spawnWeight = 5
     , xp = 6
     , drop = Nothing
@@ -511,7 +514,7 @@ stoneGolem =
     , ability = NoAbility
     , boss = False
     , minDepth = 7
-    , maxDepth = 8
+    , maxDepth = 12
     , spawnWeight = 4
     , xp = 10
     , drop = Just "mail-armour"
@@ -532,10 +535,73 @@ necromancer =
     , ability = SummonsAllies
     , boss = False
     , minDepth = 6
-    , maxDepth = 8
+    , maxDepth = 12
     , spawnWeight = 3
     , xp = 9
     , drop = Just "wand-magic-missile"
+    }
+
+
+dwarfMonk : EnemyDef
+dwarfMonk =
+    { id = "dwarf-monk"
+    , name = "dwarf monk"
+    , glyph = "m"
+    , color = "#c0b090"
+    , maxHp = 30
+    , damage = 10
+    , defense = 4
+    , speed = 1
+    , ranged = 0
+    , ability = NoAbility
+    , boss = False
+    , minDepth = 9
+    , maxDepth = 12
+    , spawnWeight = 6
+    , xp = 12
+    , drop = Nothing
+    }
+
+
+demon : EnemyDef
+demon =
+    { id = "demon"
+    , name = "ripper demon"
+    , glyph = "D"
+    , color = "#e0564b"
+    , maxHp = 28
+    , damage = 11
+    , defense = 3
+    , speed = 1
+    , ranged = 0
+    , ability = Burns
+    , boss = False
+    , minDepth = 11
+    , maxDepth = 12
+    , spawnWeight = 6
+    , xp = 13
+    , drop = Nothing
+    }
+
+
+succubus : EnemyDef
+succubus =
+    { id = "succubus"
+    , name = "succubus"
+    , glyph = "S"
+    , color = "#c97fe0"
+    , maxHp = 24
+    , damage = 9
+    , defense = 3
+    , speed = 1
+    , ranged = 5
+    , ability = Heals 4
+    , boss = False
+    , minDepth = 10
+    , maxDepth = 12
+    , spawnWeight = 4
+    , xp = 14
+    , drop = Just "scroll-upgrade"
     }
 
 

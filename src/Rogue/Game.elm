@@ -414,7 +414,7 @@ fovRadiusFor hero depth =
 {-| Reaching this depth wins the run (the bottom of the dungeon). -}
 victoryDepth : Int
 victoryDepth =
-    8
+    12
 
 
 type Msg

@@ -135,7 +135,7 @@ type alias Theme =
     }
 
 
-{-| The four default regions, four floors apart, mirroring the source game's act structure. -}
+{-| The six regions, mirroring the source game's act structure (Sewers → Demon Halls). -}
 themeForDepth : Int -> Theme
 themeForDepth depth =
     if depth <= 2 then
@@ -147,8 +147,14 @@ themeForDepth depth =
     else if depth <= 6 then
         { name = "Caves", wallLit = "#523a36", wallDim = "#281c1a", floorLit = "#1f1614", floorDim = "#120c0b", door = "#a04e3c" }
 
-    else
+    else if depth <= 8 then
         { name = "Halls", wallLit = "#41355c", wallDim = "#1f1830", floorLit = "#181226", floorDim = "#0d0916", door = "#6a4ca0" }
+
+    else if depth <= 10 then
+        { name = "Metropolis", wallLit = "#4a4a52", wallDim = "#232328", floorLit = "#1a1a1f", floorDim = "#0e0e12", door = "#8a8a4a" }
+
+    else
+        { name = "Demon Halls", wallLit = "#5c2a2a", wallDim = "#2c1414", floorLit = "#221010", floorDim = "#140909", door = "#c0402a" }
 
 
 defaultTheme : Theme
