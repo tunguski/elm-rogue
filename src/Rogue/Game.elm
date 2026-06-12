@@ -2664,16 +2664,23 @@ equip index slot def game =
                 Nothing ->
                     packWithoutNew
 
+        -- Fold any max-HP bonus from the gear into the hero's pool (delta vs the piece swapped out).
+        maxHpDelta =
+            equipBonus .maxHp (Just def) - equipBonus .maxHp previous
+
+        withVitality h =
+            { h | maxHp = max 1 (h.maxHp + maxHpDelta), hp = max 1 (h.hp + maxHpDelta) }
+
         equippedHero =
             case slot of
                 Content.WeaponSlot ->
-                    { hero | inventory = pack, weapon = Just def }
+                    withVitality { hero | inventory = pack, weapon = Just def }
 
                 Content.ArmourSlot ->
-                    { hero | inventory = pack, armour = Just def }
+                    withVitality { hero | inventory = pack, armour = Just def }
 
                 Content.RingSlot ->
-                    { hero | inventory = pack, ring = Just def }
+                    withVitality { hero | inventory = pack, ring = Just def }
 
         cursedNote =
             if isCursed def then

@@ -102,6 +102,10 @@ ruleset =
         , wandCorrosion
         , ringOfPower
         , ringOfProtection
+        , ringOfMight
+        , ringOfForce
+        , ringOfEvasion
+        , ringOfTenacity
         , cloakOfShadows
         , hornOfPlenty
         , chaliceOfBlood
@@ -1138,6 +1142,58 @@ ringOfProtection =
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 3
+    }
+
+
+ringOfMight : ItemDef
+ringOfMight =
+    { id = "ring-might"
+    , name = "ring of might"
+    , glyph = "="
+    , color = "#e0a83c"
+    , kind = Equipment RingSlot { damage = 1, defense = 0, maxHp = 8, plus = 0, cursed = False, enchant = "" }
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+ringOfForce : ItemDef
+ringOfForce =
+    { id = "ring-force"
+    , name = "ring of force"
+    , glyph = "="
+    , color = "#e0564b"
+    , kind = Equipment RingSlot { damage = 3, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "" }
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+ringOfEvasion : ItemDef
+ringOfEvasion =
+    { id = "ring-evasion"
+    , name = "ring of evasion"
+    , glyph = "="
+    , color = "#9be08a"
+    , kind = Equipment RingSlot { damage = 0, defense = 3, maxHp = 0, plus = 0, cursed = False, enchant = "" }
+    , minDepth = 4
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+ringOfTenacity : ItemDef
+ringOfTenacity =
+    { id = "ring-tenacity"
+    , name = "ring of tenacity"
+    , glyph = "="
+    , color = "#c08a6a"
+    , kind = Equipment RingSlot { damage = 1, defense = 1, maxHp = 4, plus = 0, cursed = False, enchant = "" }
+    , minDepth = 5
+    , maxDepth = 99
+    , spawnWeight = 2
     }
 
 
