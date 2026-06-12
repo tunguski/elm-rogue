@@ -2193,6 +2193,8 @@ alchemyRecipes =
     , { inputs = [ "potion-strength", "potion-healing" ], output = "potion-experience", name = "Experience" }
     , { inputs = [ "darts", "potion-liquid-flame" ], output = "javelin", name = "Javelin" }
     , { inputs = [ "potion-haste", "potion-invisibility" ], output = "potion-levitation", name = "Levitation" }
+    , { inputs = [ "ration", "mystery-meat" ], output = "cooked-meal", name = "Cooked Meal" }
+    , { inputs = [ "ration", "ration" ], output = "hearty-feast", name = "Hearty Feast" }
     ]
 
 

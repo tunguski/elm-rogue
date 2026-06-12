@@ -68,6 +68,9 @@ ruleset =
         , shuriken
         , ankh
         , ration
+        , cookedMeal
+        , heartyFeast
+        , mysteryMeat
         , torch
         , goldPile
         , dagger
@@ -948,6 +951,45 @@ ration =
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 6
+    }
+
+
+cookedMeal : ItemDef
+cookedMeal =
+    { id = "cooked-meal"
+    , name = "cooked meal"
+    , glyph = "%"
+    , color = "#e0a85a"
+    , kind = Consumable (Feed 420)
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 0
+    }
+
+
+heartyFeast : ItemDef
+heartyFeast =
+    { id = "hearty-feast"
+    , name = "hearty feast"
+    , glyph = "%"
+    , color = "#f0c674"
+    , kind = Consumable (Feed 650)
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 0
+    }
+
+
+mysteryMeat : ItemDef
+mysteryMeat =
+    { id = "mystery-meat"
+    , name = "mystery meat"
+    , glyph = "%"
+    , color = "#b06a4a"
+    , kind = Consumable (Feed 150)
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 3
     }
 
 
