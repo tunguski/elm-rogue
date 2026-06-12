@@ -2838,6 +2838,23 @@ applyEffect def game =
                 Nothing ->
                     addLog "You read the scroll, but there is no foe in sight to corrupt." game
 
+        Enchant ->
+            case ( hero.weapon, hero.armour ) of
+                ( Just _, _ ) ->
+                    let
+                        ( ench, seed1 ) =
+                            Rng.pick "blazing" [ "blazing", "vampiric", "grim" ] game.seed
+                    in
+                    { game | seed = seed1, hero = { hero | weapon = Maybe.map (setEnchant ench) hero.weapon } }
+                        |> addLog ("Runes blaze across your weapon — it is now " ++ ench ++ ".")
+
+                ( Nothing, Just _ ) ->
+                    { game | hero = { hero | armour = Maybe.map (setEnchant "thorns") hero.armour } }
+                        |> addLog "Runes blaze across your armour — it now bears thorns."
+
+                ( Nothing, Nothing ) ->
+                    addLog "You read the scroll, but have no gear to enchant." game
+
 
 {-| Damage every monster the hero can see (a psionic blast / scroll of retribution). -}
 psionicBlast : Int -> Game -> Game
@@ -2973,6 +2990,17 @@ upgradeGear game =
 
                 Nothing ->
                     addLog "You read the scroll, but have nothing equipped to upgrade." game
+
+
+{-| Set the glyph-enchantment on an equipment item (scroll of enchantment / reforging). -}
+setEnchant : String -> ItemDef -> ItemDef
+setEnchant ench item =
+    case item.kind of
+        Content.Equipment slot bonus ->
+            { item | kind = Content.Equipment slot { bonus | enchant = ench } }
+
+        _ ->
+            item
 
 
 {-| Return a copy of an equipment item with its enchantment level raised by one (also lifts a curse). -}

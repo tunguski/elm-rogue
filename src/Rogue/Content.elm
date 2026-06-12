@@ -106,6 +106,7 @@ type ItemEffect
     | Explode Int
     | ThrownHit Int
     | Corrupt
+    | Enchant
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -379,6 +380,9 @@ describeEffect effect =
 
         Corrupt ->
             "corrupts a foe to fight for you"
+
+        Enchant ->
+            "enchants your weapon or armour"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}

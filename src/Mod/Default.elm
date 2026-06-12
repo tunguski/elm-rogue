@@ -94,6 +94,7 @@ ruleset =
         , scrollOfGrowth
         , scrollOfRage
         , scrollOfCorruption
+        , scrollOfEnchantment
         , wandMagicMissile
         , wandFirebolt
         , wandLightning
@@ -1363,6 +1364,19 @@ scrollOfCorruption =
     , glyph = "?"
     , color = "#6fc06a"
     , kind = Consumable Corrupt
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+scrollOfEnchantment : ItemDef
+scrollOfEnchantment =
+    { id = "scroll-enchantment"
+    , name = "scroll of enchantment"
+    , glyph = "?"
+    , color = "#ffd166"
+    , kind = Consumable Enchant
     , minDepth = 3
     , maxDepth = 99
     , spawnWeight = 3
