@@ -2514,27 +2514,95 @@ applyWandElement element statuses =
         "corrosion" ->
             addEnemyStatus Vulnerable 1 5 (addEnemyStatus Bleed 1 4 statuses)
 
+        "regrowth" ->
+            addEnemyStatus Crippled 1 5 statuses
+
         _ ->
             statuses
 
 
-{-| A lightning bolt arcs to monsters adjacent to the struck cell. -}
+{-| A wand's secondary effect at the struck cell: lightning arcs to neighbours, a blast wave knocks the
+target back, disintegration pierces every foe on the beam, regrowth entangles the area in grass. -}
 wandChainOrSplash : String -> Pos -> Game -> Game
 wandChainOrSplash element center game =
-    if element == "shock" then
-        let
-            arc e =
-                if not e.ally && Grid.chebyshev e.pos center == 1 then
-                    { e | hp = e.hp - 3, alerted = True }
+    case element of
+        "shock" ->
+            let
+                arc e =
+                    if not e.ally && Grid.chebyshev e.pos center == 1 then
+                        { e | hp = e.hp - 3, alerted = True }
 
-                else
-                    e
-        in
-        { game | enemies = List.map arc game.enemies }
-            |> addLog "Lightning arcs to nearby foes!"
+                    else
+                        e
+            in
+            { game | enemies = List.map arc game.enemies } |> addLog "Lightning arcs to nearby foes!"
 
-    else
-        game
+        "blast" ->
+            knockBack center game |> addLog "The blast wave hurls your foe backward!"
+
+        "disintegrate" ->
+            let
+                beam =
+                    Grid.line game.hero.pos center
+
+                onBeam e =
+                    not e.ally && List.member e.pos beam
+
+                hit e =
+                    if onBeam e then
+                        { e | hp = e.hp - 6, alerted = True }
+
+                    else
+                        e
+            in
+            { game | enemies = List.map hit game.enemies } |> addLog "The beam pierces everything in its path!"
+
+        "regrowth" ->
+            let
+                grown =
+                    List.foldl
+                        (\p lv ->
+                            if Level.at p lv == Floor then
+                                Level.set p Grass lv
+
+                            else
+                                lv
+                        )
+                        game.level
+                        (cellsWithin 1 center)
+            in
+            { game | level = grown } |> addLog "Grass erupts and entangles the area!"
+
+        _ ->
+            game
+
+
+{-| Shove the monster at `pos` one cell directly away from the hero, if that cell is free. -}
+knockBack : Pos -> Game -> Game
+knockBack pos game =
+    case enemyAt pos game of
+        Just e ->
+            let
+                dx =
+                    clamp -1 1 (pos.x - game.hero.pos.x)
+
+                dy =
+                    clamp -1 1 (pos.y - game.hero.pos.y)
+
+                dest =
+                    { x = pos.x + dx, y = pos.y + dy }
+
+                occupied =
+                    enemyAt dest game /= Nothing || dest == game.hero.pos
+            in
+            if Level.isPassableAt dest game.level && not occupied then
+                { game | enemies = updateEnemyAt pos (\x -> { x | pos = dest }) game.enemies }
+
+            else
+                game
+
+        Nothing ->
+            game
 
 
 {-| Decrement a wand's charge in the inventory after a zap, keeping the item's other fields. -}
@@ -3213,6 +3281,8 @@ wandPalette =
     , { adjective = "rowan", color = "#e0824b" }
     , { adjective = "teak", color = "#b8895a" }
     , { adjective = "elm", color = "#9ab0d6" }
+    , { adjective = "alder", color = "#c0a060" }
+    , { adjective = "cedar", color = "#d08a5a" }
     ]
 
 

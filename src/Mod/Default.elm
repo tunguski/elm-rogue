@@ -100,6 +100,9 @@ ruleset =
         , wandLightning
         , wandFrost
         , wandCorrosion
+        , wandBlastWave
+        , wandDisintegration
+        , wandRegrowth
         , ringOfPower
         , ringOfProtection
         , ringOfMight
@@ -1499,6 +1502,45 @@ wandCorrosion =
     , color = "#9bbf4a"
     , kind = Wand { damage = 5, charges = 3, maxCharges = 3, element = "corrosion" }
     , minDepth = 5
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+wandBlastWave : ItemDef
+wandBlastWave =
+    { id = "wand-blast-wave"
+    , name = "wand of blast wave"
+    , glyph = "-"
+    , color = "#e0a83c"
+    , kind = Wand { damage = 6, charges = 3, maxCharges = 3, element = "blast" }
+    , minDepth = 4
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+wandDisintegration : ItemDef
+wandDisintegration =
+    { id = "wand-disintegration"
+    , name = "wand of disintegration"
+    , glyph = "-"
+    , color = "#c97fe0"
+    , kind = Wand { damage = 8, charges = 3, maxCharges = 3, element = "disintegrate" }
+    , minDepth = 6
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+wandRegrowth : ItemDef
+wandRegrowth =
+    { id = "wand-regrowth"
+    , name = "wand of regrowth"
+    , glyph = "-"
+    , color = "#5dd47a"
+    , kind = Wand { damage = 2, charges = 4, maxCharges = 4, element = "regrowth" }
+    , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 2
     }
