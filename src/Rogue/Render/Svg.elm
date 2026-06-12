@@ -611,7 +611,27 @@ hpBar hud =
 logView : List String -> Html msg
 logView entries =
     Html.div [ HA.class "rg-log" ]
-        (List.map (\e -> Html.div [ HA.class "rg-log-entry" ] [ Html.text e ]) entries)
+        (List.map (\e -> Html.div [ HA.class "rg-log-entry", HA.style "color" (logColor e) ] [ Html.text e ]) entries)
+
+
+{-| Tint a log line by its gist: green for good news, red for harm, gold for loot/level-ups. -}
+logColor : String -> String
+logColor entry =
+    let
+        has s =
+            String.contains s entry
+    in
+    if has "kill" || has "destroy" || has "succumb" || has "level " || has "Victory" || has "recover" || has "find" || has "drops" then
+        "#8fd14f"
+
+    else if has "die" || has "starving" || has "hits you" || has "shoots you" || has "scorches" || has "burns your" || has "bite" || has "succumb" then
+        "#e0867a"
+
+    else if has "drink" || has "read the scroll" || has "brew" || has "equip" || has "+" then
+        "#e0c46a"
+
+    else
+        "#9aa7ba"
 
 
 px : Int -> String
