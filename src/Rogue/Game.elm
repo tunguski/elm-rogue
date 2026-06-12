@@ -302,6 +302,10 @@ type TrapKind
     | PoisonTrap
     | TeleportTrap
     | ParalysisTrap
+    | RockfallTrap
+    | AlarmTrap
+    | FrostTrap
+    | FlameTrap
 
 
 type alias Trap =
@@ -884,9 +888,15 @@ rollTrapKind : Int -> Seed -> ( TrapKind, Seed )
 rollTrapKind depth seed =
     let
         candidates =
-            [ ( 5, DartTrap ), ( 4, PoisonTrap ) ]
+            [ ( 5, DartTrap ), ( 4, PoisonTrap ), ( 3, AlarmTrap ) ]
                 ++ (if depth >= 3 then
-                        [ ( 3, TeleportTrap ), ( 3, ParalysisTrap ) ]
+                        [ ( 3, TeleportTrap ), ( 3, ParalysisTrap ), ( 3, FrostTrap ) ]
+
+                    else
+                        []
+                   )
+                ++ (if depth >= 5 then
+                        [ ( 3, RockfallTrap ), ( 3, FlameTrap ) ]
 
                     else
                         []
@@ -3008,6 +3018,23 @@ trapEffect kind game =
 
         ParalysisTrap ->
             addStatus Paralyzed 1 4 game |> addLog "A paralysis trap! Your limbs lock up."
+
+        RockfallTrap ->
+            let
+                ( dmg, s1 ) =
+                    Rng.range (game.depth + 3) (game.depth + 7) game.seed
+            in
+            checkHeroDeath (damageHero dmg { game | seed = s1 } |> addLog ("Rocks crash down! (" ++ String.fromInt dmg ++ ")"))
+
+        AlarmTrap ->
+            { game | enemies = List.map (\e -> { e | alerted = True }) game.enemies }
+                |> addLog "An alarm blares — every monster on the floor is roused!"
+
+        FrostTrap ->
+            addStatus Slowed 1 8 game |> addLog "A frost trap! Ice slows your movements."
+
+        FlameTrap ->
+            spawnFire game.hero.pos game |> addLog "A flame trap roars to life beneath you!"
 
 
 damageHero : Int -> Game -> Game
