@@ -46,6 +46,8 @@ ruleset =
     , bosses =
         [ gnollWarlord
         , spiderQueen
+        , dwarfKing
+        , yogDzewa
         ]
     , items =
         [ healingPotion
@@ -648,6 +650,48 @@ spiderQueen =
     , spawnWeight = 0
     , xp = 60
     , drop = Just "wand-firebolt"
+    }
+
+
+dwarfKing : EnemyDef
+dwarfKing =
+    { id = "dwarf-king"
+    , name = "Dwarf King"
+    , glyph = "K"
+    , color = "#e0c24b"
+    , maxHp = 140
+    , damage = 14
+    , defense = 6
+    , speed = 1
+    , ranged = 0
+    , ability = SummonsAllies
+    , boss = True
+    , minDepth = 10
+    , maxDepth = 10
+    , spawnWeight = 0
+    , xp = 90
+    , drop = Just "plate-armour"
+    }
+
+
+yogDzewa : EnemyDef
+yogDzewa =
+    { id = "yog-dzewa"
+    , name = "Yog-Dzewa"
+    , glyph = "Y"
+    , color = "#ff5a5a"
+    , maxHp = 200
+    , damage = 16
+    , defense = 7
+    , speed = 1
+    , ranged = 4
+    , ability = Burns
+    , boss = True
+    , minDepth = 12
+    , maxDepth = 12
+    , spawnWeight = 0
+    , xp = 150
+    , drop = Just "chalice-blood"
     }
 
 
