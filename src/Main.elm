@@ -684,12 +684,12 @@ sheetView game =
             , sheetStat "HP" (String.fromInt (max 0 hero.hp) ++ " / " ++ String.fromInt hero.maxHp)
             , sheetStat "Gold" (String.fromInt hero.gold)
             , Html.div [ HA.class "rg-inv-hint" ]
-                [ Html.text "Inventory (tap to use · ✕ to drop)" ]
+                [ Html.text "Inventory — by bag (tap to use · ✕ to drop)" ]
             , if List.isEmpty hero.inventory then
                 Html.div [ HA.class "rg-inv-empty" ] [ Html.text "— empty —" ]
 
               else
-                Html.div [] (List.indexedMap sheetItem hero.inventory)
+                Html.div [] (categorizedInventory hero.inventory)
             , Html.div [ HA.class "rg-inv-hint" ] [ Html.text "Alchemy recipes (brew with C)" ]
             , Html.div []
                 (List.map
@@ -703,6 +703,61 @@ sheetView game =
                 [ Html.text "Close (I)" ]
             ]
         ]
+
+
+{-| The bag (category) an item belongs to, for the organised inventory display. -}
+itemBag : Content.ItemDef -> String
+itemBag def =
+    case def.kind of
+        Content.Wand _ ->
+            "Wand holster"
+
+        Content.Artifact _ ->
+            "Artifacts"
+
+        Content.Equipment _ _ ->
+            "Gear"
+
+        Content.Key ->
+            "Keyring"
+
+        Content.Consumable _ ->
+            if String.startsWith "potion" def.id then
+                "Potion bandolier"
+
+            else if String.startsWith "scroll" def.id then
+                "Scroll holder"
+
+            else if List.member def.id [ "darts", "javelin", "shuriken", "bomb" ] then
+                "Throwables"
+
+            else
+                "Pouch"
+
+
+{-| The inventory grouped into labelled bags, each item keeping its true inventory index for use/drop. -}
+categorizedInventory : List Content.ItemDef -> List (Html Msg)
+categorizedInventory inventory =
+    let
+        indexed =
+            List.indexedMap Tuple.pair inventory
+
+        bags =
+            [ "Potion bandolier", "Scroll holder", "Wand holster", "Artifacts", "Gear", "Throwables", "Keyring", "Pouch" ]
+
+        section bag =
+            let
+                items =
+                    List.filter (\( _, def ) -> itemBag def == bag) indexed
+            in
+            if List.isEmpty items then
+                []
+
+            else
+                Html.div [ HA.style "color" "#5b6b82", HA.style "font-size" "11px", HA.style "margin" "6px 0 2px" ] [ Html.text bag ]
+                    :: List.map (\( i, def ) -> sheetItem i def) items
+    in
+    List.concatMap section bags
 
 
 sheetStat : String -> String -> Html Msg
