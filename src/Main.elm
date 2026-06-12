@@ -170,10 +170,12 @@ subclassDepth =
     3
 
 
-{-| Talents the hero hasn't learned yet (offered on level-up). -}
+{-| Talents the hero hasn't learned and whose tier their level has unlocked (offered on level-up). -}
 unlearnedTalents : Game -> List ( String, String )
 unlearnedTalents game =
-    Game.talentChoices |> List.filter (\( name, _ ) -> not (List.member name game.hero.talents))
+    Game.talentChoices
+        |> List.filter (\t -> game.hero.level >= t.minLevel && not (List.member t.name game.hero.talents))
+        |> List.map (\t -> ( t.name, t.desc ))
 
 
 init : () -> ( Model, Cmd Msg )

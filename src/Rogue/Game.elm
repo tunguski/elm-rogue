@@ -178,11 +178,24 @@ heroDamage hero =
                     0
 
         talent =
-            if List.member "Sharpened Edge" hero.talents then
+            (if List.member "Sharpened Edge" hero.talents then
                 1
 
-            else
+             else
                 0
+            )
+                + (if List.member "Deadly Strike" hero.talents then
+                    2
+
+                   else
+                    0
+                  )
+                + (if List.member "Heroism" hero.talents then
+                    3
+
+                   else
+                    0
+                  )
 
         weak =
             if hasStatus Weakened hero then
@@ -206,11 +219,18 @@ heroDefense hero =
                 0
 
         talent =
-            if List.member "Iron Will" hero.talents then
+            (if List.member "Iron Will" hero.talents then
                 1
 
-            else
+             else
                 0
+            )
+                + (if List.member "Bulwark" hero.talents then
+                    3
+
+                   else
+                    0
+                  )
     in
     hero.defense + equipBonus .defense hero.armour + equipBonus .defense hero.ring + sub + talent
 
@@ -638,13 +658,37 @@ learnTalent name game =
             game.hero
 
         bonusHp =
-            if name == "Toughness" then
-                5
+            case name of
+                "Toughness" ->
+                    5
+
+                "Vitality" ->
+                    10
+
+                _ ->
+                    0
+
+        fovBonus =
+            if name == "Keen Eye" then
+                1
 
             else
                 0
+
+        learned =
+            { hero
+                | talents = name :: hero.talents
+                , maxHp = hero.maxHp + bonusHp
+                , hp =
+                    if name == "Second Wind" then
+                        hero.maxHp + bonusHp
+
+                    else
+                        hero.hp + bonusHp
+                , fovRadius = hero.fovRadius + fovBonus
+            }
     in
-    { game | hero = { hero | talents = name :: hero.talents, maxHp = hero.maxHp + bonusHp, hp = hero.hp + bonusHp } }
+    { game | hero = learned }
         |> addLog ("You master the " ++ name ++ " talent.")
 
 
@@ -723,12 +767,18 @@ subclassChoices =
     ]
 
 
-{-| The talents the hero can learn on level-up (label + one-line effect). -}
-talentChoices : List ( String, String )
+{-| The tiered talent tree: each talent has a minimum hero level (T1 from L2, T2 from L4, T3 from L7). -}
+talentChoices : List { name : String, desc : String, minLevel : Int }
 talentChoices =
-    [ ( "Sharpened Edge", "+1 damage" )
-    , ( "Iron Will", "+1 defense" )
-    , ( "Toughness", "+5 max HP" )
+    [ { name = "Sharpened Edge", desc = "+1 damage", minLevel = 2 }
+    , { name = "Iron Will", desc = "+1 defense", minLevel = 2 }
+    , { name = "Toughness", desc = "+5 max HP", minLevel = 2 }
+    , { name = "Deadly Strike", desc = "+2 damage", minLevel = 4 }
+    , { name = "Keen Eye", desc = "+1 sight radius", minLevel = 4 }
+    , { name = "Vitality", desc = "+10 max HP", minLevel = 4 }
+    , { name = "Heroism", desc = "+3 damage", minLevel = 7 }
+    , { name = "Bulwark", desc = "+3 defense", minLevel = 7 }
+    , { name = "Second Wind", desc = "heal fully now", minLevel = 7 }
     ]
 
 
