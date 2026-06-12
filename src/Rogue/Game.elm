@@ -2613,15 +2613,15 @@ applyEffect def game =
                 addLog ("You drink the " ++ name ++ ", but your phobia turns the healing to ash.") game
 
             else
-                { game | hero = { hero | hp = min hero.maxHp (hero.hp + n) } }
-                    |> addLog ("You drink the " ++ name ++ ". (+" ++ String.fromInt n ++ " HP)")
+                cureDebuffs { game | hero = { hero | hp = min hero.maxHp (hero.hp + n) } }
+                    |> addLog ("You drink the " ++ name ++ ". (+" ++ String.fromInt n ++ " HP, ailments soothed)")
 
         HealFull ->
             if List.member "no-healing" game.challenges then
                 addLog ("You drink the " ++ name ++ ", but your phobia turns the healing to ash.") game
 
             else
-                { game | hero = { hero | hp = hero.maxHp } }
+                cureDebuffs { game | hero = { hero | hp = hero.maxHp } }
                     |> addLog ("You drink the " ++ name ++ ". You feel restored.")
 
         MaxHpBonus n ->
@@ -4703,17 +4703,42 @@ tickStatuses game =
         }
 
 
-{-| Add a status, or refresh the duration of one already active of the same kind. -}
+{-| Add a status, or refresh the duration of one already active of the same kind. Opposing elements
+cancel: fire melts a chill (Crippled) and a chill quenches a fire (Burn). -}
 addStatus : StatusKind -> Int -> Int -> Game -> Game
 addStatus kind magnitude turns game =
     let
         hero =
             game.hero
 
+        opposite =
+            case kind of
+                Burn ->
+                    [ Crippled ]
+
+                Crippled ->
+                    [ Burn ]
+
+                _ ->
+                    []
+
         others =
-            List.filter (\s -> s.kind /= kind) hero.statuses
+            List.filter (\s -> s.kind /= kind && not (List.member s.kind opposite)) hero.statuses
     in
     { game | hero = { hero | statuses = { kind = kind, magnitude = magnitude, turns = turns } :: others } }
+
+
+{-| Strip the hero's harmful statuses (poison, burn, bleed, weakness, etc.) — as a heal does. -}
+cureDebuffs : Game -> Game
+cureDebuffs game =
+    let
+        hero =
+            game.hero
+
+        harmful s =
+            List.member s.kind [ Poison, Burn, Bleed, Weakened, Vulnerable, Crippled, Slowed ]
+    in
+    { game | hero = { hero | statuses = List.filter (\s -> not (harmful s)) hero.statuses } }
 
 
 nth : Int -> List a -> Maybe a
