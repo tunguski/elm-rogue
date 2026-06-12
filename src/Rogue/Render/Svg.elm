@@ -161,8 +161,24 @@ minimapView scene =
             , HA.style "border-radius" "4px"
             , HA.style "max-width" "100%"
             ]
-            [ g [] (List.filterMap dot (Set.toList scene.explored)), heroDot ]
+            [ g [] (List.filterMap dot (Set.toList scene.explored))
+            , g [] (List.map (markerDot scale) scene.mapMarkers)
+            , heroDot
+            ]
         ]
+
+
+{-| A bright 2×-sized dot on the minimap for a point of interest (stairs, item, NPC). -}
+markerDot : Int -> Rogue.Render.MapMarker -> Svg msg
+markerDot scale m =
+    rect
+        [ SA.x (px (m.pos.x * scale - scale // 2))
+        , SA.y (px (m.pos.y * scale - scale // 2))
+        , SA.width (px (scale * 2))
+        , SA.height (px (scale * 2))
+        , SA.fill m.color
+        ]
+        []
 
 
 popupSvg : Rogue.Render.Popup -> Svg msg

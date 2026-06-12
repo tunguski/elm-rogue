@@ -5414,6 +5414,43 @@ toScene game =
                     else
                         Nothing
                 )
+    , mapMarkers =
+        let
+            explored p =
+                Set.member ( p.x, p.y ) game.explored
+
+            stairMarkers =
+                (if explored game.stairsDown then
+                    [ { pos = game.stairsDown, color = "#d8b24c" } ]
+
+                 else
+                    []
+                )
+                    ++ (if explored game.stairsUp then
+                            [ { pos = game.stairsUp, color = "#4f8bff" } ]
+
+                        else
+                            []
+                       )
+
+            itemMarkers =
+                game.items
+                    |> List.filter (\it -> explored it.pos)
+                    |> List.map (\it -> { pos = it.pos, color = "#ffe08a" })
+
+            npcMarker =
+                case game.npc of
+                    Just n ->
+                        if explored n.pos then
+                            [ { pos = n.pos, color = "#6ad8c0" } ]
+
+                        else
+                            []
+
+                    Nothing ->
+                        []
+        in
+        stairMarkers ++ itemMarkers ++ npcMarker
     , theme = Render.themeForDepth game.depth
     , camera = game.hero.pos
     , cursor = Nothing

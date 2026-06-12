@@ -172,6 +172,7 @@ type alias Scene =
     , popups : List Popup
     , gas : List GasCell
     , healthBars : List HealthBar
+    , mapMarkers : List MapMarker
     , theme : Theme
     , camera : Pos
     , cursor : Maybe Pos
@@ -201,6 +202,13 @@ type alias HealthBar =
     { pos : Pos
     , frac : Float
     , ally : Bool
+    }
+
+
+{-| A point of interest highlighted on the minimap (stairs, items, NPCs). -}
+type alias MapMarker =
+    { pos : Pos
+    , color : String
     }
 
 
