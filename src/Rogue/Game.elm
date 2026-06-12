@@ -310,6 +310,15 @@ type alias Trap =
     }
 
 
+{-| A growing plant on a floor cell. Stepping on it triggers its effect and consumes it: `Firebloom`
+ignites, `Sungrass` heals, `Sorrowmoss` poisons, `Earthroot` roots (paralyses) the stepper. -}
+type PlantKind
+    = Firebloom
+    | Sungrass
+    | Sorrowmoss
+    | Earthroot
+
+
 {-| A volatile gas occupying a cell: it spreads to neighbours and thins by one each turn. -}
 type GasKind
     = ToxicGasCloud
@@ -355,6 +364,7 @@ type alias Game =
     , traps : List Trap
     , gas : Dict ( Int, Int ) Gas
     , fire : Dict ( Int, Int ) Int
+    , plants : Dict ( Int, Int ) PlantKind
     , idents : Idents
     , depth : Int
     , turn : Int
@@ -734,6 +744,9 @@ enterLevel ruleset depth kills idents seed gen hero log =
         ( npc, seed10 ) =
             buildNpc ruleset depth (List.drop 6 leftover) seed9
 
+        ( plants, seed11 ) =
+            buildPlants (List.drop 9 leftover) seed10
+
         vis =
             Fov.compute (fovRadiusFor heroAt depth) heroAt.pos gen.level
     in
@@ -753,12 +766,13 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , traps = traps
     , gas = Dict.empty
     , fire = Dict.empty
+    , plants = plants
     , idents = idents
     , depth = depth
     , turn = 0
     , tempo = 0
     , kills = kills
-    , seed = seed10
+    , seed = seed11
     , visible = vis
     , explored = vis
     , log = bossLog
@@ -967,6 +981,65 @@ buildNpc ruleset depth spots seed =
 
         _ ->
             ( Nothing, seed2 )
+
+
+{-| Scatter a handful of plants on free cells; each is sprung (and consumed) by whoever steps on it. -}
+buildPlants : List Pos -> Seed -> ( Dict ( Int, Int ) PlantKind, Seed )
+buildPlants spots seed =
+    List.foldl
+        (\p ( acc, s ) ->
+            let
+                ( roll, s2 ) =
+                    Rng.int 4 s
+
+                kind =
+                    case roll of
+                        0 ->
+                            Firebloom
+
+                        1 ->
+                            Sungrass
+
+                        2 ->
+                            Sorrowmoss
+
+                        _ ->
+                            Earthroot
+            in
+            ( Dict.insert ( p.x, p.y ) kind acc, s2 )
+        )
+        ( Dict.empty, seed )
+        (List.take 5 spots)
+
+
+{-| Spring the plant (if any) the hero just stepped on: trigger its effect and remove it. -}
+stepOnPlant : Game -> Game
+stepOnPlant game =
+    case Dict.get ( game.hero.pos.x, game.hero.pos.y ) game.plants of
+        Nothing ->
+            game
+
+        Just kind ->
+            let
+                cleared =
+                    { game | plants = Dict.remove ( game.hero.pos.x, game.hero.pos.y ) game.plants }
+
+                hero =
+                    cleared.hero
+            in
+            case kind of
+                Firebloom ->
+                    spawnFire game.hero.pos cleared |> addLog "You crush a firebloom — it erupts in flame!"
+
+                Sungrass ->
+                    { cleared | hero = { hero | hp = min hero.maxHp (hero.hp + 8) } }
+                        |> addLog "You brush against sungrass — its dew mends your wounds. (+8 HP)"
+
+                Sorrowmoss ->
+                    addStatus Poison 2 5 cleared |> addLog "You tread on sorrowmoss — its spores sicken you."
+
+                Earthroot ->
+                    addStatus Paralyzed 1 3 cleared |> addLog "Earthroot snares your legs!"
 
 
 {-| Half the floors host an altar at a free cell: stepping onto it once fully heals the hero. -}
@@ -1372,7 +1445,7 @@ tryMove dir game =
                             _ ->
                                 game.level
                 in
-                endTurn (blessAtAltar (applyTerrainStep steppedTile (triggerTrap (tryBuy (pickUp (refreshFov { game | hero = moved, level = opened }))))))
+                endTurn (stepOnPlant (blessAtAltar (applyTerrainStep steppedTile (triggerTrap (tryBuy (pickUp (refreshFov { game | hero = moved, level = opened })))))))
 
             else
                 game
@@ -4237,6 +4310,7 @@ toScene game =
     , explored = game.explored
     , glyphs =
         List.map trapGlyph (List.filter .revealed game.traps)
+            ++ plantGlyphs game.plants
             ++ altarGlyphs game.altar
             ++ npcGlyphs game.npc
             ++ List.map chestGlyph game.chests
@@ -4423,6 +4497,31 @@ npcGlyphs maybeNpc =
 
         Nothing ->
             []
+
+
+plantGlyphs : Dict ( Int, Int ) PlantKind -> List Render.Glyph
+plantGlyphs plants =
+    plants
+        |> Dict.toList
+        |> List.map
+            (\( ( x, y ), kind ) ->
+                let
+                    color =
+                        case kind of
+                            Firebloom ->
+                                "#ff7a3c"
+
+                            Sungrass ->
+                                "#e0d24b"
+
+                            Sorrowmoss ->
+                                "#9b6ad8"
+
+                            Earthroot ->
+                                "#8a6a4a"
+                in
+                { pos = { x = x, y = y }, char = "♣", color = color, layer = Render.layerItem, heavy = False }
+            )
 
 
 chestGlyph : Chest -> Render.Glyph
