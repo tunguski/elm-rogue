@@ -506,6 +506,7 @@ type Msg
     | Brew
     | Ability
     | Examine
+    | AutoExplore
     | Drop Int
     | Restart
     | NoOp
@@ -1684,6 +1685,9 @@ update rawMsg rawGame =
             Examine ->
                 examine game
 
+            AutoExplore ->
+                autoExplore game
+
             Drop index ->
                 dropItem index game
 
@@ -1713,6 +1717,38 @@ isActionMsg msg =
 
         _ ->
             True
+
+
+{-| Take one step toward the nearest unexplored floor cell (or the down-stairs once the floor is fully
+mapped), pathing around walls. Stops with a warning if a monster is in view. -}
+autoExplore : Game -> Game
+autoExplore game =
+    if List.any (\e -> not e.ally && Set.member ( e.pos.x, e.pos.y ) game.visible) game.enemies then
+        addLog "There are monsters about — you explore on your own." game
+
+    else
+        let
+            unexplored =
+                Level.positions game.level
+                    |> List.filter (\p -> Level.at p game.level == Floor && not (Set.member ( p.x, p.y ) game.explored))
+
+            target =
+                maximumBy (\p -> negate (Grid.chebyshev p game.hero.pos)) unexplored
+                    |> Maybe.withDefault game.stairsDown
+
+            occupied =
+                Set.fromList (List.map (\e -> ( e.pos.x, e.pos.y )) game.enemies)
+        in
+        if target == game.hero.pos then
+            addLog "There is nothing left to explore here." game
+
+        else
+            case Path.firstStep game.level occupied game.hero.pos target of
+                Just step ->
+                    tryMove { x = step.x - game.hero.pos.x, y = step.y - game.hero.pos.y } game
+
+                Nothing ->
+                    addLog "You can't find a route to explore further." game
 
 
 {-| Look around: report the nearest visible monster (its stats and any special trait), or the terrain
