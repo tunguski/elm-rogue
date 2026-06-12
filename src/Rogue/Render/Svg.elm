@@ -191,6 +191,12 @@ popupSvg pp =
         , SA.fontFamily "ui-monospace, Menlo, Consolas, monospace"
         , SA.textAnchor "middle"
         , SA.dominantBaseline "central"
+        , HA.style "font-weight" "700"
+        , HA.style "transform-box" "fill-box"
+        , HA.style "transform-origin" "center"
+        , HA.style "paint-order" "stroke"
+        , HA.style "stroke" "rgba(0,0,0,0.55)"
+        , HA.style "stroke-width" "2px"
         , HA.style "animation" "rg-float 0.7s ease-out forwards"
         ]
         [ Svg.text pp.text ]
