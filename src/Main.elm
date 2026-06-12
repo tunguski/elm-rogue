@@ -56,6 +56,7 @@ type alias Model =
     , pendingChoice : Maybe Choice
     , badges : Set String
     , challenges : Set String
+    , remains : Maybe { depth : Int, gold : Int, itemId : String }
     , resumeSave : Maybe ( String, Game.SaveData )
     , seedInput : String
     , seedBump : Int
@@ -87,6 +88,7 @@ type Msg
     | Loaded (Maybe String)
     | LoadedSave (Maybe String)
     | LoadedBadges (Maybe String)
+    | LoadedRemains (Maybe String)
 
 
 dailySeed : Int
@@ -112,6 +114,11 @@ saveKey =
 badgesKey : String
 badgesKey =
     "elm-rogue-badges"
+
+
+remainsKey : String
+remainsKey =
+    "elm-rogue-remains"
 
 
 maxHistory : Int
@@ -185,6 +192,7 @@ init _ =
       , pendingChoice = Nothing
       , badges = Set.empty
       , challenges = Set.empty
+      , remains = Nothing
       , resumeSave = Nothing
       , seedInput = ""
       , seedBump = 0
@@ -193,6 +201,7 @@ init _ =
         [ Storage.load storageKey Loaded
         , Storage.load saveKey LoadedSave
         , Storage.load badgesKey LoadedBadges
+        , Storage.load remainsKey LoadedRemains
         ]
     )
 
@@ -208,6 +217,9 @@ update msg model =
 
         LoadedBadges stored ->
             ( { model | badges = stored |> Maybe.withDefault "" |> String.split "," |> List.filter (\x -> x /= "") |> Set.fromList }, Cmd.none )
+
+        LoadedRemains stored ->
+            ( { model | remains = decodeRemains stored }, Cmd.none )
 
         Continue ->
             case model.resumeSave of
@@ -271,15 +283,27 @@ update msg model =
             ( { model | modName = name, screen = ClassSelect }, Cmd.none )
 
         StartGame class ->
-            ( { model
-                | game =
+            let
+                withChallenges =
                     Game.newGame (rulesetNamed model.modName) class (chosenSeed model)
                         |> Game.startChallenges (Set.toList model.challenges)
+
+                started =
+                    case model.remains of
+                        Just r ->
+                            Game.setRemains r withChallenges
+
+                        Nothing ->
+                            withChallenges
+            in
+            ( { model
+                | game = started
                 , currentClass = class.name
                 , bestiary = Set.empty
+                , remains = Nothing
                 , screen = Playing
               }
-            , Cmd.none
+            , Storage.save remainsKey ""
             )
 
         GameMsg gm ->
@@ -343,12 +367,27 @@ runGame gm model =
 
                     newBadges =
                         Set.union model.badges (badgesFromRun run)
+
+                    -- Leave remains (gold + first carried item) only on death, to find next run.
+                    remainsCmd =
+                        if nextGame.won then
+                            Storage.save remainsKey ""
+
+                        else
+                            Storage.save remainsKey
+                                (String.join "|"
+                                    [ String.fromInt nextGame.depth
+                                    , String.fromInt nextGame.hero.gold
+                                    , List.head nextGame.hero.inventory |> Maybe.map .id |> Maybe.withDefault ""
+                                    ]
+                                )
                 in
                 ( { base | history = history, badges = newBadges, resumeSave = Nothing }
                 , Cmd.batch
                     [ Storage.save storageKey (encodeHistory history)
                     , Storage.save saveKey ""
                     , Storage.save badgesKey (String.join "," (Set.toList newBadges))
+                    , remainsCmd
                     ]
                 )
 
@@ -553,6 +592,19 @@ decodeSave stored =
                     Nothing
 
         Nothing ->
+            Nothing
+
+
+{-| Decode the persisted remains line `depth|gold|itemId` (empty / malformed → none). -}
+decodeRemains : Maybe String -> Maybe { depth : Int, gold : Int, itemId : String }
+decodeRemains stored =
+    case Maybe.map (String.split "|") stored of
+        Just [ d, g, itemId ] ->
+            Maybe.map2 (\depth gold -> { depth = depth, gold = gold, itemId = itemId })
+                (String.toInt d)
+                (String.toInt g)
+
+        _ ->
             Nothing
 
 

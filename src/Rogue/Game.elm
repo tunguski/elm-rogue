@@ -14,6 +14,7 @@ module Rogue.Game exposing
     , startChallenges
     , challengeChoices
     , alchemyRecipes
+    , setRemains
     , update
     , toScene
     )
@@ -330,6 +331,14 @@ type alias Quest =
     }
 
 
+{-| What a previous hero left behind on dying: gold and one item, recovered on reaching that depth. -}
+type alias Remains =
+    { depth : Int
+    , gold : Int
+    , itemId : String
+    }
+
+
 {-| Floors that host a shop. -}
 shopDepth : Int -> Bool
 shopDepth depth =
@@ -406,6 +415,7 @@ type alias Game =
     , npc : Maybe Npc
     , quest : Maybe Quest
     , challenges : List String
+    , remains : Maybe Remains
     , popups : List Popup
     , traps : List Trap
     , gas : Dict ( Int, Int ) Gas
@@ -638,6 +648,43 @@ learnTalent name game =
         |> addLog ("You master the " ++ name ++ " talent.")
 
 
+{-| Record the remains of a previous death on a fresh run, and place them immediately if the starting
+floor is the right depth. -}
+setRemains : Remains -> Game -> Game
+setRemains r game =
+    spawnRemainsIfHere { game | remains = Just r }
+
+
+{-| If the hero has reached the depth where their predecessor fell, materialise the remains: recover
+the gold at once and drop the saved item on the start cell, then clear the remains. -}
+spawnRemainsIfHere : Game -> Game
+spawnRemainsIfHere game =
+    case game.remains of
+        Just r ->
+            if r.depth == game.depth then
+                let
+                    hero =
+                        game.hero
+
+                    item =
+                        Content.findItem r.itemId game.ruleset
+                            |> Maybe.map (\def -> [ { def = def, pos = game.stairsUp } ])
+                            |> Maybe.withDefault []
+                in
+                { game
+                    | remains = Nothing
+                    , hero = { hero | gold = hero.gold + r.gold }
+                    , items = item ++ game.items
+                }
+                    |> addLog ("You find the remains of a fallen adventurer and recover " ++ String.fromInt r.gold ++ " gold.")
+
+            else
+                game
+
+        Nothing ->
+            game
+
+
 {-| Apply chosen run-modifier challenges to a fresh game (records them; some, like "Frailty", also
 adjust the starting hero). Ids are checked at the relevant engine hooks. -}
 startChallenges : List String -> Game -> Game
@@ -812,6 +859,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , npc = npc
     , quest = Nothing
     , challenges = []
+    , remains = Nothing
     , popups = []
     , traps = traps
     , gas = Dict.empty
@@ -1844,7 +1892,7 @@ tryDescend game =
                     game.hero
                     (("You descend to depth " ++ String.fromInt (game.depth + 1) ++ ".") :: game.log)
         in
-        { descended | quest = game.quest, challenges = game.challenges }
+        spawnRemainsIfHere { descended | quest = game.quest, challenges = game.challenges, remains = game.remains }
 
     else
         addLog "There are no stairs down here." game
@@ -1877,7 +1925,7 @@ fallThroughChasm game =
             fallen.hero
     in
     checkHeroDeath
-        ({ fallen | hero = { hero | hp = hero.hp - dmg }, seed = seed1, quest = game.quest, challenges = game.challenges }
+        (spawnRemainsIfHere { fallen | hero = { hero | hp = hero.hp - dmg }, seed = seed1, quest = game.quest, challenges = game.challenges, remains = game.remains }
             |> addLog ("You hit the ground hard (" ++ String.fromInt dmg ++ " damage).")
         )
 
