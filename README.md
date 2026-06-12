@@ -29,12 +29,14 @@ styling (item/class colours, the HP-bar width, SVG fills) inline.
 
 **Controls** — arrows / `WASD` / `HJKL` to move, `Y U B N` for diagonals, `.` to wait, `Z` to search,
 `F` to aim/throw (`Tab` cycles targets), `Q` for your class ability, `C` to brew, `>` to descend,
-`1`–`9` to use an inventory item, `I` for the character sheet, `M` for the bestiary, `R` to restart.
-On a phone, an on-screen D-pad and action buttons appear instead. Walk into a monster to attack it.
-Reach **depth 12** (and claim the Amulet of Yendor) to win; die and you start a fresh dungeon — though
-your remains, with their gold and an item, wait for the next hero at the depth you fell. The toolbar
-switches the **Mod** and the **Renderer** live; the class screen offers five heroes and optional
-**challenge** modifiers, and tracks **achievements** across runs.
+`O` to auto-explore, `X` to examine a tile, `1`–`9` to use an inventory item, `I` for the character
+sheet, `M` for the bestiary, `R` to restart. On a phone, an on-screen D-pad and action buttons appear
+instead. Walk into a monster to attack it. Descend to **depth 12** and claim the **Amulet of Yendor** —
+then **ascend** back to the surface, hunted the whole way, to win; die and you start a fresh dungeon —
+though your remains, with their gold and an item, wait for the next hero at the depth you fell. The
+toolbar switches the **Mod** and the **Renderer** live, toggles **Reduce Motion** / **Hints**; the
+class screen offers five heroes and optional **challenge** modifiers, and tracks **achievements** across
+runs.
 
 ## How it plays
 
@@ -143,6 +145,12 @@ engine plays it.
   trap variety, magic wells, **mimics**, richer debuffs (bleed/cripple/weaken/vulnerable), an
   **ally/corruption** system, per-element wands, smarter (kiting + pack) AI, inventory bags, **hero's
   remains**, reforging, and a tiered talent tree.
+
+- **Set 7 — variety & feel:** more rings/wands/artifacts/consumables, a Wandmaker **fetch quest**,
+  **cooking**, the **Amulet ascension** endgame (claim it, then fight back up to the surface), region
+  terrain & hazards, **statue guardians**, extra challenge modifiers, respawn waves, monster **HP
+  bars**, HUD **status icons**, **examine** + **auto-explore**, minimap markers, coloured combat log, a
+  **settings panel** (reduce motion / hints), **contextual tutorial hints**, and punchier hit juice.
 
 Every system above is data behind the same two seams — content is a `Ruleset`, rendering is a
 `Renderer` — so mods extend all of it. Run the tests with `ELM=../../elm.sh ./test.sh`; see
