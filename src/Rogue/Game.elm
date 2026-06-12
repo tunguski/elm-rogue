@@ -437,6 +437,7 @@ type alias Game =
     , quest : Maybe Quest
     , challenges : List String
     , remains : Maybe Remains
+    , ascending : Bool
     , popups : List Popup
     , traps : List Trap
     , gas : Dict ( Int, Int ) Gas
@@ -911,6 +912,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , quest = Nothing
     , challenges = []
     , remains = Nothing
+    , ascending = False
     , popups = []
     , traps = traps
     , gas = Dict.empty
@@ -1565,7 +1567,11 @@ update rawMsg rawGame =
                 tryMove dir game
 
             Descend ->
-                tryDescend game
+                if game.ascending then
+                    tryAscend game
+
+                else
+                    tryDescend game
 
             Wait ->
                 endTurn game
@@ -1974,6 +1980,44 @@ tryDescend game =
         addLog "There are no stairs down here." game
 
 
+{-| Climb the up-stairs during the Amulet ascension. Reaching the surface (above depth 1) wins; each
+floor climbed regenerates with its monsters roused and hunting. -}
+tryAscend : Game -> Game
+tryAscend game =
+    if Level.at game.hero.pos game.level /= StairsUp then
+        addLog "Carrying the Amulet, you must climb the up-stairs to escape." game
+
+    else if game.depth <= 1 then
+        { game | won = True, gameOver = True }
+            |> addLog "You burst into daylight, Amulet in hand — you have escaped! Victory!"
+
+    else
+        let
+            ( nextSeedA, nextSeedB ) =
+                Rng.split game.seed
+
+            gen =
+                Dungeon.generate (Dungeon.configForDepth (game.depth - 1)) nextSeedA
+
+            climbed =
+                enterLevel game.ruleset
+                    (game.depth - 1)
+                    game.kills
+                    game.idents
+                    nextSeedB
+                    gen
+                    game.hero
+                    (("You climb to depth " ++ String.fromInt (game.depth - 1) ++ ".") :: game.log)
+        in
+        -- Keep ascending; rouse the whole floor against the Amulet-bearer.
+        { climbed
+            | quest = game.quest
+            , challenges = game.challenges
+            , ascending = True
+            , enemies = List.map (\e -> { e | alerted = True }) climbed.enemies
+        }
+
+
 {-| Stepping into a chasm drops the hero to the next floor, taking falling damage on landing. -}
 fallThroughChasm : Game -> Game
 fallThroughChasm game =
@@ -2024,8 +2068,10 @@ pickUp game =
 pickUpOne : ItemOnFloor -> Game -> Game
 pickUpOne it game =
     if it.def.id == "amulet" then
-        { game | won = True, gameOver = True }
-            |> addLog "You claim the Amulet of Yendor! Victory is yours!"
+        -- Claiming the Amulet begins the **ascension**: every monster awakens and you must climb back
+        -- to the surface (depth 1's up-stairs) to win.
+        { game | ascending = True, enemies = List.map (\e -> { e | alerted = True }) game.enemies }
+            |> addLog "You claim the Amulet of Yendor! Now escape to the surface — the dungeon awakens!"
 
     else
         pickUpItem it game
@@ -5208,6 +5254,9 @@ statusLine game =
 
     else if game.gameOver then
         "You have died at depth " ++ String.fromInt game.depth ++ " — press R to restart"
+
+    else if game.ascending then
+        "ASCENDING — flee to the surface! (climb up-stairs with >)"
 
     else if Level.at game.hero.pos game.level == StairsDown then
         "Press > to descend"
