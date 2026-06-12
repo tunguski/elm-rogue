@@ -257,10 +257,12 @@ type alias ShopEntry =
     }
 
 
-{-| A locked chest: bump it with a key to claim its loot. -}
+{-| A locked chest: bump it with a key to claim its loot — unless it's a `mimic`, which springs into a
+monster when opened. -}
 type alias Chest =
     { pos : Pos
     , loot : ItemDef
+    , mimic : Bool
     }
 
 
@@ -938,8 +940,11 @@ buildChest ruleset depth gen spots seed =
             let
                 ( lootDef, seed1 ) =
                     Rng.pickWeighted firstDef loot seed
+
+                ( isMimic, seed2 ) =
+                    Rng.chance 25 seed1
             in
-            ( [ { pos = chestPos, loot = lootDef } ], [ { def = keyDef, pos = keyPos } ], seed1 )
+            ( [ { pos = chestPos, loot = lootDef, mimic = isMimic } ], [ { def = keyDef, pos = keyPos } ], seed2 )
 
         _ ->
             ( [], [], seed )
@@ -1666,16 +1671,84 @@ tryOpenChest pos game =
             in
             case keys of
                 _ :: remainingKeys ->
-                    endTurn
-                        ({ game
-                            | chests = List.filter (\c -> c.pos /= pos) game.chests
-                            , hero = { hero | inventory = (remainingKeys ++ rest) ++ [ chest.loot ] }
-                         }
-                            |> addLog ("You unlock the chest and find a " ++ displayName game.idents chest.loot ++ "!")
-                        )
+                    if chest.mimic then
+                        endTurn (springMimic chest { game | hero = { hero | inventory = remainingKeys ++ rest } })
+
+                    else
+                        endTurn
+                            ({ game
+                                | chests = List.filter (\c -> c.pos /= pos) game.chests
+                                , hero = { hero | inventory = (remainingKeys ++ rest) ++ [ chest.loot ] }
+                             }
+                                |> addLog ("You unlock the chest and find a " ++ displayName game.idents chest.loot ++ "!")
+                            )
 
                 [] ->
                     addLog "The chest is locked. You need a key." game
+
+
+{-| A mimic chest lurches into a monster (a tough disguised predator) when opened. -}
+springMimic : Chest -> Game -> Game
+springMimic chest game =
+    let
+        candidates =
+            Content.enemiesForDepth game.depth game.ruleset
+
+        ( base, seed1 ) =
+            case candidates of
+                ( _, firstDef ) :: _ ->
+                    Rng.pickWeighted firstDef candidates game.seed
+
+                [] ->
+                    ( placeholderEnemyDef, game.seed )
+
+        mimicDef =
+            { base
+                | name = "mimic"
+                , glyph = "m"
+                , color = "#caa24a"
+                , maxHp = base.maxHp * 2 + 10
+                , damage = base.damage + 3
+                , ability = Content.NoAbility
+                , xp = base.xp * 2
+            }
+
+        spot =
+            Grid.neighbors8 chest.pos
+                |> List.filter (\p -> Level.isPassableAt p game.level && enemyAt p game == Nothing && p /= game.hero.pos)
+                |> List.head
+                |> Maybe.withDefault chest.pos
+
+        mimic =
+            { def = mimicDef, pos = spot, hp = mimicDef.maxHp, alerted = True, fleeing = False, statuses = [] }
+    in
+    { game
+        | chests = List.filter (\c -> c.pos /= chest.pos) game.chests
+        , enemies = mimic :: game.enemies
+        , seed = seed1
+    }
+        |> addLog "The chest lunges — it's a mimic!"
+
+
+placeholderEnemyDef : EnemyDef
+placeholderEnemyDef =
+    { id = "mimic"
+    , name = "mimic"
+    , glyph = "m"
+    , color = "#caa24a"
+    , maxHp = 20
+    , damage = 6
+    , defense = 2
+    , speed = 1
+    , ranged = 0
+    , ability = Content.NoAbility
+    , boss = False
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 0
+    , xp = 8
+    , drop = Nothing
+    }
 
 
 {-| Stepping onto an altar grants its one-time blessing: full health. -}
