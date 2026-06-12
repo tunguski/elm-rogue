@@ -346,6 +346,7 @@ type alias Npc =
 delivered automatically. Carried across floors. -}
 type alias Quest =
     { targetKills : Int
+    , targetDepth : Int
     , reward : ItemDef
     , giver : String
     }
@@ -1743,8 +1744,11 @@ talkToNpc game =
 
                 Wandmaker ->
                     endTurn
-                        ({ game | npc = Nothing, hero = { hero | inventory = hero.inventory ++ [ n.reward ] } }
-                            |> addLog ("The wandmaker thanks you and presses " ++ withArticle (displayName game.idents n.reward) ++ " into your hands.")
+                        ({ game
+                            | npc = Nothing
+                            , quest = Just { targetKills = 0, targetDepth = game.depth + 2, reward = n.reward, giver = "wandmaker" }
+                         }
+                            |> addLog ("The wandmaker asks you to fetch a reagent two floors deeper; their reward will find you there.")
                         )
 
                 Blacksmith ->
@@ -1765,7 +1769,7 @@ talkToNpc game =
                     endTurn
                         ({ game
                             | npc = Nothing
-                            , quest = Just { targetKills = game.kills + 6, reward = n.reward, giver = "imp" }
+                            , quest = Just { targetKills = game.kills + 6, targetDepth = 0, reward = n.reward, giver = "imp" }
                          }
                             |> addLog "The ambitious imp offers a bounty: slay 6 more monsters and a reward is yours."
                         )
@@ -4508,7 +4512,7 @@ checkQuest : Game -> Game
 checkQuest game =
     case game.quest of
         Just quest ->
-            if game.kills >= quest.targetKills then
+            if (quest.targetKills > 0 && game.kills >= quest.targetKills) || (quest.targetDepth > 0 && game.depth >= quest.targetDepth) then
                 let
                     hero =
                         game.hero
