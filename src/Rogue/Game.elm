@@ -433,6 +433,7 @@ type alias Game =
     , chests : List Chest
     , altar : Maybe Pos
     , well : Maybe Well
+    , statues : List Pos
     , npc : Maybe Npc
     , quest : Maybe Quest
     , challenges : List String
@@ -895,6 +896,9 @@ enterLevel ruleset depth kills idents seed gen hero log =
         ( well, seed12 ) =
             buildWell (List.drop 15 leftover) seed11
 
+        ( statues, seed13 ) =
+            buildStatues depth (List.drop 21 leftover) seed12
+
         vis =
             Fov.compute (fovRadiusFor heroAt depth) heroAt.pos gen.level
     in
@@ -908,6 +912,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , chests = chests
     , altar = altar
     , well = well
+    , statues = statues
     , npc = npc
     , quest = Nothing
     , challenges = []
@@ -931,7 +936,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , turn = 0
     , tempo = 0
     , kills = kills
-    , seed = seed12
+    , seed = seed13
     , visible = vis
     , explored = vis
     , log = bossLog
@@ -1237,6 +1242,68 @@ buildWell spots seed =
 
         _ ->
             ( Nothing, seed2 )
+
+
+{-| Place a couple of dormant guardian statues on deeper floors (none in the shallow Sewers). -}
+buildStatues : Int -> List Pos -> Seed -> ( List Pos, Seed )
+buildStatues depth spots seed =
+    if depth < 3 then
+        ( [], seed )
+
+    else
+        let
+            ( n, seed1 ) =
+                Rng.int 3 seed
+        in
+        ( List.take n spots, seed1 )
+
+
+{-| A statue grinds to life into a guardian when the hero comes within two cells. -}
+animateStatues : Game -> Game
+animateStatues game =
+    let
+        ( woken, dormant ) =
+            List.partition (\p -> Grid.chebyshev p game.hero.pos <= 2) game.statues
+    in
+    if List.isEmpty woken then
+        game
+
+    else
+        let
+            guards =
+                List.map
+                    (\p ->
+                        let
+                            def =
+                                guardianDef game.depth
+                        in
+                        { def = def, pos = p, hp = def.maxHp, alerted = True, fleeing = False, statuses = [], ally = False }
+                    )
+                    woken
+        in
+        { game | statues = dormant, enemies = guards ++ game.enemies }
+            |> addLog "A statue grinds to life — a guardian attacks!"
+
+
+guardianDef : Int -> EnemyDef
+guardianDef depth =
+    { id = "guardian"
+    , name = "animated guardian"
+    , glyph = "8"
+    , color = "#b0b0b8"
+    , maxHp = 26 + depth * 3
+    , damage = 7 + depth // 2
+    , defense = 5
+    , speed = 1
+    , ranged = 0
+    , ability = Content.NoAbility
+    , boss = False
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 0
+    , xp = 8 + depth
+    , drop = Nothing
+    }
 
 
 {-| Step onto a magic well to drink its one-time draught. -}
@@ -4528,8 +4595,11 @@ endTurn game =
         afterPack =
             packAlert afterAllies
 
+        afterStatues =
+            animateStatues afterPack
+
         afterMonsters =
-            applyTimes enemyPhases enemiesTurn afterPack
+            applyTimes enemyPhases enemiesTurn afterStatues
 
         afterGas =
             tickGas afterMonsters
@@ -5165,6 +5235,7 @@ toScene game =
         List.map trapGlyph (List.filter .revealed game.traps)
             ++ plantGlyphs game.plants
             ++ wellGlyphs game.well
+            ++ statueGlyphs game.statues
             ++ altarGlyphs game.altar
             ++ npcGlyphs game.npc
             ++ List.map chestGlyph game.chests
@@ -5359,6 +5430,13 @@ npcGlyphs maybeNpc =
 
         Nothing ->
             []
+
+
+statueGlyphs : List Pos -> List Render.Glyph
+statueGlyphs statues =
+    List.map
+        (\p -> { pos = p, char = "&", color = "#7a7a82", layer = Render.layerItem, heavy = False })
+        statues
 
 
 wellGlyphs : Maybe Well -> List Render.Glyph
