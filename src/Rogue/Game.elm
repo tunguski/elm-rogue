@@ -91,6 +91,10 @@ type StatusKind
     | Slowed
     | Invisible
     | Levitating
+    | Bleed
+    | Weakened
+    | Vulnerable
+    | Crippled
 
 
 type alias Status =
@@ -131,6 +135,18 @@ statusLabel status =
 
                 Levitating ->
                     "Levitating"
+
+                Bleed ->
+                    "Bleed"
+
+                Weakened ->
+                    "Weakened"
+
+                Vulnerable ->
+                    "Vulnerable"
+
+                Crippled ->
+                    "Crippled"
     in
     name ++ " (" ++ String.fromInt status.turns ++ ")"
 
@@ -166,8 +182,15 @@ heroDamage hero =
 
             else
                 0
+
+        weak =
+            if hasStatus Weakened hero then
+                -3
+
+            else
+                0
     in
-    hero.damage + equipBonus .damage hero.weapon + equipBonus .damage hero.ring + sub + talent
+    max 1 (hero.damage + equipBonus .damage hero.weapon + equipBonus .damage hero.ring + sub + talent + weak)
 
 
 {-| The hero's defense including the worn armour's, ring's and subclass/talent bonuses. -}
@@ -3331,7 +3354,7 @@ heroAttack enemy game =
             else
                 1
 
-        dmg =
+        raw =
             glass
                 * (if surprised then
                     base
@@ -3345,6 +3368,14 @@ heroAttack enemy game =
                    else
                     base
                   )
+
+        -- A Vulnerable foe takes 50% more.
+        dmg =
+            if List.any (\s -> s.kind == Vulnerable) enemy.statuses then
+                raw * 3 // 2
+
+            else
+                raw
 
         color =
             if surprised then
@@ -3397,6 +3428,9 @@ applyHitEnchant enemy dmg game =
     case itemEnchant hero.weapon of
         "blazing" ->
             { game | enemies = updateEnemyAt enemy.pos (\e -> { e | statuses = addEnemyStatus Burn 2 3 e.statuses }) game.enemies }
+
+        "grim" ->
+            { game | enemies = updateEnemyAt enemy.pos (\e -> { e | statuses = addEnemyStatus Bleed 2 4 e.statuses }) game.enemies }
 
         "vampiric" ->
             let
@@ -3771,15 +3805,29 @@ attackHero enemy verb done acc =
             else
                 0
 
-        ( rolled, seed1 ) =
-            rollDamage (enemy.def.damage + enrage) (heroDefense acc.hero) acc.seed
+        weaken =
+            if List.any (\s -> s.kind == Weakened) enemy.statuses then
+                2
 
-        dmg =
+            else
+                0
+
+        ( rolled, seed1 ) =
+            rollDamage (max 1 (enemy.def.damage + enrage - weaken)) (heroDefense acc.hero) acc.seed
+
+        glassed =
             if acc.glassCannon then
                 rolled * 2
 
             else
                 rolled
+
+        dmg =
+            if hasStatus Vulnerable acc.hero then
+                glassed * 3 // 2
+
+            else
+                glassed
 
         hero =
             acc.hero
@@ -3936,7 +3984,7 @@ endTurn game =
             if hasStatus Hasted bumped.hero then
                 modBy 2 tempo
 
-            else if hasStatus Slowed bumped.hero then
+            else if hasStatus Slowed bumped.hero || hasStatus Crippled bumped.hero then
                 2
 
             else
@@ -4341,7 +4389,7 @@ tickEnemyStatuses game =
             let
                 dot =
                     e.statuses
-                        |> List.filter (\s -> s.kind == Burn || s.kind == Poison)
+                        |> List.filter (\s -> s.kind == Burn || s.kind == Poison || s.kind == Bleed)
                         |> List.map .magnitude
                         |> List.sum
 
@@ -4451,6 +4499,9 @@ tickStatuses game =
 
                         Burn ->
                             ( dhp - status.magnitude, ("Flames sear you (" ++ String.fromInt status.magnitude ++ ").") :: ls )
+
+                        Bleed ->
+                            ( dhp - status.magnitude, ("You bleed (" ++ String.fromInt status.magnitude ++ ").") :: ls )
 
                         _ ->
                             ( dhp, ls )

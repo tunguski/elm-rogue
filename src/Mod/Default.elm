@@ -76,6 +76,7 @@ ruleset =
         , rapier
         , vampiricDagger
         , blazingMace
+        , grimGlaive
         , leatherArmour
         , mailArmour
         , plateArmour
@@ -1036,6 +1037,19 @@ blazingMace =
     , color = "#ff7a3c"
     , kind = Equipment WeaponSlot { damage = 6, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "blazing" }
     , minDepth = 4
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+grimGlaive : ItemDef
+grimGlaive =
+    { id = "grim-glaive"
+    , name = "grim glaive"
+    , glyph = "/"
+    , color = "#9b6ad8"
+    , kind = Equipment WeaponSlot { damage = 7, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "grim" }
+    , minDepth = 6
     , maxDepth = 99
     , spawnWeight = 2
     }
