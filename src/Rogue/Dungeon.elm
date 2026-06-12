@@ -40,6 +40,7 @@ type alias GenConfig =
     , minRoomSize : Int
     , maxRoomSize : Int
     , caves : Bool
+    , depth : Int
     }
 
 
@@ -59,6 +60,7 @@ configForDepth depth =
     , minRoomSize = 5
     , maxRoomSize = 10 + depth // 3
     , caves = depth == 5 || depth == 6
+    , depth = depth
     }
 
 
@@ -393,7 +395,7 @@ generateRooms cfg seed0 =
 
         -- Scatter water pools and tall-grass patches (both passable, so connectivity is unaffected).
         ( level8, seed5 ) =
-            decorateTerrain rooms level7 seed4
+            decorateTerrain cfg.depth rooms level7 seed4
 
         -- Paint Pool (water) and Pit (central chasm, floor border kept) feature rooms.
         level9 =
@@ -410,26 +412,41 @@ generateRooms cfg seed0 =
     }
 
 
-{-| Paint a few water/grass blobs onto room floors. Only `Floor` cells are converted (never stairs,
+{-| Paint a few water/grass blobs onto room floors, biased by region: the Sewers run with water, the
+Prison is barren, the deep Halls overgrow with grass. Only `Floor` cells are converted (never stairs,
 doors or walls), and both tiles are passable, so this never affects connectivity. -}
-decorateTerrain : List Room -> Level -> Seed -> ( Level, Seed )
-decorateTerrain rooms level seed =
-    List.foldl decorateRoom ( level, seed ) rooms
+decorateTerrain : Int -> List Room -> Level -> Seed -> ( Level, Seed )
+decorateTerrain depth rooms level seed =
+    List.foldl (decorateRoom depth) ( level, seed ) rooms
 
 
-decorateRoom : Room -> ( Level, Seed ) -> ( Level, Seed )
-decorateRoom room ( level, seed ) =
+decorateRoom : Int -> Room -> ( Level, Seed ) -> ( Level, Seed )
+decorateRoom depth room ( level, seed ) =
     let
         ( roll, s1 ) =
             Rng.int 100 seed
+
+        -- How often a room gets terrain, and how likely that terrain is grass (vs water), by region.
+        ( decorateChance, grassChance ) =
+            if depth <= 2 then
+                ( 50, 25 )
+
+            else if depth <= 4 then
+                ( 22, 45 )
+
+            else if depth >= 11 then
+                ( 48, 80 )
+
+            else
+                ( 38, 55 )
     in
-    if roll >= 38 || room.w < 4 || room.h < 4 then
+    if roll >= decorateChance || room.w < 4 || room.h < 4 then
         ( level, s1 )
 
     else
         let
             ( isGrass, s2 ) =
-                Rng.chance 55 s1
+                Rng.chance grassChance s1
 
             tile =
                 if isGrass then

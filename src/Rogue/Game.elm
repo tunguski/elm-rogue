@@ -916,7 +916,15 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , popups = []
     , traps = traps
     , gas = Dict.empty
-    , fire = Dict.empty
+    , fire =
+        -- The Demon Halls smoulder: a few short-lived embers dot the deepest floors.
+        if depth >= 11 then
+            List.take 3 (List.drop 18 leftover)
+                |> List.map (\p -> ( ( p.x, p.y ), 2 ))
+                |> Dict.fromList
+
+        else
+            Dict.empty
     , plants = plants
     , idents = idents
     , depth = depth
