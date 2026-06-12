@@ -97,6 +97,8 @@ ruleset =
         , wandMagicMissile
         , wandFirebolt
         , wandLightning
+        , wandFrost
+        , wandCorrosion
         , ringOfPower
         , ringOfProtection
         , cloakOfShadows
@@ -1373,7 +1375,7 @@ wandMagicMissile =
     , name = "wand of magic missile"
     , glyph = "-"
     , color = "#82aaff"
-    , kind = Wand { damage = 5, charges = 4, maxCharges = 4, burns = False }
+    , kind = Wand { damage = 5, charges = 4, maxCharges = 4, element = "" }
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 4
@@ -1386,7 +1388,7 @@ wandFirebolt =
     , name = "wand of firebolt"
     , glyph = "-"
     , color = "#ff7a3c"
-    , kind = Wand { damage = 9, charges = 3, maxCharges = 3, burns = True }
+    , kind = Wand { damage = 9, charges = 3, maxCharges = 3, element = "fire" }
     , minDepth = 3
     , maxDepth = 99
     , spawnWeight = 3
@@ -1399,10 +1401,36 @@ wandLightning =
     , name = "wand of lightning"
     , glyph = "-"
     , color = "#9be0ff"
-    , kind = Wand { damage = 7, charges = 4, maxCharges = 4, burns = False }
+    , kind = Wand { damage = 7, charges = 4, maxCharges = 4, element = "shock" }
     , minDepth = 4
     , maxDepth = 99
     , spawnWeight = 3
+    }
+
+
+wandFrost : ItemDef
+wandFrost =
+    { id = "wand-frost"
+    , name = "wand of frost"
+    , glyph = "-"
+    , color = "#bcd6ff"
+    , kind = Wand { damage = 6, charges = 4, maxCharges = 4, element = "frost" }
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+wandCorrosion : ItemDef
+wandCorrosion =
+    { id = "wand-corrosion"
+    , name = "wand of corrosion"
+    , glyph = "-"
+    , color = "#9bbf4a"
+    , kind = Wand { damage = 5, charges = 3, maxCharges = 3, element = "corrosion" }
+    , minDepth = 5
+    , maxDepth = 99
+    , spawnWeight = 2
     }
 
 

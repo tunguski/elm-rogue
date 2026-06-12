@@ -2359,60 +2359,108 @@ zapWand index spec game =
         addLog "The wand is drained — wait for it to recharge." game
 
     else
-        case nearestVisibleEnemy game of
-            Nothing ->
-                addLog "You wave the wand, but there is no target in sight." game
+        let
+            ( misfire, seedM ) =
+                Rng.chance 6 game.seed
+        in
+        if misfire then
+            -- An unstable discharge: the bolt sputters and the charge is wasted.
+            endTurn (spendCharge index spec { game | seed = seedM } |> addLog "The wand misfires — the spell fizzles!")
 
-            Just target ->
-                let
-                    ( dmg, seed1 ) =
-                        rollDamage spec.damage target.def.defense game.seed
+        else
+            case nearestVisibleEnemy { game | seed = seedM } of
+                Nothing ->
+                    addLog "You wave the wand, but there is no target in sight." { game | seed = seedM }
 
-                    afterHit =
-                        if target.hp - dmg <= 0 then
-                            { game | enemies = List.filter (\e -> e.pos /= target.pos) game.enemies, seed = seed1, kills = game.kills + 1 }
-                                |> addLog ("Your bolt destroys the " ++ target.def.name ++ "!")
-                                |> addPopup target.pos (String.fromInt dmg) "#82aaff"
-                                |> gainXp target.def.xp
-                                |> dropLoot target
+                Just target ->
+                    let
+                        ( dmg, seed1 ) =
+                            rollDamage spec.damage target.def.defense seedM
 
-                        else
-                            { game
-                                | enemies =
-                                    updateEnemyAt target.pos
-                                        (\e ->
-                                            { e
-                                                | hp = e.hp - dmg
-                                                , alerted = True
-                                                , statuses =
-                                                    if spec.burns then
-                                                        addEnemyStatus Burn 2 3 e.statuses
+                        afterHit =
+                            if target.hp - dmg <= 0 then
+                                { game | enemies = List.filter (\e -> e.pos /= target.pos) game.enemies, seed = seed1, kills = game.kills + 1 }
+                                    |> addLog ("Your bolt destroys the " ++ target.def.name ++ "!")
+                                    |> addPopup target.pos (String.fromInt dmg) "#82aaff"
+                                    |> gainXp target.def.xp
+                                    |> dropLoot target
 
-                                                    else
-                                                        e.statuses
-                                            }
-                                        )
-                                        game.enemies
-                                , seed = seed1
-                            }
-                                |> addLog ("Your bolt hits the " ++ target.def.name ++ " (" ++ String.fromInt dmg ++ ").")
-                                |> addPopup target.pos (String.fromInt dmg) "#82aaff"
+                            else
+                                { game
+                                    | enemies =
+                                        updateEnemyAt target.pos
+                                            (\e -> { e | hp = e.hp - dmg, alerted = True, statuses = applyWandElement spec.element e.statuses })
+                                            game.enemies
+                                    , seed = seed1
+                                }
+                                    |> addLog ("Your bolt hits the " ++ target.def.name ++ " (" ++ String.fromInt dmg ++ ").")
+                                    |> addPopup target.pos (String.fromInt dmg) "#82aaff"
+                                    |> wandChainOrSplash spec.element target.pos
 
-                    hero =
-                        afterHit.hero
+                        hero =
+                            afterHit.hero
+                    in
+                    endTurn (spendCharge index spec { afterHit | hero = hero })
 
-                    drained =
-                        List.indexedMap
-                            (\i it ->
-                                if i == index then
-                                    { it | kind = Content.Wand { spec | charges = spec.charges - 1 } }
 
-                                else
-                                    it
-                            )
-                            hero.inventory
-                in
-                endTurn { afterHit | hero = { hero | inventory = drained } }
+{-| The status a wand's element inflicts on a struck monster. -}
+applyWandElement : String -> List Status -> List Status
+applyWandElement element statuses =
+    case element of
+        "fire" ->
+            addEnemyStatus Burn 2 3 statuses
+
+        "frost" ->
+            addEnemyStatus Crippled 1 4 statuses
+
+        "corrosion" ->
+            addEnemyStatus Vulnerable 1 5 (addEnemyStatus Bleed 1 4 statuses)
+
+        _ ->
+            statuses
+
+
+{-| A lightning bolt arcs to monsters adjacent to the struck cell. -}
+wandChainOrSplash : String -> Pos -> Game -> Game
+wandChainOrSplash element center game =
+    if element == "shock" then
+        let
+            arc e =
+                if not e.ally && Grid.chebyshev e.pos center == 1 then
+                    { e | hp = e.hp - 3, alerted = True }
+
+                else
+                    e
+        in
+        { game | enemies = List.map arc game.enemies }
+            |> addLog "Lightning arcs to nearby foes!"
+
+    else
+        game
+
+
+{-| Decrement a wand's charge in the inventory after a zap, keeping the item's other fields. -}
+spendCharge : Int -> Content.WandSpec -> Game -> Game
+spendCharge index spec game =
+    let
+        hero =
+            game.hero
+    in
+    { game
+        | hero =
+            { hero
+                | inventory =
+                    List.indexedMap
+                        (\i it ->
+                            if i == index then
+                                { it | kind = Content.Wand { spec | charges = spec.charges - 1 } }
+
+                            else
+                                it
+                        )
+                        hero.inventory
+            }
+    }
 
 
 {-| A thrown attack at the monster on a chosen, visible cell (used by manual targeting). -}
