@@ -264,6 +264,20 @@ type alias Chest =
     }
 
 
+{-| A magic well: drink from it once by stepping on it. `Health` fully heals and adds vitality,
+`Awareness` maps the floor, `Transmutation` rerolls a random carried item. -}
+type WellKind
+    = HealthWell
+    | AwarenessWell
+    | TransmuteWell
+
+
+type alias Well =
+    { pos : Pos
+    , kind : WellKind
+    }
+
+
 {-| A friendly NPC you bump to talk to. `Ghost` gifts an item; `Sage` identifies potions; `Wandmaker`
 hands over a wand; `Blacksmith` reforges your weapon (+1); `Imp` strikes a bounty bargain. -}
 type NpcKind
@@ -362,6 +376,7 @@ type alias Game =
     , shop : List ShopEntry
     , chests : List Chest
     , altar : Maybe Pos
+    , well : Maybe Well
     , npc : Maybe Npc
     , quest : Maybe Quest
     , challenges : List String
@@ -752,6 +767,9 @@ enterLevel ruleset depth kills idents seed gen hero log =
         ( plants, seed11 ) =
             buildPlants (List.drop 9 leftover) seed10
 
+        ( well, seed12 ) =
+            buildWell (List.drop 15 leftover) seed11
+
         vis =
             Fov.compute (fovRadiusFor heroAt depth) heroAt.pos gen.level
     in
@@ -764,6 +782,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , shop = shop
     , chests = chests
     , altar = altar
+    , well = well
     , npc = npc
     , quest = Nothing
     , challenges = []
@@ -777,7 +796,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , turn = 0
     , tempo = 0
     , kills = kills
-    , seed = seed11
+    , seed = seed12
     , visible = vis
     , explored = vis
     , log = bossLog
@@ -1051,6 +1070,68 @@ stepOnPlant game =
 
                 Earthroot ->
                     addStatus Paralyzed 1 3 cleared |> addLog "Earthroot snares your legs!"
+
+
+{-| About a third of floors hold a magic well at a free cell. -}
+buildWell : List Pos -> Seed -> ( Maybe Well, Seed )
+buildWell spots seed =
+    let
+        ( present, seed1 ) =
+            Rng.chance 35 seed
+
+        ( pick, seed2 ) =
+            Rng.int 3 seed1
+
+        kind =
+            case pick of
+                0 ->
+                    AwarenessWell
+
+                1 ->
+                    TransmuteWell
+
+                _ ->
+                    HealthWell
+    in
+    case ( present, spots ) of
+        ( True, p :: _ ) ->
+            ( Just { pos = p, kind = kind }, seed2 )
+
+        _ ->
+            ( Nothing, seed2 )
+
+
+{-| Step onto a magic well to drink its one-time draught. -}
+stepOnWell : Game -> Game
+stepOnWell game =
+    case game.well of
+        Just w ->
+            if w.pos == game.hero.pos then
+                let
+                    cleared =
+                        { game | well = Nothing }
+
+                    hero =
+                        cleared.hero
+                in
+                case w.kind of
+                    HealthWell ->
+                        { cleared | hero = { hero | maxHp = hero.maxHp + 3, hp = hero.maxHp + 3 } }
+                            |> addLog "You drink from the Well of Health — vitality surges through you."
+
+                    AwarenessWell ->
+                        applyEffect { id = "_well", name = "well", glyph = "", color = "", kind = Content.Consumable MagicMap, minDepth = 0, maxDepth = 0, spawnWeight = 0 } cleared
+                            |> addLog "The Well of Awareness reveals the floor to your mind."
+
+                    TransmuteWell ->
+                        transmuteItem cleared
+                            |> addLog "The Well of Transmutation reshapes one of your possessions."
+
+            else
+                game
+
+        Nothing ->
+            game
 
 
 {-| Half the floors host an altar at a free cell: stepping onto it once fully heals the hero. -}
@@ -1456,7 +1537,7 @@ tryMove dir game =
                             _ ->
                                 game.level
                 in
-                endTurn (stepOnPlant (blessAtAltar (applyTerrainStep steppedTile (triggerTrap (tryBuy (pickUp (refreshFov { game | hero = moved, level = opened })))))))
+                endTurn (stepOnWell (stepOnPlant (blessAtAltar (applyTerrainStep steppedTile (triggerTrap (tryBuy (pickUp (refreshFov { game | hero = moved, level = opened }))))))))
 
             else
                 game
@@ -4405,6 +4486,7 @@ toScene game =
     , glyphs =
         List.map trapGlyph (List.filter .revealed game.traps)
             ++ plantGlyphs game.plants
+            ++ wellGlyphs game.well
             ++ altarGlyphs game.altar
             ++ npcGlyphs game.npc
             ++ List.map chestGlyph game.chests
@@ -4588,6 +4670,28 @@ npcGlyphs maybeNpc =
                             ( "&", "#c97fe0" )
             in
             [ { pos = n.pos, char = ch, color = color, layer = Render.layerActor, heavy = True } ]
+
+        Nothing ->
+            []
+
+
+wellGlyphs : Maybe Well -> List Render.Glyph
+wellGlyphs maybeWell =
+    case maybeWell of
+        Just w ->
+            let
+                color =
+                    case w.kind of
+                        HealthWell ->
+                            "#5dd47a"
+
+                        AwarenessWell ->
+                            "#82aaff"
+
+                        TransmuteWell ->
+                            "#6ad8c0"
+            in
+            [ { pos = w.pos, char = "○", color = color, layer = Render.layerItem, heavy = False } ]
 
         Nothing ->
             []
