@@ -505,6 +505,7 @@ type Msg
     | ThrowAt Pos
     | Brew
     | Ability
+    | Examine
     | Drop Int
     | Restart
     | NoOp
@@ -1680,6 +1681,9 @@ update rawMsg rawGame =
             Ability ->
                 useAbility game
 
+            Examine ->
+                examine game
+
             Drop index ->
                 dropItem index game
 
@@ -1701,11 +1705,68 @@ isActionMsg msg =
         NoOp ->
             False
 
+        Examine ->
+            False
+
         Drop _ ->
             False
 
         _ ->
             True
+
+
+{-| Look around: report the nearest visible monster (its stats and any special trait), or the terrain
+underfoot if none is in sight. Costs no turn. -}
+examine : Game -> Game
+examine game =
+    case nearestVisibleEnemy game of
+        Just e ->
+            addLog
+                ("You study the "
+                    ++ e.def.name
+                    ++ ": HP "
+                    ++ String.fromInt (max 0 e.hp)
+                    ++ "/"
+                    ++ String.fromInt e.def.maxHp
+                    ++ ", dmg "
+                    ++ String.fromInt e.def.damage
+                    ++ ", def "
+                    ++ String.fromInt e.def.defense
+                    ++ abilityNote e.def.ability
+                    ++ "."
+                )
+                game
+
+        Nothing ->
+            addLog ("You see no foes. You stand on " ++ Tile.name (Level.at game.hero.pos game.level) ++ ".") game
+
+
+abilityNote : Content.MonsterAbility -> String
+abilityNote ability =
+    case ability of
+        Content.NoAbility ->
+            ""
+
+        Content.Regenerates _ ->
+            " (regenerates)"
+
+        Content.Splits ->
+            " (splits)"
+
+        Content.StealsGold _ ->
+            " (steals gold)"
+
+        Content.Burns ->
+            " (ignites on hit)"
+
+        Content.Heals _ ->
+            " (heals allies)"
+
+        Content.SummonsAllies ->
+            " (summons)"
+
+        Content.Aquatic ->
+            " (aquatic)"
 
 
 {-| The hero's intent for one cell: bumping a monster attacks it, an open cell is a step, a wall is a

@@ -1201,6 +1201,9 @@ keyToGameMsg key =
         "q" ->
             Game.Ability
 
+        "x" ->
+            Game.Examine
+
         ">" ->
             Game.Descend
 
