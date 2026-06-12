@@ -93,6 +93,7 @@ ruleset =
         , scrollOfTransmutation
         , scrollOfGrowth
         , scrollOfRage
+        , scrollOfCorruption
         , wandMagicMissile
         , wandFirebolt
         , wandLightning
@@ -1350,6 +1351,19 @@ scrollOfRage =
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 2
+    }
+
+
+scrollOfCorruption : ItemDef
+scrollOfCorruption =
+    { id = "scroll-corruption"
+    , name = "scroll of corruption"
+    , glyph = "?"
+    , color = "#6fc06a"
+    , kind = Consumable Corrupt
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 3
     }
 
 

@@ -254,6 +254,7 @@ type alias Enemy =
     , alerted : Bool
     , fleeing : Bool
     , statuses : List Status
+    , ally : Bool
     }
 
 
@@ -745,7 +746,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
         bossEnemy =
             case Content.bossForDepth depth ruleset of
                 Just def ->
-                    [ { def = def, pos = bossSpot gen, hp = def.maxHp, alerted = False, fleeing = False, statuses = [] } ]
+                    [ { def = def, pos = bossSpot gen, hp = def.maxHp, alerted = False, fleeing = False, statuses = [], ally = False } ]
 
                 Nothing ->
                     []
@@ -866,7 +867,7 @@ spawnEnemies ruleset depth spots seed =
                         ( edef, s3 ) =
                             maybeChampion depth def s2
                     in
-                    ( { def = edef, pos = pos, hp = edef.maxHp, alerted = False, fleeing = False, statuses = [] } :: acc, s3 )
+                    ( { def = edef, pos = pos, hp = edef.maxHp, alerted = False, fleeing = False, statuses = [], ally = False } :: acc, s3 )
                 )
                 ( [], seed )
                 spots
@@ -1743,7 +1744,7 @@ springMimic chest game =
                 |> Maybe.withDefault chest.pos
 
         mimic =
-            { def = mimicDef, pos = spot, hp = mimicDef.maxHp, alerted = True, fleeing = False, statuses = [] }
+            { def = mimicDef, pos = spot, hp = mimicDef.maxHp, alerted = True, fleeing = False, statuses = [], ally = False }
     in
     { game
         | chests = List.filter (\c -> c.pos /= chest.pos) game.chests
@@ -2470,7 +2471,7 @@ throwAtEnemy target game =
 nearestVisibleEnemy : Game -> Maybe Enemy
 nearestVisibleEnemy game =
     game.enemies
-        |> List.filter (\e -> Set.member ( e.pos.x, e.pos.y ) game.visible)
+        |> List.filter (\e -> not e.ally && Set.member ( e.pos.x, e.pos.y ) game.visible)
         |> List.foldl
             (\e best ->
                 case best of
@@ -2731,6 +2732,15 @@ applyEffect def game =
         Aggravate ->
             { game | enemies = List.map (\e -> { e | alerted = True }) game.enemies }
                 |> addLog "You read the scroll. A blaring note rouses every monster on the floor!"
+
+        Corrupt ->
+            case nearestVisibleEnemy game of
+                Just target ->
+                    { game | enemies = updateEnemyAt target.pos (\e -> { e | ally = True, fleeing = False, alerted = True }) game.enemies }
+                        |> addLog ("The " ++ target.def.name ++ " is corrupted — it now fights at your side!")
+
+                Nothing ->
+                    addLog "You read the scroll, but there is no foe in sight to corrupt." game
 
 
 {-| Damage every monster the hero can see (a psionic blast / scroll of retribution). -}
@@ -3466,7 +3476,7 @@ maybeSplit parent parentHp game =
                         max 1 (parentHp // 2)
 
                     child =
-                        { def = parent.def, pos = spot, hp = childHp, alerted = True, fleeing = False, statuses = [] }
+                        { def = parent.def, pos = spot, hp = childHp, alerted = True, fleeing = False, statuses = [], ally = False }
                 in
                 { game
                     | enemies =
@@ -3539,7 +3549,7 @@ enemiesTurn game =
                 Set.fromList (( game.hero.pos.x, game.hero.pos.y ) :: List.map (\e -> ( e.pos.x, e.pos.y )) game.enemies)
 
             ( newEnemiesRev, acc ) =
-                List.foldl stepEnemy ( [], { hero = game.hero, seed = game.seed, log = game.log, occupied = occupied0, level = game.level, glassCannon = List.member "glass-cannon" game.challenges } ) game.enemies
+                List.foldl stepEnemy ( [], { hero = game.hero, seed = game.seed, log = game.log, occupied = occupied0, level = game.level, glassCannon = List.member "glass-cannon" game.challenges, foes = game.enemies |> List.filter (\e -> not e.ally) |> List.map .pos } ) game.enemies
         in
         checkHeroDeath
             { game
@@ -3557,7 +3567,28 @@ type alias TurnAcc =
     , occupied : Set ( Int, Int )
     , level : Level
     , glassCannon : Bool
+    , foes : List Pos
     }
+
+
+{-| The nearest non-ally foe position to an ally (for it to hunt), from the turn's foe snapshot. -}
+nearestFoeOf : Enemy -> TurnAcc -> Maybe Pos
+nearestFoeOf enemy acc =
+    acc.foes
+        |> List.foldl
+            (\p best ->
+                case best of
+                    Nothing ->
+                        Just p
+
+                    Just b ->
+                        if Grid.chebyshev p enemy.pos < Grid.chebyshev b enemy.pos then
+                            Just p
+
+                        else
+                            best
+            )
+            Nothing
 
 
 {-| One monster's turn. It wakes on line of sight within `aggroRange` and stays alert thereafter
@@ -3595,6 +3626,19 @@ stepEnemy enemy ( done, acc ) =
     if List.any (\s -> s.kind == Paralyzed) enemy.statuses then
         -- Asleep / paralysed: it idles this turn (its status counts down in tickEnemyStatuses).
         ( woken :: done, acc )
+
+    else if enemy.ally then
+        -- A corrupted ally hunts the nearest foe (the `allyCombat` pass deals the blows when adjacent).
+        case nearestFoeOf enemy acc of
+            Just foePos ->
+                if Grid.chebyshev enemy.pos foePos <= 1 then
+                    ( enemy :: done, acc )
+
+                else
+                    moveEnemy enemy enemy (Path.firstStep acc.level acc.occupied enemy.pos foePos) done acc
+
+            Nothing ->
+                moveEnemy enemy enemy (Path.firstStep acc.level acc.occupied enemy.pos heroPos) done acc
 
     else if not aware then
         ( woken :: done, acc )
@@ -3664,7 +3708,7 @@ trySummon boss done acc =
                     minionDef boss.def
 
                 minion =
-                    { def = def, pos = spot, hp = def.maxHp, alerted = True, fleeing = False, statuses = [] }
+                    { def = def, pos = spot, hp = def.maxHp, alerted = True, fleeing = False, statuses = [], ally = False }
             in
             ( minion :: done
             , { acc
@@ -3703,6 +3747,49 @@ applyRegen enemy =
 
         _ ->
             enemy
+
+
+{-| Corrupted allies strike: each ally adjacent to a non-ally foe wounds it (killing if it drops),
+clearing slain foes without awarding the hero XP. -}
+allyCombat : Game -> Game
+allyCombat game =
+    let
+        allies =
+            List.filter (\e -> e.ally) game.enemies
+
+        attackedPositions =
+            allies
+                |> List.filterMap
+                    (\a ->
+                        game.enemies
+                            |> List.filter (\e -> not e.ally && Grid.chebyshev e.pos a.pos == 1)
+                            |> List.head
+                            |> Maybe.map (\foe -> ( foe.pos, a.def.damage ))
+                    )
+
+        damageAt pos dmg enemies =
+            List.filterMap
+                (\e ->
+                    if e.pos == pos && not e.ally then
+                        if e.hp - dmg <= 0 then
+                            Nothing
+
+                        else
+                            Just { e | hp = e.hp - dmg, alerted = True }
+
+                    else
+                        Just e
+                )
+                enemies
+
+        resolved =
+            List.foldl (\( pos, dmg ) es -> damageAt pos dmg es) game.enemies attackedPositions
+    in
+    if List.isEmpty attackedPositions then
+        game
+
+    else
+        { game | enemies = resolved }
 
 
 {-| An enraged boss (below half HP) occasionally unleashes a signature blast of paralytic gas around
@@ -3999,8 +4086,11 @@ endTurn game =
         afterHazards =
             applyBossHazards afterAuras
 
+        afterAllies =
+            allyCombat afterHazards
+
         afterMonsters =
-            applyTimes enemyPhases enemiesTurn afterHazards
+            applyTimes enemyPhases enemiesTurn afterAllies
 
         afterGas =
             tickGas afterMonsters
@@ -4130,7 +4220,7 @@ maybeWander game =
 
                 else
                     { game
-                        | enemies = { def = def, pos = spot, hp = def.maxHp, alerted = False, fleeing = False, statuses = [] } :: game.enemies
+                        | enemies = { def = def, pos = spot, hp = def.maxHp, alerted = False, fleeing = False, statuses = [], ally = False } :: game.enemies
                         , seed = s2
                     }
 
@@ -4730,9 +4820,14 @@ enemyGlyph : Enemy -> Render.Glyph
 enemyGlyph enemy =
     { pos = enemy.pos
     , char = enemy.def.glyph
-    , color = enemy.def.color
+    , color =
+        if enemy.ally then
+            "#5dd47a"
+
+        else
+            enemy.def.color
     , layer = Render.layerActor
-    , heavy = False
+    , heavy = enemy.ally
     }
 
 

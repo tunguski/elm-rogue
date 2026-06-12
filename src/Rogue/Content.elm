@@ -105,6 +105,7 @@ type ItemEffect
     | Aggravate
     | Explode Int
     | ThrownHit Int
+    | Corrupt
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -375,6 +376,9 @@ describeEffect effect =
 
         ThrownHit dmg ->
             "thrown weapon: " ++ String.fromInt dmg ++ " damage"
+
+        Corrupt ->
+            "corrupts a foe to fight for you"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}
