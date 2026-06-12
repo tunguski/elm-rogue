@@ -4709,7 +4709,25 @@ rechargeWands game =
 free. Capped a little above the floor's normal population. -}
 maybeWander : Game -> Game
 maybeWander game =
-    if game.gameOver || modBy 40 game.turn /= 0 || List.length game.enemies >= Content.spawnCountForDepth game.depth + 3 then
+    let
+        -- The Amulet's bearer is hunted: waves come twice as fast, larger, and already awake.
+        interval =
+            if game.ascending then
+                20
+
+            else
+                40
+
+        cap =
+            Content.spawnCountForDepth game.depth
+                + (if game.ascending then
+                    9
+
+                   else
+                    3
+                  )
+    in
+    if game.gameOver || modBy interval game.turn /= 0 || List.length game.enemies >= cap then
         game
 
     else
@@ -4744,7 +4762,7 @@ maybeWander game =
 
                 else
                     { game
-                        | enemies = { def = def, pos = spot, hp = def.maxHp, alerted = False, fleeing = False, statuses = [], ally = False } :: game.enemies
+                        | enemies = { def = def, pos = spot, hp = def.maxHp, alerted = game.ascending, fleeing = False, statuses = [], ally = False } :: game.enemies
                         , seed = s2
                     }
 
