@@ -331,6 +331,20 @@ body {
   color: #8fd14f;
 }
 
+.rg-status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rg-status-chip {
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .rg-status-note {
   color: #f0c674;
   font-size: 13px;

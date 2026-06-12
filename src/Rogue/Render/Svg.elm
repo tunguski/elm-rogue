@@ -484,8 +484,8 @@ hudView hud =
             Html.text ""
 
           else
-            Html.div [ HA.class "rg-status-good" ]
-                [ Html.text ("Status: " ++ String.join ", " hud.statuses) ]
+            Html.div [ HA.class "rg-status-chips" ]
+                (List.map statusChip hud.statuses)
         , if hud.status /= "" then
             Html.div [ HA.class "rg-status-note" ] [ Html.text hud.status ]
 
@@ -514,6 +514,38 @@ inventoryView items =
                         (List.take 9 items)
                )
         )
+
+
+{-| A coloured chip for one active status, tinted by its kind (parsed from the label prefix). -}
+statusChip : String -> Html msg
+statusChip label =
+    let
+        color =
+            if String.startsWith "Poison" label then
+                "#7fae5a"
+
+            else if String.startsWith "Burn" label then
+                "#ff7a3c"
+
+            else if String.startsWith "Bleed" label then
+                "#e0564b"
+
+            else if String.startsWith "Regen" label || String.startsWith "Haste" label then
+                "#5dd47a"
+
+            else if String.startsWith "Light" label || String.startsWith "Invisible" label || String.startsWith "Levitating" label then
+                "#9be0ff"
+
+            else if String.startsWith "Paralyz" label || String.startsWith "Slow" label || String.startsWith "Cripple" label then
+                "#c9a0ff"
+
+            else if String.startsWith "Weak" label || String.startsWith "Vulnerable" label then
+                "#e0a83c"
+
+            else
+                "#9aa7ba"
+    in
+    Html.span [ HA.class "rg-status-chip", HA.style "color" color ] [ Html.text label ]
 
 
 statLine : String -> String -> Html msg
