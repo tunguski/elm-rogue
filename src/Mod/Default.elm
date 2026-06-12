@@ -95,6 +95,8 @@ ruleset =
         , scrollOfRage
         , scrollOfCorruption
         , scrollOfEnchantment
+        , scrollOfMysticalEnergy
+        , potionOfCleansing
         , wandMagicMissile
         , wandFirebolt
         , wandLightning
@@ -1493,6 +1495,32 @@ scrollOfEnchantment =
     , color = "#ffd166"
     , kind = Consumable Enchant
     , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+scrollOfMysticalEnergy : ItemDef
+scrollOfMysticalEnergy =
+    { id = "scroll-mystical-energy"
+    , name = "scroll of mystical energy"
+    , glyph = "?"
+    , color = "#82e0ff"
+    , kind = Consumable ChargeAbility
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+potionOfCleansing : ItemDef
+potionOfCleansing =
+    { id = "potion-cleansing"
+    , name = "potion of cleansing"
+    , glyph = "!"
+    , color = "#bfe0d0"
+    , kind = Consumable Cleanse
+    , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 3
     }

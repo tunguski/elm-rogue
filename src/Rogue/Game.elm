@@ -3049,6 +3049,14 @@ applyEffect def game =
             applyEffect picked { game | seed = seed1 }
                 |> addLog "The unstable spellbook discharges a random spell!"
 
+        Cleanse ->
+            cureDebuffs { game | gas = Dict.empty, fire = Dict.empty }
+                |> addLog ("You drink the " ++ name ++ ". Ailments fade and the air around you clears.")
+
+        ChargeAbility ->
+            { game | hero = { hero | abilityCharge = abilityMax } }
+                |> addLog "You read the scroll. Your class ability surges to full charge."
+
 
 {-| Damage every monster the hero can see (a psionic blast / scroll of retribution). -}
 psionicBlast : Int -> Game -> Game
@@ -3281,6 +3289,8 @@ scrollPalette =
     , { adjective = "QORN", color = "#c0a0c8" }
     , { adjective = "FENG", color = "#a0c0c0" }
     , { adjective = "ULAR", color = "#c8b890" }
+    , { adjective = "DROV", color = "#b0a8c8" }
+    , { adjective = "SKAL", color = "#c8a890" }
     ]
 
 

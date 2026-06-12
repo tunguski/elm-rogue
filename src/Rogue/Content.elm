@@ -110,6 +110,8 @@ type ItemEffect
     | SummonAlly
     | PullNearest
     | RandomScroll
+    | Cleanse
+    | ChargeAbility
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -395,6 +397,12 @@ describeEffect effect =
 
         RandomScroll ->
             "casts a random scroll"
+
+        Cleanse ->
+            "cleanses ailments and clears the air"
+
+        ChargeAbility ->
+            "fully charges your class ability"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}
