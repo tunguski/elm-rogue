@@ -19,6 +19,8 @@ ruleset =
         [ warrior
         , mage
         , rogue
+        , huntress
+        , duelist
         ]
     , enemies =
         [ rat
@@ -63,6 +65,7 @@ ruleset =
         , dagger
         , shortSword
         , mace
+        , rapier
         , leatherArmour
         , mailArmour
         , plateArmour
@@ -156,6 +159,40 @@ rogue =
     , startingWeapon = Just "dagger"
     , startingArmour = Nothing
     , startingItems = [ "potion-strength" ]
+    }
+
+
+huntress : ClassDef
+huntress =
+    { id = "huntress"
+    , name = "Huntress"
+    , description = "Keen-eyed and lethal at range. Sees farthest; opens with a sheaf of darts to throw."
+    , glyph = "@"
+    , color = "#6ad8a0"
+    , maxHp = 18
+    , damage = 4
+    , defense = 1
+    , fovRadius = 10
+    , startingWeapon = Just "dagger"
+    , startingArmour = Nothing
+    , startingItems = [ "potion-mind-vision", "potion-healing" ]
+    }
+
+
+duelist : ClassDef
+duelist =
+    { id = "duelist"
+    , name = "Duelist"
+    , description = "A nimble blademaster. Opens with a rapier and leather armour, trading bulk for finesse."
+    , glyph = "@"
+    , color = "#e0a0c0"
+    , maxHp = 22
+    , damage = 5
+    , defense = 1
+    , fovRadius = 8
+    , startingWeapon = Just "rapier"
+    , startingArmour = Just "leather-armour"
+    , startingItems = [ "potion-healing" ]
     }
 
 
@@ -806,6 +843,19 @@ mace =
     , kind = Equipment WeaponSlot { damage = 6, defense = 0, maxHp = 0, plus = 0, cursed = False }
     , minDepth = 4
     , maxDepth = 99
+    , spawnWeight = 4
+    }
+
+
+rapier : ItemDef
+rapier =
+    { id = "rapier"
+    , name = "rapier"
+    , glyph = "/"
+    , color = "#e0c0d0"
+    , kind = Equipment WeaponSlot { damage = 5, defense = 0, maxHp = 0, plus = 0, cursed = False }
+    , minDepth = 2
+    , maxDepth = 7
     , spawnWeight = 4
     }
 
