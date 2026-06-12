@@ -107,6 +107,9 @@ type ItemEffect
     | ThrownHit Int
     | Corrupt
     | Enchant
+    | SummonAlly
+    | PullNearest
+    | RandomScroll
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -383,6 +386,15 @@ describeEffect effect =
 
         Enchant ->
             "enchants your weapon or armour"
+
+        SummonAlly ->
+            "summons a spectral ally"
+
+        PullNearest ->
+            "yanks a foe to your side"
+
+        RandomScroll ->
+            "casts a random scroll"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}

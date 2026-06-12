@@ -113,6 +113,10 @@ ruleset =
         , hornOfPlenty
         , chaliceOfBlood
         , timekeepersHourglass
+        , driedRose
+        , thievesArmband
+        , etherealChains
+        , unstableSpellbook
         , ironKey
         , amulet
         ]
@@ -1250,6 +1254,58 @@ timekeepersHourglass =
     , glyph = "*"
     , color = "#d6d2c2"
     , kind = Artifact { charge = 0, maxCharge = 45, effect = HasteFor 10 }
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+driedRose : ItemDef
+driedRose =
+    { id = "dried-rose"
+    , name = "dried rose"
+    , glyph = "*"
+    , color = "#e0564b"
+    , kind = Artifact { charge = 0, maxCharge = 50, effect = SummonAlly }
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+thievesArmband : ItemDef
+thievesArmband =
+    { id = "thieves-armband"
+    , name = "master thieves' armband"
+    , glyph = "*"
+    , color = "#c9a0ff"
+    , kind = Artifact { charge = 0, maxCharge = 25, effect = Gold 40 }
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+etherealChains : ItemDef
+etherealChains =
+    { id = "ethereal-chains"
+    , name = "ethereal chains"
+    , glyph = "*"
+    , color = "#9aa7ba"
+    , kind = Artifact { charge = 0, maxCharge = 20, effect = PullNearest }
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+unstableSpellbook : ItemDef
+unstableSpellbook =
+    { id = "unstable-spellbook"
+    , name = "unstable spellbook"
+    , glyph = "*"
+    , color = "#82aaff"
+    , kind = Artifact { charge = 0, maxCharge = 35, effect = RandomScroll }
     , minDepth = 3
     , maxDepth = 99
     , spawnWeight = 2

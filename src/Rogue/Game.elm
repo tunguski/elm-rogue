@@ -1852,6 +1852,28 @@ springMimic chest game =
         |> addLog "The chest lunges — it's a mimic!"
 
 
+{-| A spectral ally summoned by the dried rose: scales gently with depth. -}
+ghostAllyDef : Int -> EnemyDef
+ghostAllyDef depth =
+    { id = "ghost-ally"
+    , name = "spectral ally"
+    , glyph = "G"
+    , color = "#a9d6ff"
+    , maxHp = 14 + depth * 2
+    , damage = 5 + depth
+    , defense = 2
+    , speed = 1
+    , ranged = 0
+    , ability = Content.NoAbility
+    , boss = False
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 0
+    , xp = 0
+    , drop = Nothing
+    }
+
+
 placeholderEnemyDef : EnemyDef
 placeholderEnemyDef =
     { id = "mimic"
@@ -2979,6 +3001,53 @@ applyEffect def game =
 
                 ( Nothing, Nothing ) ->
                     addLog "You read the scroll, but have no gear to enchant." game
+
+        SummonAlly ->
+            let
+                free =
+                    Grid.neighbors8 game.hero.pos
+                        |> List.filter (\p -> Level.isPassableAt p game.level && enemyAt p game == Nothing)
+                        |> List.head
+            in
+            case free of
+                Just spot ->
+                    { game | enemies = { def = ghostAllyDef game.depth, pos = spot, hp = ghostAllyDef game.depth |> .maxHp, alerted = True, fleeing = False, statuses = [], ally = True } :: game.enemies }
+                        |> addLog "A spectral ally rises to fight beside you!"
+
+                Nothing ->
+                    addLog "There is no room for an ally to appear." game
+
+        PullNearest ->
+            case nearestVisibleEnemy game of
+                Just target ->
+                    let
+                        spot =
+                            Grid.neighbors8 game.hero.pos
+                                |> List.filter (\p -> Level.isPassableAt p game.level && enemyAt p game == Nothing && p /= game.hero.pos)
+                                |> List.head
+                                |> Maybe.withDefault target.pos
+                    in
+                    { game | enemies = updateEnemyAt target.pos (\e -> { e | pos = spot, alerted = True }) game.enemies }
+                        |> addLog ("Ethereal chains yank the " ++ target.def.name ++ " to your side!")
+
+                Nothing ->
+                    addLog "The chains find no target." game
+
+        RandomScroll ->
+            let
+                scrolls =
+                    game.ruleset.items |> List.filter isScroll
+
+                ( picked, seed1 ) =
+                    case scrolls of
+                        first :: _ ->
+                            Rng.pick first scrolls game.seed
+
+                        [] ->
+                            ( def, game.seed )
+            in
+            applyEffect picked { game | seed = seed1 }
+                |> addLog "The unstable spellbook discharges a random spell!"
 
 
 {-| Damage every monster the hero can see (a psionic blast / scroll of retribution). -}
