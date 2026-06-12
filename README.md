@@ -27,11 +27,14 @@ so styling is added afterwards — the page stays a single self-contained file).
 that one stylesheet as classes; the Elm view code carries semantic class names, with only data-driven
 styling (item/class colours, the HP-bar width, SVG fills) inline.
 
-**Controls** — arrows / `WASD` / `HJKL` to move, `Y U B N` for diagonals, `.` to wait, `>` to
-descend stairs, `1`–`9` to use an inventory item, `R` to restart. On a phone, an on-screen D-pad and
-action buttons appear instead. Walk into a monster to attack it.
-Reach depth 8 to win; die and you start a fresh dungeon. The toolbar switches the **Mod** and the
-**Renderer** live.
+**Controls** — arrows / `WASD` / `HJKL` to move, `Y U B N` for diagonals, `.` to wait, `Z` to search,
+`F` to aim/throw (`Tab` cycles targets), `Q` for your class ability, `C` to brew, `>` to descend,
+`1`–`9` to use an inventory item, `I` for the character sheet, `M` for the bestiary, `R` to restart.
+On a phone, an on-screen D-pad and action buttons appear instead. Walk into a monster to attack it.
+Reach **depth 12** (and claim the Amulet of Yendor) to win; die and you start a fresh dungeon — though
+your remains, with their gold and an item, wait for the next hero at the depth you fell. The toolbar
+switches the **Mod** and the **Renderer** live; the class screen offers five heroes and optional
+**challenge** modifiers, and tracks **achievements** across runs.
 
 ## How it plays
 
@@ -122,7 +125,24 @@ engine plays it.
   abilities (split/steal/regenerate), boss floors, the **Amulet of Yendor** win, equipment
   enchantment, thrown attacks, hunger, dark floors + torches, paralysis/haste/slow, wandering spawns,
   shops, an inventory/character screen, **camera-follow viewport culling**, a minimap, floating combat
-  numbers, custom-seed/daily runs, a bestiary journal, and a **32-test headless suite**.
+  numbers, custom-seed/daily runs, a bestiary journal, and a headless test suite.
+
+- **Set 4 — generation overhaul & polish:** much larger depth-scaled floors with looped (MST + loop)
+  connectivity and varied room shapes, water/grass terrain, cellular-automata cave floors, special
+  rooms (library/pool/pit), rings, foraging, alchemy, recharging wands, **manual targeting cursor**,
+  monster statuses, scroll variety + cursed gear, elite monsters, chests + altars, boss mechanics,
+  quest NPCs, CSS animation juice, **mobile/touch support**, quickslots, save/resume + challenge runs.
+
+- **Set 5 — toward parity:** full identification (potions/scrolls/rings/wands), artifacts, spreading
+  **gas & fire**, stealth/surprise, thrown bombs, champion modifiers, an expanded bestiary, sealed
+  boss arenas, caster/aquatic mob behaviours, loot tables, **subclasses & talents**, resurrection,
+  real quest NPCs, persisted **badges**, and challenge modifiers.
+
+- **Set 6 — breadth:** five hero classes with **armour abilities**, weapon enchantments & armour
+  glyphs, thrown weapons, plants, alchemy recipes, **depth 12 across six regions** with deeper bosses,
+  trap variety, magic wells, **mimics**, richer debuffs (bleed/cripple/weaken/vulnerable), an
+  **ally/corruption** system, per-element wands, smarter (kiting + pack) AI, inventory bags, **hero's
+  remains**, reforging, and a tiered talent tree.
 
 Every system above is data behind the same two seams — content is a `Ruleset`, rendering is a
 `Renderer` — so mods extend all of it. Run the tests with `ELM=../../elm.sh ./test.sh`; see

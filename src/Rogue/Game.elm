@@ -3690,13 +3690,21 @@ levelUps game =
     in
     if hero.xp >= xpToNext hero.level then
         let
+            -- +6 HP each level, and an extra point of damage every fourth, to keep pace to depth 12.
+            dmgGain =
+                if modBy 4 (hero.level + 1) == 0 then
+                    2
+
+                else
+                    1
+
             leveled =
                 { hero
                     | xp = hero.xp - xpToNext hero.level
                     , level = hero.level + 1
-                    , maxHp = hero.maxHp + 5
-                    , damage = hero.damage + 1
-                    , hp = hero.maxHp + 5
+                    , maxHp = hero.maxHp + 6
+                    , damage = hero.damage + dmgGain
+                    , hp = hero.maxHp + 6
                 }
         in
         levelUps ({ game | hero = leveled } |> addLog ("You reach level " ++ String.fromInt leveled.level ++ "! You feel mightier."))
