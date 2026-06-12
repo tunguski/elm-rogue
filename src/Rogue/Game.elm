@@ -3716,7 +3716,17 @@ stepEnemy enemy ( done, acc ) =
                                 True
                        )
         in
-        if dist == 1 then
+        if dist == 1 && woken.def.ranged > 0 && los then
+            -- Kiting: a ranged attacker backs off to keep its distance, shooting from afar instead of
+            -- being cornered in melee. If it can't retreat, it shoots point-blank.
+            case stepAway enemy.pos heroPos acc1.level acc1.occupied of
+                Just away ->
+                    moveEnemy enemy woken (Just away) done1 acc1
+
+                Nothing ->
+                    attackHero woken (enemy.def.name ++ " shoots you") done1 acc1
+
+        else if dist == 1 then
             case woken.def.ability of
                 Content.StealsGold amount ->
                     stealAndFlee woken amount done1 acc1
@@ -3795,6 +3805,34 @@ applyRegen enemy =
 
         _ ->
             enemy
+
+
+{-| Pack tactics: a roused monster the hero can see alerts its packmates within three cells, so groups
+wake and close in together rather than one at a time. -}
+packAlert : Game -> Game
+packAlert game =
+    let
+        sources =
+            game.enemies
+                |> List.filter (\e -> e.alerted && not e.ally && Set.member ( e.pos.x, e.pos.y ) game.visible)
+                |> List.map .pos
+    in
+    if List.isEmpty sources then
+        game
+
+    else
+        { game
+            | enemies =
+                List.map
+                    (\e ->
+                        if not e.alerted && not e.ally && List.any (\p -> Grid.chebyshev p e.pos <= 3) sources then
+                            { e | alerted = True }
+
+                        else
+                            e
+                    )
+                    game.enemies
+        }
 
 
 {-| Corrupted allies strike: each ally adjacent to a non-ally foe wounds it (killing if it drops),
@@ -4137,8 +4175,11 @@ endTurn game =
         afterAllies =
             allyCombat afterHazards
 
+        afterPack =
+            packAlert afterAllies
+
         afterMonsters =
-            applyTimes enemyPhases enemiesTurn afterAllies
+            applyTimes enemyPhases enemiesTurn afterPack
 
         afterGas =
             tickGas afterMonsters
