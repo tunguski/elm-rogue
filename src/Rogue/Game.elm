@@ -746,17 +746,28 @@ startChallenges ids game =
 
             else
                 hero
+
+        stripped =
+            if List.member "minimalist" ids then
+                { frail | inventory = [] }
+
+            else
+                frail
     in
-    { game | challenges = ids, hero = frail }
+    { game | challenges = ids, hero = stripped }
 
 
 {-| The optional run-modifier challenges (id, label, one-line effect). -}
 challengeChoices : List ( String, ( String, String ) )
 challengeChoices =
-    [ ( "no-healing", ( "Pharmacophobia", "no healing potions spawn" ) )
+    [ ( "no-healing", ( "Pharmacophobia", "healing potions do nothing" ) )
     , ( "glass-cannon", ( "Glass Cannon", "you deal and take double damage" ) )
     , ( "darkness", ( "Into Darkness", "your sight is dimmed (−2 FOV)" ) )
     , ( "frailty", ( "Frailty", "start with 8 less max HP" ) )
+    , ( "no-scrolls", ( "Forbidden Runes", "scrolls crumble unread" ) )
+    , ( "starvation", ( "On a Diet", "hunger sets in twice as fast" ) )
+    , ( "badder-bosses", ( "Badder Bosses", "bosses are enraged from the start" ) )
+    , ( "minimalist", ( "Minimalist", "begin with an empty pack" ) )
     ]
 
 
@@ -2439,6 +2450,9 @@ tryUse index game =
                     if def.id == "ankh" then
                         addLog "The ankh hums with protective magic — it will revive you when you fall." game
 
+                    else if isScroll def && List.member "no-scrolls" game.challenges then
+                        addLog ("The " ++ displayName game.idents def ++ " crumbles to dust — its runes are forbidden to you.") game
+
                     else if isThrown eff then
                         throwConsumable index def eff game
 
@@ -4014,7 +4028,7 @@ enemiesTurn game =
                 Set.fromList (( game.hero.pos.x, game.hero.pos.y ) :: List.map (\e -> ( e.pos.x, e.pos.y )) game.enemies)
 
             ( newEnemiesRev, acc ) =
-                List.foldl stepEnemy ( [], { hero = game.hero, seed = game.seed, log = game.log, occupied = occupied0, level = game.level, glassCannon = List.member "glass-cannon" game.challenges, foes = game.enemies |> List.filter (\e -> not e.ally) |> List.map .pos } ) game.enemies
+                List.foldl stepEnemy ( [], { hero = game.hero, seed = game.seed, log = game.log, occupied = occupied0, level = game.level, glassCannon = List.member "glass-cannon" game.challenges, badderBosses = List.member "badder-bosses" game.challenges, foes = game.enemies |> List.filter (\e -> not e.ally) |> List.map .pos } ) game.enemies
         in
         checkHeroDeath
             { game
@@ -4032,6 +4046,7 @@ type alias TurnAcc =
     , occupied : Set ( Int, Int )
     , level : Level
     , glassCannon : Bool
+    , badderBosses : Bool
     , foes : List Pos
     }
 
@@ -4387,9 +4402,9 @@ isFleeing enemy =
 attackHero : Enemy -> String -> List Enemy -> TurnAcc -> ( List Enemy, TurnAcc )
 attackHero enemy verb done acc =
     let
-        -- An enraged boss (below half HP) hits harder.
+        -- An enraged boss (below half HP, or always with the Badder Bosses challenge) hits harder.
         enrage =
-            if enemy.def.boss && enemy.hp * 2 < enemy.def.maxHp then
+            if enemy.def.boss && (acc.badderBosses || enemy.hp * 2 < enemy.def.maxHp) then
                 3
 
             else
@@ -5045,8 +5060,15 @@ tickHunger game =
         hero =
             game.hero
 
+        drain =
+            if List.member "starvation" game.challenges then
+                2
+
+            else
+                1
+
         fed =
-            hero.nutrition - 1
+            hero.nutrition - drain
     in
     if fed <= 0 then
         checkHeroDeath ({ game | hero = { hero | hp = hero.hp - 1, nutrition = 0 } } |> addLog "You are starving!")
