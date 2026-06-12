@@ -5307,6 +5307,16 @@ toScene game =
                                 Nothing
                         )
                )
+    , healthBars =
+        game.enemies
+            |> List.filterMap
+                (\e ->
+                    if Set.member ( e.pos.x, e.pos.y ) game.visible && e.hp < e.def.maxHp then
+                        Just { pos = e.pos, frac = toFloat (max 0 e.hp) / toFloat e.def.maxHp, ally = e.ally }
+
+                    else
+                        Nothing
+                )
     , theme = Render.themeForDepth game.depth
     , camera = game.hero.pos
     , cursor = Nothing

@@ -89,6 +89,7 @@ view scene =
                 [ g [] (List.filterMap (cellSvg scene) cells)
                 , g [] (List.map gasSvg (List.filter (\gc -> inWindow gc.pos) scene.gas))
                 , g [] (List.filterMap (glyphSvg scene) (List.sortBy .layer (List.filter (\gl -> inWindow gl.pos) scene.glyphs)))
+                , g [] (List.map healthBarSvg (List.filter (\hb -> inWindow hb.pos) scene.healthBars))
                 , g [] (List.map popupSvg (List.filter (\pp -> inWindow pp.pos) scene.popups))
                 , cursorSvg scene.cursor
                 ]
@@ -188,6 +189,31 @@ lowHpVignette hud =
 
     else
         Html.text ""
+
+
+healthBarSvg : Rogue.Render.HealthBar -> Svg msg
+healthBarSvg hb =
+    let
+        w =
+            cellSize - 4
+
+        fillW =
+            max 1 (round (toFloat w * hb.frac))
+
+        color =
+            if hb.ally then
+                "#5dd47a"
+
+            else if hb.frac > 0.5 then
+                "#e0564b"
+
+            else
+                "#ff7a3c"
+    in
+    g []
+        [ rect [ SA.x (px (hb.pos.x * cellSize + 2)), SA.y (px (hb.pos.y * cellSize + 1)), SA.width (px w), SA.height "2", SA.fill "#10151f" ] []
+        , rect [ SA.x (px (hb.pos.x * cellSize + 2)), SA.y (px (hb.pos.y * cellSize + 1)), SA.width (px fillW), SA.height "2", SA.fill color ] []
+        ]
 
 
 gasSvg : Rogue.Render.GasCell -> Svg msg

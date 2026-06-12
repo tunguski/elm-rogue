@@ -171,6 +171,7 @@ type alias Scene =
     , glyphs : List Glyph
     , popups : List Popup
     , gas : List GasCell
+    , healthBars : List HealthBar
     , theme : Theme
     , camera : Pos
     , cursor : Maybe Pos
@@ -192,6 +193,14 @@ type alias GasCell =
     { pos : Pos
     , color : String
     , alpha : Float
+    }
+
+
+{-| A small health bar drawn above a wounded monster; `frac` (0–1) is its remaining HP, `ally` tints it. -}
+type alias HealthBar =
+    { pos : Pos
+    , frac : Float
+    , ally : Bool
     }
 
 
