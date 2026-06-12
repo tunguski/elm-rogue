@@ -68,6 +68,8 @@ type alias Hero =
     , nutrition : Int
     , subclass : Maybe String
     , talents : List String
+    , heroClass : String
+    , abilityCharge : Int
     }
 
 
@@ -397,6 +399,7 @@ type Msg
     | Fire
     | ThrowAt Pos
     | Brew
+    | Ability
     | Drop Int
     | Restart
     | NoOp
@@ -436,6 +439,8 @@ newGame ruleset class rawSeed =
             , nutrition = 400
             , subclass = Nothing
             , talents = []
+            , heroClass = class.id
+            , abilityCharge = 0
             }
     in
     let
@@ -511,6 +516,8 @@ resume ruleset save =
             , nutrition = save.nutrition
             , subclass = Nothing
             , talents = []
+            , heroClass = ""
+            , abilityCharge = 0
             }
 
         ( looks, seedA ) =
@@ -1269,6 +1276,9 @@ update rawMsg rawGame =
             Brew ->
                 tryBrew game
 
+            Ability ->
+                useAbility game
+
             Drop index ->
                 dropItem index game
 
@@ -1637,6 +1647,138 @@ pickUpItem it game =
             in
             { game | hero = { hero | inventory = hero.inventory ++ [ it.def ] } }
                 |> addLog ("You pick up a " ++ displayName game.idents it.def ++ ".")
+
+
+{-| Turns to fully charge a class ability. -}
+abilityMax : Int
+abilityMax =
+    40
+
+
+abilityName : String -> String
+abilityName classId =
+    case classId of
+        "warrior" ->
+            "Ground Slam"
+
+        "mage" ->
+            "Elemental Blast"
+
+        "rogue" ->
+            "Smoke Bomb"
+
+        "huntress" ->
+            "Spectral Blades"
+
+        "duelist" ->
+            "Lunge"
+
+        _ ->
+            "Ability"
+
+
+{-| Unleash the hero's class armour ability if charged (then reset its charge). Each class has its own:
+the Warrior slams adjacent foes, the Mage blasts everything in sight, the Rogue vanishes in smoke, the
+Huntress looses spectral blades, the Duelist lunges at the nearest foe. -}
+useAbility : Game -> Game
+useAbility game =
+    let
+        hero =
+            game.hero
+    in
+    if hero.abilityCharge < abilityMax then
+        addLog ("Your ability is still charging (" ++ String.fromInt hero.abilityCharge ++ "/" ++ String.fromInt abilityMax ++ ").") game
+
+    else
+        let
+            spent =
+                { game | hero = { hero | abilityCharge = 0 } }
+        in
+        case hero.heroClass of
+            "warrior" ->
+                heroSlam spent |> endTurn
+
+            "mage" ->
+                psionicBlast (10 + game.depth * 2) spent
+                    |> addLog "You unleash an elemental blast!"
+                    |> endTurn
+
+            "rogue" ->
+                addStatus Invisible 1 12 (teleportHero spent)
+                    |> addLog "You drop a smoke bomb and vanish!"
+                    |> endTurn
+
+            "huntress" ->
+                psionicBlast (8 + game.depth * 2) spent
+                    |> addLog "You loose a volley of spectral blades!"
+                    |> endTurn
+
+            "duelist" ->
+                duelistLunge spent |> endTurn
+
+            _ ->
+                addLog "You have no special ability." game
+
+
+{-| Warrior slam: heavy damage to every adjacent monster. -}
+heroSlam : Game -> Game
+heroSlam game =
+    let
+        power =
+            heroDamage game.hero + 6
+
+        adjacent e =
+            Grid.chebyshev e.pos game.hero.pos == 1
+
+        step e ( alive, xp, kills, pops ) =
+            if adjacent e then
+                let
+                    hp =
+                        e.hp - power
+                in
+                if hp <= 0 then
+                    ( alive, xp + e.def.xp, kills + 1, { pos = e.pos, text = String.fromInt power, color = "#ffd166" } :: pops )
+
+                else
+                    ( { e | hp = hp, alerted = True } :: alive, xp, kills, { pos = e.pos, text = String.fromInt power, color = "#ffd166" } :: pops )
+
+            else
+                ( e :: alive, xp, kills, pops )
+
+        ( survivors, gained, killed, popups ) =
+            List.foldl step ( [], 0, 0, [] ) game.enemies
+    in
+    { game | enemies = List.reverse survivors, kills = game.kills + killed, popups = popups ++ game.popups }
+        |> gainXp gained
+        |> addLog "You slam the ground, crushing nearby foes!"
+
+
+{-| Duelist lunge: a single devastating strike on the nearest visible monster. -}
+duelistLunge : Game -> Game
+duelistLunge game =
+    case nearestVisibleEnemy game of
+        Nothing ->
+            addLog "You lunge, but find no mark." game
+
+        Just target ->
+            let
+                power =
+                    heroDamage game.hero * 3
+
+                hp =
+                    target.hp - power
+            in
+            if hp <= 0 then
+                { game | enemies = List.filter (\e -> e.pos /= target.pos) game.enemies, kills = game.kills + 1 }
+                    |> addLog ("You lunge and run the " ++ target.def.name ++ " through!")
+                    |> addPopup target.pos (String.fromInt power) "#ff7adf"
+                    |> gainXp target.def.xp
+                    |> dropLoot target
+
+            else
+                { game | enemies = updateEnemyAt target.pos (\e -> { e | hp = hp, alerted = True }) game.enemies }
+                    |> addLog ("You lunge at the " ++ target.def.name ++ " (" ++ String.fromInt power ++ ")!")
+                    |> addPopup target.pos (String.fromInt power) "#ff7adf"
 
 
 {-| Alchemy: brew two potions from the pack into one fresh, depth-appropriate potion (a sink for
@@ -3432,9 +3574,23 @@ endTurn game =
             tickHunger afterPerception
 
         recharged =
-            rechargeWands { afterHunger | turn = afterHunger.turn + 1 }
+            rechargeAbility (rechargeWands { afterHunger | turn = afterHunger.turn + 1 })
     in
     checkQuest (maybeWander recharged)
+
+
+{-| Build the hero's class-ability charge by one each turn, up to its maximum. -}
+rechargeAbility : Game -> Game
+rechargeAbility game =
+    let
+        hero =
+            game.hero
+    in
+    if hero.abilityCharge < abilityMax then
+        { game | hero = { hero | abilityCharge = hero.abilityCharge + 1 } }
+
+    else
+        game
 
 
 {-| Deliver the imp's bounty once its kill target is reached. -}
@@ -4065,6 +4221,15 @@ toScene game =
 
                 Nothing ->
                     ""
+        , ability =
+            if game.hero.heroClass == "" then
+                ""
+
+            else if game.hero.abilityCharge >= abilityMax then
+                abilityName game.hero.heroClass ++ " — READY (Q)"
+
+            else
+                abilityName game.hero.heroClass ++ " (" ++ String.fromInt game.hero.abilityCharge ++ "/" ++ String.fromInt abilityMax ++ ")"
         , statuses = List.map statusLabel game.hero.statuses
         , inventory = List.map (displayName game.idents) game.hero.inventory
         , log = List.take 7 game.log

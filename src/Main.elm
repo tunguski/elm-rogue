@@ -587,7 +587,7 @@ view model =
             Playing ->
                 Html.div []
                     [ Html.div [ HA.class "rg-keyhint" ]
-                        [ Html.text "move: WASD/HJKL · diag: Y U B N · wait: . · search: Z · aim: F (Tab cycle, F throw) · brew: C · inventory: I · bestiary: M · descend: > · use: 1-9 · restart: R" ]
+                        [ Html.text "move: WASD/HJKL · diag: Y U B N · wait: . · search: Z · aim: F · ability: Q · brew: C · inventory: I · bestiary: M · descend: > · use: 1-9 · restart: R" ]
                     , (rendererNamed model.rendererName).view (sceneFor model)
                     , quickslotBar model
                     , touchControls model
@@ -771,6 +771,7 @@ touchControls model =
                 )
                 (KeyPressed "f")
             , actBtn "↹ Next" (KeyPressed "tab")
+            , actBtn "Ability" (GameMsg Game.Ability)
             , actBtn "Descend" (GameMsg Game.Descend)
             , actBtn "Search" (GameMsg Game.Search)
             , actBtn "Brew" (GameMsg Game.Brew)
@@ -1078,6 +1079,9 @@ keyToGameMsg key =
 
         "c" ->
             Game.Brew
+
+        "q" ->
+            Game.Ability
 
         ">" ->
             Game.Descend

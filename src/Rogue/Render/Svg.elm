@@ -449,6 +449,11 @@ hudView hud =
 
           else
             Html.text ""
+        , if hud.ability /= "" then
+            statLine "Ability" hud.ability
+
+          else
+            Html.text ""
         , if List.isEmpty hud.statuses then
             Html.text ""
 

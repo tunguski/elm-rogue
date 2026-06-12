@@ -86,6 +86,7 @@ type alias Hud =
     , weapon : String
     , armour : String
     , ring : String
+    , ability : String
     , statuses : List String
     , inventory : List String
     , log : List String
@@ -111,6 +112,7 @@ emptyHud =
     , weapon = ""
     , armour = ""
     , ring = ""
+    , ability = ""
     , statuses = []
     , inventory = []
     , log = []
