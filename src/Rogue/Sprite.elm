@@ -236,6 +236,7 @@ sheet key =
         "altar" -> Just altar
         "amulet" -> Just amulet
         "key" -> Just keyItem
+        "trap" -> Just trap
 
         -- Item categories (keyed by glyph char).
         "!" -> Just potion
@@ -887,6 +888,24 @@ amulet =
         , "...XGGGGX..."
         , "....XGGX...."
         , ".....XX....."
+        ]
+
+
+trap : Sprite
+trap =
+    Sprite 12
+        [ "............"
+        , "............"
+        , "............"
+        , ".a.a.a.a.a.."
+        , "XaXaXaXaXaX."
+        , "XddddddddddX"
+        , "XddddddddddX"
+        , ".XXXXXXXXXX."
+        , "............"
+        , "............"
+        , "............"
+        , "............"
         ]
 
 

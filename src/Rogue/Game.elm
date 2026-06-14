@@ -379,6 +379,8 @@ type TrapKind
     | AlarmTrap
     | FrostTrap
     | FlameTrap
+    | SummonTrap
+    | PitfallTrap
 
 
 type alias Trap =
@@ -1073,7 +1075,13 @@ rollTrapKind depth seed =
                         []
                    )
                 ++ (if depth >= 5 then
-                        [ ( 3, RockfallTrap ), ( 3, FlameTrap ) ]
+                        [ ( 3, RockfallTrap ), ( 3, FlameTrap ), ( 3, SummonTrap ) ]
+
+                    else
+                        []
+                   )
+                ++ (if depth >= 4 then
+                        [ ( 2, PitfallTrap ) ]
 
                     else
                         []
@@ -3904,6 +3912,43 @@ trapEffect kind game =
 
         FlameTrap ->
             spawnFire game.hero.pos game |> addLog "A flame trap roars to life beneath you!"
+
+        SummonTrap ->
+            let
+                candidates =
+                    Content.enemiesForDepth game.depth game.ruleset
+
+                free =
+                    Grid.neighbors8 game.hero.pos
+                        |> List.filter (\p -> Level.isPassableAt p game.level && enemyAt p game == Nothing)
+                        |> List.take 2
+
+                ( picks, s1 ) =
+                    List.foldl
+                        (\spot ( acc, s ) ->
+                            case candidates of
+                                ( _, firstDef ) :: _ ->
+                                    let
+                                        ( def, s2 ) =
+                                            Rng.pickWeighted firstDef candidates s
+                                    in
+                                    ( { def = def, pos = spot, hp = def.maxHp, alerted = True, fleeing = False, statuses = [], ally = False } :: acc, s2 )
+
+                                [] ->
+                                    ( acc, s )
+                        )
+                        ( [], game.seed )
+                        free
+            in
+            if List.isEmpty picks then
+                addLog "A summoning rune flickers but fizzles." game
+
+            else
+                { game | enemies = game.enemies ++ picks, seed = s1 }
+                    |> addLog "A summoning trap! Monsters claw out of the floor!"
+
+        PitfallTrap ->
+            fallThroughChasm game
 
 
 damageHero : Int -> Game -> Game
