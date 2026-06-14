@@ -730,11 +730,50 @@ bestiaryView model =
         [ Html.div [ HA.class "rg-modal" ]
             (Html.div [ HA.class "rg-modal-title" ] [ Html.text "Bestiary" ]
                 :: List.map (bestiaryRow model.bestiary) roster
+                ++ (Html.div [ HA.class "rg-modal-title" ] [ Html.text "Catalog" ]
+                        :: catalogRows model.game
+                   )
                 ++ [ Html.button [ onClick ToggleBestiary, HA.class "rg-modal-close" ]
                         [ Html.text "Close (M)" ]
                    ]
             )
         ]
+
+
+{-| The item discovery journal: every item type grouped by category, identified ones shown by their
+true name and undiscovered consumables masked behind their per-run appearance. -}
+catalogRows : Game -> List (Html Msg)
+catalogRows game =
+    let
+        entries =
+            Game.itemCatalog game
+
+        categories =
+            [ "Weapons", "Armour", "Potions", "Scrolls", "Wands", "Rings", "Artifacts", "Other" ]
+
+        row e =
+            Html.div [ HA.class "rg-bestiary-row" ]
+                [ Html.span [ HA.style "color" e.color ] [ Html.text (e.glyph ++ "  " ++ e.name) ]
+                , Html.span [ HA.class "rg-item-desc" ]
+                    [ Html.text
+                        (if e.known then
+                            "✓"
+
+                         else
+                            "?"
+                        )
+                    ]
+                ]
+
+        section cat =
+            case List.filter (\e -> e.category == cat) entries of
+                [] ->
+                    []
+
+                rows ->
+                    Html.div [ HA.class "rg-inv-hint" ] [ Html.text cat ] :: List.map row rows
+    in
+    List.concatMap section categories
 
 
 bestiaryRow : Set String -> Content.EnemyDef -> Html Msg

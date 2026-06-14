@@ -14,6 +14,7 @@ module Rogue.Game exposing
     , startChallenges
     , challengeChoices
     , alchemyRecipes
+    , itemCatalog
     , setRemains
     , update
     , toScene
@@ -3715,6 +3716,50 @@ displayColor idents def =
 
             Nothing ->
                 def.color
+
+
+{-| A discovery-journal projection of the ruleset's items for the catalog UI. Each entry carries the
+masked display name/colour (so unidentified consumables stay secret), a category bucket for grouping,
+and whether the hero has identified it this run. Items that are never disguised count as always known. -}
+itemCatalog : Game -> List { glyph : String, name : String, color : String, category : String, known : Bool }
+itemCatalog game =
+    let
+        category def =
+            if isPotion def then
+                "Potions"
+
+            else if isScroll def then
+                "Scrolls"
+
+            else if isWand def then
+                "Wands"
+
+            else if isRing def then
+                "Rings"
+
+            else
+                case def.kind of
+                    Content.Artifact _ ->
+                        "Artifacts"
+
+                    Content.Equipment Content.WeaponSlot _ ->
+                        "Weapons"
+
+                    Content.Equipment Content.ArmourSlot _ ->
+                        "Armour"
+
+                    _ ->
+                        "Other"
+
+        entry def =
+            { glyph = def.glyph
+            , name = displayName game.idents def
+            , color = displayColor game.idents def
+            , category = category def
+            , known = not (unidentifiable def) || Set.member def.id game.idents.known
+            }
+    in
+    List.map entry game.ruleset.items
 
 
 {-| Mark a potion or scroll identified (after use), announcing what it was if newly learned. -}
