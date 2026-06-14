@@ -16,6 +16,7 @@ module Rogue.Game exposing
     , alchemyRecipes
     , itemCatalog
     , takeGhostGift
+    , chooseEnchant
     , setRemains
     , update
     , toScene
@@ -445,6 +446,7 @@ type alias Game =
     , remains : Maybe Remains
     , ascending : Bool
     , awaitingGhostGift : Bool
+    , awaitingEnchant : Bool
     , popups : List Popup
     , traps : List Trap
     , gas : Dict ( Int, Int ) Gas
@@ -938,6 +940,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , remains = Nothing
     , ascending = False
     , awaitingGhostGift = False
+    , awaitingEnchant = False
     , popups = []
     , traps = traps
     , gas = Dict.empty
@@ -2017,6 +2020,21 @@ takeGhostGift choice game =
 
             Nothing ->
                 cleared |> addLog "The ghost fades away."
+
+
+{-| Apply the player's chosen weapon enchantment (from the scroll-of-enchantment choice modal). -}
+chooseEnchant : String -> Game -> Game
+chooseEnchant ench game =
+    if not game.awaitingEnchant then
+        game
+
+    else
+        let
+            hero =
+                game.hero
+        in
+        { game | awaitingEnchant = False, hero = { hero | weapon = Maybe.map (setEnchant ench) hero.weapon } }
+            |> addLog ("Runes blaze across your weapon — it is now " ++ ench ++ ".")
 
 
 chestAt : Pos -> Game -> Maybe Chest
@@ -3304,12 +3322,9 @@ applyEffect def game =
         Enchant ->
             case ( hero.weapon, hero.armour ) of
                 ( Just _, _ ) ->
-                    let
-                        ( ench, seed1 ) =
-                            Rng.pick "blazing" [ "blazing", "vampiric", "grim" ] game.seed
-                    in
-                    { game | seed = seed1, hero = { hero | weapon = Maybe.map (setEnchant ench) hero.weapon } }
-                        |> addLog ("Runes blaze across your weapon — it is now " ++ ench ++ ".")
+                    -- A weapon present: let the player pick the enchantment (resolved by chooseEnchant).
+                    { game | awaitingEnchant = True }
+                        |> addLog "Runes swirl above your weapon — choose an enchantment."
 
                 ( Nothing, Just _ ) ->
                     { game | hero = { hero | armour = Maybe.map (setEnchant "thorns") hero.armour } }

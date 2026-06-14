@@ -40,6 +40,7 @@ type Choice
     = SubclassChoice
     | TalentChoice
     | GhostChoice
+    | EnchantChoice
 
 
 type alias Model =
@@ -297,6 +298,9 @@ update msg model =
                 Just GhostChoice ->
                     ( { model | game = Game.takeGhostGift name model.game, pendingChoice = Nothing }, Cmd.none )
 
+                Just EnchantChoice ->
+                    ( { model | game = Game.chooseEnchant name model.game, pendingChoice = Nothing }, Cmd.none )
+
                 Nothing ->
                     ( model, Cmd.none )
 
@@ -361,6 +365,9 @@ runGame gm model =
                 pending =
                     if nextGame.awaitingGhostGift && not model.game.awaitingGhostGift then
                         Just GhostChoice
+
+                    else if nextGame.awaitingEnchant && not model.game.awaitingEnchant then
+                        Just EnchantChoice
 
                     else if nextGame.hero.subclass == Nothing && nextGame.depth >= subclassDepth then
                         Just SubclassChoice
@@ -719,6 +726,14 @@ choiceOverlay model =
                             ( "The sad ghost's gift"
                             , [ ( "rose", "Dried Rose — a wilted artifact that blossoms into a ghostly ally" )
                               , ( "blade", bladeName ++ " — the ghost's own weapon" )
+                              ]
+                            )
+
+                        EnchantChoice ->
+                            ( "Choose a weapon enchantment"
+                            , [ ( "blazing", "Blazing — sets struck foes alight" )
+                              , ( "vampiric", "Vampiric — heals you for a share of the damage dealt" )
+                              , ( "grim", "Grim — a chance to slay wounded foes outright" )
                               ]
                             )
             in
