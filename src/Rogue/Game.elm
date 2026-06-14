@@ -310,6 +310,7 @@ type alias Chest =
     { pos : Pos
     , loot : ItemDef
     , mimic : Bool
+    , crystal : Bool
     }
 
 
@@ -1096,10 +1097,18 @@ buildChest ruleset depth gen spots seed =
                 ( lootDef, seed1 ) =
                     Rng.pickWeighted firstDef loot seed
 
-                ( isMimic, seed2 ) =
-                    Rng.chance 25 seed1
+                ( isCrystal, seed2 ) =
+                    Rng.chance 30 seed1
+
+                -- Crystal chests are transparent: you see the loot inside and they never hide a mimic.
+                ( isMimic, seed3 ) =
+                    if isCrystal then
+                        ( False, seed2 )
+
+                    else
+                        Rng.chance 25 seed2
             in
-            ( [ { pos = chestPos, loot = lootDef, mimic = isMimic } ], [ { def = keyDef, pos = keyPos } ], seed2 )
+            ( [ { pos = chestPos, loot = lootDef, mimic = isMimic, crystal = isCrystal } ], [ { def = keyDef, pos = keyPos } ], seed3 )
 
         _ ->
             ( [], [], seed )
@@ -2037,7 +2046,11 @@ tryOpenChest pos game =
                             )
 
                 [] ->
-                    addLog "The chest is locked. You need a key." game
+                    if chest.crystal then
+                        addLog ("Through the crystal chest you glimpse a " ++ displayName game.idents chest.loot ++ " — you need a key.") game
+
+                    else
+                        addLog "The chest is locked. You need a key." game
 
 
 {-| A mimic chest lurches into a monster (a tough disguised predator) when opened. -}
@@ -5793,11 +5806,21 @@ chestGlyph : Chest -> Render.Glyph
 chestGlyph chest =
     { pos = chest.pos
     , char = "0"
-    , color = "#caa24a"
+    , color =
+        if chest.crystal then
+            "#7fe0e0"
+
+        else
+            "#caa24a"
     , layer = Render.layerItem
     , heavy = True
     , sprite = "chest"
-    , tint = ""
+    , tint =
+        if chest.crystal then
+            "#7fe0e0"
+
+        else
+            ""
     }
 
 
