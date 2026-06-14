@@ -20,6 +20,11 @@ main =
 keys : List String
 keys =
     [ "hero"
+    , "hero-warrior"
+    , "hero-mage"
+    , "hero-rogue"
+    , "hero-huntress"
+    , "hero-duelist"
     , "rat"
     , "snake"
     , "gnoll-scout"

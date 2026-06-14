@@ -192,9 +192,14 @@ so the renderer can fall back to the text glyph. -}
 sheet : String -> Maybe Sprite
 sheet key =
     case key of
-        -- Hero (per-class art is layered on in a later milestone; this is the default adventurer).
+        -- Hero — a per-class sprite, with the bare-handed adventurer as the fallback.
         "@" -> Just hero
         "hero" -> Just hero
+        "hero-warrior" -> Just heroWarrior
+        "hero-mage" -> Just heroMage
+        "hero-rogue" -> Just heroRogue
+        "hero-huntress" -> Just heroHuntress
+        "hero-duelist" -> Just heroDuelist
 
         -- Monsters.
         "rat" -> Just rat
@@ -261,6 +266,96 @@ hero =
         , ".XbEEbEX.s.."
         , ".XEEEEEX...."
         , "..Xt..tX...."
+        , "..XX..XX...."
+        ]
+
+
+heroWarrior : Sprite
+heroWarrior =
+    Sprite 12
+        [ "....XrrX...."
+        , "...XaaaaX..."
+        , "..XaffffaX.."
+        , "..XafwwfaX.."
+        , "...XffffX..."
+        , "...XiiiiX..."
+        , "..XiiiiiiX.s"
+        , ".XiisiisiXs."
+        , ".XiiiiiiiXs."
+        , "..XiiiiiX..."
+        , "..Xd..dX...."
+        , "..XX..XX...."
+        ]
+
+
+heroMage : Sprite
+heroMage =
+    Sprite 12
+        [ "....XX......"
+        , "...XvvX....c"
+        , "..XvvvvX..c."
+        , "..XffffX.cw."
+        , "..XfwwfX.c.."
+        , "...XffX.Xn.."
+        , "..XvvvvXXn.."
+        , ".XvvvvvvXn.."
+        , ".XvbvvbvXn.."
+        , ".XvvvvvvX..."
+        , "..Xv..vX...."
+        , "..XX..XX...."
+        ]
+
+
+heroRogue : Sprite
+heroRogue =
+    Sprite 12
+        [ "...XXXX....."
+        , "..XkkkkX...."
+        , "..XkffkX...."
+        , "..XfwwfX...."
+        , "..XkffkX...."
+        , "...XvvX....."
+        , "..XvvvvX.s.."
+        , ".XvvvvvvXs.."
+        , ".XvvvvvvX..."
+        , ".XvvvvvvX..."
+        , "..Xv..vX...."
+        , "..XX..XX...."
+        ]
+
+
+heroHuntress : Sprite
+heroHuntress =
+    Sprite 12
+        [ "....XX...n.."
+        , "...XhhX.XnX."
+        , "..XhffhXnX.."
+        , "..XfwwfXn..."
+        , "...XffXXn..."
+        , "...XffX.n..."
+        , "..XEEEEXn..."
+        , ".XEEEEEEn..."
+        , ".XEgEEgEn..."
+        , ".XEEEEEX..."
+        , "..Xt..tX...."
+        , "..XX..XX...."
+        ]
+
+
+heroDuelist : Sprite
+heroDuelist =
+    Sprite 12
+        [ "............"
+        , "...XhhhX...."
+        , "..XhffhhX..."
+        , "..XfwwffX..."
+        , "...XffX....."
+        , "..XttttX...s"
+        , ".XttttttXXs."
+        , ".XteeetXs..."
+        , ".XttttttX..."
+        , "..Xtt.tX...."
+        , "..Xe..eX...."
         , "..XX..XX...."
         ]
 
