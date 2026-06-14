@@ -246,6 +246,12 @@ sheet key =
         "-" -> Just wand
         "%" -> Just food
         "$" -> Just gold
+        "*" -> Just gem
+
+        -- Specific consumables/objects (keyed by item id, which beats the category char).
+        "bomb" -> Just bomb
+        "ankh" -> Just ankh
+        "torch" -> Just torch
 
         _ ->
             Nothing
@@ -964,17 +970,17 @@ armour : Sprite
 armour =
     Sprite 12
         [ "............"
-        , "..X.XXXX.X.."
-        , ".XiXiiiiXiX."
-        , ".XiiiiiiiiX."
-        , ".XiisiisiiX."
-        , ".XiiiiiiiiX."
-        , ".XiiisiiiiX."
-        , "..XiiiiiiX.."
-        , "..XiiiiiiX.."
-        , "...XiiiiX..."
-        , "...XiiiiX..."
-        , "....XXXX...."
+        , "..XiXXiX...."
+        , ".XiiiiiiX..."
+        , "XiiiiiiiiX.."
+        , "XiisssiiiX.."
+        , "XiisiisiiX.."
+        , "XiiiiiiiiX.."
+        , ".XiiiiiiX..."
+        , ".XiiiiiiX..."
+        , "..XiiiiX...."
+        , "..XiiiiX...."
+        , "...XXXX....."
         ]
 
 
@@ -1018,17 +1024,89 @@ food : Sprite
 food =
     Sprite 12
         [ "............"
-        , "....XXXX...."
-        , "...XnnnnX..."
+        , "...XXXXXX..."
         , "..XnnnnnnX.."
-        , "..XnrrrrnX.."
-        , ".XnrrrrrrnX."
-        , ".XnrffffrnX."
-        , ".XnrffffrnX."
-        , "..XnrrrrnX.."
+        , ".XneeeeeenX."
+        , ".XneeeeeenX."
+        , ".XneeXeeenX."
+        , ".XneeeeeenX."
+        , ".XneeeXeenX."
+        , ".XneeeeeenX."
         , "..XnnnnnnX.."
-        , "...XnnnnX..."
-        , "....XXXX...."
+        , "...XXXXXX..."
+        , "............"
+        ]
+
+
+gem : Sprite
+gem =
+    Sprite 12
+        [ "............"
+        , ".....XX....."
+        , "....XppX...."
+        , "...XppppX..."
+        , "..XpwppppX.."
+        , "..XppppppX.."
+        , "..XppppppX.."
+        , "...XppppX..."
+        , "....XppX...."
+        , ".....XX....."
+        , "............"
+        , "............"
+        ]
+
+
+bomb : Sprite
+bomb =
+    Sprite 12
+        [ ".......XX..."
+        , "......Xy...."
+        , ".....Xy....."
+        , "....XXX....."
+        , "..XkkkkX...."
+        , ".XkkkkkkX..."
+        , "XkkwkkkkkX.."
+        , "XkkkkkkkkX.."
+        , "XkkkkkkkkX.."
+        , ".XkkkkkkX..."
+        , "..XkkkkX...."
+        , "....XX......"
+        ]
+
+
+ankh : Sprite
+ankh =
+    Sprite 12
+        [ "...XccX....."
+        , "..Xc..cX...."
+        , "..Xc..cX...."
+        , "...XccX....."
+        , ".XcccccccX.."
+        , "...XccX....."
+        , "...XccX....."
+        , "...XccX....."
+        , "...XccX....."
+        , "...XccX....."
+        , "............"
+        , "............"
+        ]
+
+
+torch : Sprite
+torch =
+    Sprite 12
+        [ ".....o......"
+        , "....ooo....."
+        , "....oyo....."
+        , "...oyyyo...."
+        , "....ooo....."
+        , ".....X......"
+        , ".....n......"
+        , ".....n......"
+        , ".....n......"
+        , ".....n......"
+        , ".....n......"
+        , "............"
         ]
 
 
