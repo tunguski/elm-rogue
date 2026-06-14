@@ -585,8 +585,22 @@ glyphSvg scene glyph =
 
                         else
                             ( glyph.tint, 0.4 )
+
+                    -- Living things gently bob in place; the per-cell phase keeps a room of monsters
+                    -- from breathing in unison. Furniture/items stay still. Reduce Motion stills it
+                    -- (the global `.rg-reduce-motion *` rule's !important beats this inline animation).
+                    attrs =
+                        if glyph.layer == Rogue.Render.layerActor || glyph.layer == Rogue.Render.layerHero then
+                            let
+                                delay =
+                                    toFloat (modBy 9 (glyph.pos.x * 3 + glyph.pos.y * 5)) * 0.16
+                            in
+                            [ HA.style "animation" ("rg-bob 2.4s ease-in-out " ++ String.fromFloat delay ++ "s infinite") ]
+
+                        else
+                            []
                 in
-                Just (g [] (Sprite.toSvg cellSize glyph.pos tint tintAlpha spr))
+                Just (g attrs (Sprite.toSvg cellSize glyph.pos tint tintAlpha spr))
 
             Nothing ->
                 Just
