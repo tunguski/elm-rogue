@@ -224,6 +224,18 @@ sheet key =
         "demon" -> Just demon
         "succubus" -> Just succubus
         "ghost-ally" -> Just ghost
+        "spider-queen" -> Just spiderQueen
+        "dwarf-king" -> Just dwarfKing
+        "yog-dzewa" -> Just yogDzewa
+
+        -- Dungeon objects.
+        "chest" -> Just chest
+        "statue" -> Just statue
+        "well" -> Just well
+        "plant" -> Just plant
+        "altar" -> Just altar
+        "amulet" -> Just amulet
+        "key" -> Just keyItem
 
         -- Item categories (keyed by glyph char).
         "!" -> Just potion
@@ -699,6 +711,194 @@ ghost =
         , "..XlXllXllX."
         , "..Xl.Xl.XlX."
         , "............"
+        ]
+
+
+
+-- BOSSES -----------------------------------------------------------------------------------------
+
+
+spiderQueen : Sprite
+spiderQueen =
+    Sprite 12
+        [ "............"
+        , "..X......X.."
+        , ".XkX.XX.XkX."
+        , "..XkXkkXkX.."
+        , "X.XkkkkkkX.X"
+        , ".XkrkkkrkX.."
+        , ".XkkkkkkkkX."
+        , "X.XkkkkkkX.X"
+        , "..XkX..XkX.."
+        , ".XkX.XX.XkX."
+        , ".X........X."
+        , "............"
+        ]
+
+
+dwarfKing : Sprite
+dwarfKing =
+    Sprite 12
+        [ "...XGGGGX..."
+        , "..XGyGyGX..."
+        , "...XffffX..."
+        , "...XfwwfX..."
+        , "...XnffnX..."
+        , "..XiiiiiiX.."
+        , ".XiisssiiX.."
+        , ".XiiGGGiiX.."
+        , ".XiiiiiiiX.."
+        , "..XiiiiiX..."
+        , "..Xd...dX..."
+        , "..XX...XX..."
+        ]
+
+
+yogDzewa : Sprite
+yogDzewa =
+    Sprite 12
+        [ "..XppppppX.."
+        , ".XpRppppRpX."
+        , ".XpwppppwpX."
+        , "XppppppppppX"
+        , "XpRppwwppRpX"
+        , "XppppwwppppX"
+        , "XpRpppppppRX"
+        , "XppppppppppX"
+        , ".XppRppRppX."
+        , ".XppppppppX."
+        , "..XpX..XpX.."
+        , "..X......X.."
+        ]
+
+
+
+-- OBJECTS ----------------------------------------------------------------------------------------
+
+
+chest : Sprite
+chest =
+    Sprite 12
+        [ "............"
+        , "..XXXXXXXX.."
+        , ".XnnnnnnnnX."
+        , ".XnNNNNNNnX."
+        , ".XnnnnnnnnX."
+        , ".XXXXXXXXXX."
+        , ".XnnnGGnnnX."
+        , ".XnnGXXGnnX."
+        , ".XnnGXXGnnX."
+        , ".XnnnGGnnnX."
+        , ".XnnnnnnnnX."
+        , "..XXXXXXXX.."
+        ]
+
+
+statue : Sprite
+statue =
+    Sprite 12
+        [ "....XXXX...."
+        , "...XaaaaX..."
+        , "...XaddaX..."
+        , "...XaaaaX..."
+        , "....XaaX...."
+        , "...XaaaaX..."
+        , "..XaaaaaaX.."
+        , "..XaaaaaaX.."
+        , "..XaaaaaaX.."
+        , ".XddddddddX."
+        , ".XddddddddX."
+        , ".XXXXXXXXXX."
+        ]
+
+
+well : Sprite
+well =
+    Sprite 12
+        [ "............"
+        , "....XbbX...."
+        , "...XbwbbX..."
+        , "..XnnnnnnX.."
+        , "..XnbbbbnX.."
+        , "..XnbwbbnX.."
+        , "..XnbbbbnX.."
+        , "..XnnnnnnX.."
+        , "...XnnnnX..."
+        , "...XnnnnX..."
+        , "..XnnnnnnX.."
+        , "..XXXXXXXX.."
+        ]
+
+
+plant : Sprite
+plant =
+    Sprite 12
+        [ "............"
+        , ".....g......"
+        , "....ggg....."
+        , "...gg.gg...."
+        , "..g.gEg.g..."
+        , "....gEg....."
+        , "....gEg....."
+        , "....XnX....."
+        , "...XnnnX...."
+        , "...XeeeX...."
+        , "...XeeeX...."
+        , "....XXX....."
+        ]
+
+
+altar : Sprite
+altar =
+    Sprite 12
+        [ "............"
+        , "....XwwX...."
+        , "...XbwwbX..."
+        , "..XaaaaaaX.."
+        , "..XaaaaaaX.."
+        , ".XddddddddX."
+        , ".XnnnnnnnnX."
+        , ".XddddddddX."
+        , ".XnnnnnnnnX."
+        , ".XddddddddX."
+        , ".XnnnnnnnnX."
+        , ".XXXXXXXXXX."
+        ]
+
+
+amulet : Sprite
+amulet =
+    Sprite 12
+        [ "...X....X..."
+        , "....X..X...."
+        , ".....XX....."
+        , "....XGGX...."
+        , "...XGGGGX..."
+        , "..XGGppGGX.."
+        , "..XGpwppGX.."
+        , "..XGppppGX.."
+        , "..XGGppGGX.."
+        , "...XGGGGX..."
+        , "....XGGX...."
+        , ".....XX....."
+        ]
+
+
+keyItem : Sprite
+keyItem =
+    Sprite 12
+        [ "............"
+        , "...XGGGX...."
+        , "..XGyyyGX..."
+        , "..XGyXyGX..."
+        , "..XGyyyGX..."
+        , "...XGGGX...."
+        , "....XGX....."
+        , "....XGX....."
+        , "....XGX....."
+        , "....XGGX...."
+        , "....XGXGX..."
+        , "....XGGGX..."
         ]
 
 
