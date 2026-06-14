@@ -720,6 +720,11 @@ hudView hud =
 
           else
             Html.text ""
+        , if hud.keyring /= "" then
+            statLine "Keys" hud.keyring
+
+          else
+            Html.text ""
         , if List.isEmpty hud.statuses then
             Html.text ""
 

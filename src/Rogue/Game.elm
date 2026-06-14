@@ -2135,6 +2135,25 @@ isKey def =
     def.kind == Content.Key
 
 
+{-| A compact HUD summary of the keyring — keys grouped by name with counts (e.g. "iron key ×2 ·
+crystal key ×1"). Empty when the hero carries none; keys live here instead of cluttering the bag. -}
+keyringLabel : List ItemDef -> String
+keyringLabel inventory =
+    let
+        names =
+            inventory |> List.filter isKey |> List.map .name
+
+        count name =
+            List.length (List.filter ((==) name) names)
+
+        uniques =
+            names |> List.foldl (\n acc -> if List.member n acc then acc else acc ++ [ n ]) []
+    in
+    uniques
+        |> List.map (\n -> n ++ " ×" ++ String.fromInt (count n))
+        |> String.join " · "
+
+
 tryDescend : Game -> Game
 tryDescend game =
     if Level.at game.hero.pos game.level == StairsDown && List.any (\e -> e.def.boss) game.enemies then
@@ -5532,7 +5551,8 @@ toScene game =
             else
                 abilityName game.hero.heroClass ++ " (" ++ String.fromInt game.hero.abilityCharge ++ "/" ++ String.fromInt abilityMax ++ ")"
         , statuses = List.map statusLabel game.hero.statuses
-        , inventory = List.map (displayName game.idents) game.hero.inventory
+        , keyring = keyringLabel game.hero.inventory
+        , inventory = List.map (displayName game.idents) (List.filter (\d -> not (isKey d)) game.hero.inventory)
         , log = List.take 7 game.log
         , gameOver = game.gameOver
         , won = game.won
