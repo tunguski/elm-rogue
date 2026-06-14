@@ -4929,11 +4929,35 @@ charge per turn toward their maximum. -}
 rechargeWands : Game -> Game
 rechargeWands game =
     let
-        wandTick =
-            modBy 12 game.turn == 0
-
         hero =
             game.hero
+
+        -- The Ring of Energy quickens every charge: wands tick up faster and artifacts gain double.
+        energized =
+            case hero.ring of
+                Just r ->
+                    r.id == "ring-power"
+
+                Nothing ->
+                    False
+
+        wandTick =
+            modBy
+                (if energized then
+                    8
+
+                 else
+                    12
+                )
+                game.turn
+                == 0
+
+        artifactGain =
+            if energized then
+                2
+
+            else
+                1
 
         bumped =
             List.map
@@ -4948,7 +4972,7 @@ rechargeWands game =
 
                         Content.Artifact spec ->
                             if spec.charge < spec.maxCharge then
-                                { it | kind = Content.Artifact { spec | charge = spec.charge + 1 } }
+                                { it | kind = Content.Artifact { spec | charge = min spec.maxCharge (spec.charge + artifactGain) } }
 
                             else
                                 it
