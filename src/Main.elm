@@ -1190,15 +1190,35 @@ classCard class =
         ]
 
 
+{-| A run's score: rewards going deep and slaying much, with a big bonus for claiming the Amulet and a
+small efficiency nudge against dawdling. Used for the rankings and the personal best. -}
+scoreFor : Run -> Int
+scoreFor run =
+    (run.depth * 120)
+        + (run.kills * 15)
+        + (if run.won then
+            1500
+
+           else
+            0
+          )
+        - (run.turns // 20)
+        |> max 0
+
+
 historyView : List Run -> Html Msg
 historyView runs =
     if List.isEmpty runs then
         Html.text ""
 
     else
+        let
+            best =
+                runs |> List.map scoreFor |> List.maximum |> Maybe.withDefault 0
+        in
         Html.div [ HA.class "rg-history" ]
             (Html.div [ HA.class "rg-history-title" ]
-                [ Html.text "Recent delves (saved locally)" ]
+                [ Html.text ("Recent delves — best score " ++ String.fromInt best) ]
                 :: List.map runRow runs
             )
 
@@ -1270,7 +1290,7 @@ runRow run =
                 )
             ]
         , Html.span [ HA.class "rg-run-class" ] [ Html.text run.className ]
-        , Html.span [] [ Html.text ("depth " ++ String.fromInt run.depth ++ " · " ++ String.fromInt run.kills ++ " slain · " ++ String.fromInt run.turns ++ "t") ]
+        , Html.span [] [ Html.text ("depth " ++ String.fromInt run.depth ++ " · " ++ String.fromInt run.kills ++ " slain · " ++ String.fromInt run.turns ++ "t · " ++ String.fromInt (scoreFor run) ++ " pts") ]
         ]
 
 
