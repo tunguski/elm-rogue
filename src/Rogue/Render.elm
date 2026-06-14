@@ -48,6 +48,7 @@ type alias Glyph =
     , layer : Int
     , heavy : Bool
     , sprite : String
+    , tint : String
     }
 
 

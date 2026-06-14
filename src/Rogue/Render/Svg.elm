@@ -578,7 +578,15 @@ glyphSvg scene glyph =
     else
         case Sprite.resolve glyph.sprite glyph.char of
             Just spr ->
-                Just (g [] (Sprite.toSvg cellSize glyph.pos "" 0 spr))
+                let
+                    ( tint, tintAlpha ) =
+                        if glyph.tint == "" then
+                            ( "", 0 )
+
+                        else
+                            ( glyph.tint, 0.4 )
+                in
+                Just (g [] (Sprite.toSvg cellSize glyph.pos tint tintAlpha spr))
 
             Nothing ->
                 Just
