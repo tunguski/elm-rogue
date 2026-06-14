@@ -368,17 +368,134 @@ cellSvg scene p =
                     vis == Rogue.Render.Remembered
             in
             Just
-                (rect
-                    [ SA.x (px (p.x * cellSize))
-                    , SA.y (px (p.y * cellSize))
-                    , SA.width (px cellSize)
-                    , SA.height (px cellSize)
-                    , SA.fill (tileColor scene.theme tile dim)
-                    , SA.stroke "#070a10"
-                    , SA.strokeWidth "1"
-                    ]
-                    []
+                (g []
+                    (rect
+                        [ SA.x (px (p.x * cellSize))
+                        , SA.y (px (p.y * cellSize))
+                        , SA.width (px cellSize)
+                        , SA.height (px cellSize)
+                        , SA.fill (tileColor scene.theme tile dim)
+                        , SA.stroke "#070a10"
+                        , SA.strokeWidth "1"
+                        ]
+                        []
+                        :: tileDecor tile p dim
+                    )
                 )
+
+
+{-| Texture overlays that give a cell pixel-art relief without needing per-region colour maths: each
+is a translucent black/white (or accent) shape layered over the theme base fill, so the same brick /
+speckle / wave pattern reads correctly in every region. Patterns vary deterministically with the
+cell's coordinates (no per-frame shimmer), and remembered cells get fainter decoration. -}
+tileDecor : Tile -> Pos -> Bool -> List (Svg msg)
+tileDecor tile p dim =
+    let
+        cx =
+            toFloat (p.x * cellSize)
+
+        cy =
+            toFloat (p.y * cellSize)
+
+        f =
+            if dim then
+                0.5
+
+            else
+                1.0
+
+        -- A small deterministic "hash" of the cell, for organic-looking variation.
+        hash n =
+            modBy n (p.x * 73 + p.y * 131 + 17)
+
+        ov dx dy w h color op =
+            rect
+                [ SA.x (fc (cx + dx))
+                , SA.y (fc (cy + dy))
+                , SA.width (fc w)
+                , SA.height (fc h)
+                , SA.fill color
+                , HA.style "opacity" (fc (op * f))
+                , HA.style "shape-rendering" "crispEdges"
+                , HA.style "pointer-events" "none"
+                ]
+                []
+
+        black =
+            "#000000"
+
+        white =
+            "#ffffff"
+    in
+    case tile of
+        Wall ->
+            -- Brick courses: two dark mortar lines, vertical joints offset every other row, a top hi-light.
+            [ ov 0 0 24 2 white 0.07
+            , ov 0 7.5 24 1.5 black 0.32
+            , ov 0 15.5 24 1.5 black 0.32
+            , ov 11 0 1.5 8 black 0.28
+            , (if modBy 2 p.y == 0 then ov 5 16 1.5 8 black 0.28 else ov 17 16 1.5 8 black 0.28)
+            ]
+
+        Floor ->
+            -- A couple of faint speckles so open ground isn't a flat slab.
+            [ ov (toFloat (2 + hash 16)) (toFloat (3 + hash 14)) 2 2 black 0.16
+            , ov (toFloat (10 + hash 9)) (toFloat (13 + hash 7)) 2 2 white 0.05
+            ]
+
+        Grass ->
+            -- Blades: darker bases, a couple of lighter tips.
+            [ ov 3 10 2 10 black 0.28
+            , ov 8 7 2 13 "#1c3a18" 0.6
+            , ov 13 11 2 9 black 0.28
+            , ov 18 8 2 12 "#3f7a3a" 0.5
+            , ov 8 6 2 3 white 0.12
+            ]
+
+        Water ->
+            [ ov 3 7 10 1.5 white 0.14
+            , ov 12 14 9 1.5 white 0.1
+            , ov 6 17 6 1.5 black 0.18
+            ]
+
+        Door ->
+            [ ov 4 2 16 20 black 0.18
+            , ov 11 0 2 24 black 0.3
+            , ov 7 11 2 2 "#ffd166" 0.9
+            ]
+
+        OpenDoor ->
+            [ ov 1 1 3 22 black 0.4
+            , ov 20 1 3 22 black 0.4
+            ]
+
+        StairsDown ->
+            [ ov 4 5 16 2 black 0.35
+            , ov 7 10 13 2 black 0.35
+            , ov 10 15 10 2 black 0.35
+            , ov 13 19 7 2 black 0.35
+            ]
+
+        StairsUp ->
+            [ ov 4 17 16 2 black 0.3
+            , ov 4 12 13 2 black 0.3
+            , ov 4 7 10 2 black 0.3
+            , ov 4 3 7 2 black 0.3
+            ]
+
+        Chasm ->
+            [ ov 3 3 18 18 black 0.5
+            , ov 7 7 10 10 black 0.55
+            ]
+
+        _ ->
+            []
+
+
+{-| Float → string for sub-cell decoration coordinates. -}
+fc : Float -> String
+fc =
+    String.fromFloat
 
 
 visibilityAt : Scene -> ( Int, Int ) -> Rogue.Render.Visibility
