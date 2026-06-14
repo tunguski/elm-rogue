@@ -105,6 +105,7 @@ type ItemEffect
     | Aggravate
     | Explode Int
     | ThrownHit Int
+    | ThrownTipped Int String
     | Corrupt
     | Enchant
     | SummonAlly
@@ -382,6 +383,9 @@ describeEffect effect =
 
         ThrownHit dmg ->
             "thrown weapon: " ++ String.fromInt dmg ++ " damage"
+
+        ThrownTipped dmg element ->
+            "thrown: " ++ String.fromInt dmg ++ " damage + " ++ element
 
         Corrupt ->
             "corrupts a foe to fight for you"

@@ -2517,6 +2517,8 @@ alchemyRecipes =
     , { inputs = [ "potion-liquid-flame", "potion-caustic-gas" ], output = "bomb", name = "Bomb" }
     , { inputs = [ "potion-strength", "potion-healing" ], output = "potion-experience", name = "Experience" }
     , { inputs = [ "darts", "potion-liquid-flame" ], output = "javelin", name = "Javelin" }
+    , { inputs = [ "darts", "torch" ], output = "fire-darts", name = "Incendiary Darts" }
+    , { inputs = [ "darts", "potion-caustic-gas" ], output = "poison-darts", name = "Poison Darts" }
     , { inputs = [ "potion-haste", "potion-invisibility" ], output = "potion-levitation", name = "Levitation" }
     , { inputs = [ "ration", "mystery-meat" ], output = "cooked-meal", name = "Cooked Meal" }
     , { inputs = [ "ration", "ration" ], output = "hearty-feast", name = "Hearty Feast" }
@@ -2689,6 +2691,9 @@ isThrown eff =
         ThrownHit _ ->
             True
 
+        ThrownTipped _ _ ->
+            True
+
         _ ->
             False
 
@@ -2742,6 +2747,26 @@ applyThrownEffect eff target game =
                     else
                         { game | enemies = updateEnemyAt target (\x -> { x | hp = hp, alerted = True }) game.enemies }
                             |> addPopup target (String.fromInt power) "#d6deea"
+
+                Nothing ->
+                    game
+
+        ThrownTipped power element ->
+            case enemyAt target game of
+                Just e ->
+                    let
+                        hp =
+                            e.hp - power
+                    in
+                    if hp <= 0 then
+                        { game | enemies = List.filter (\x -> x.pos /= target) game.enemies, kills = game.kills + 1 }
+                            |> addPopup target (String.fromInt power) "#9be08a"
+                            |> gainXp e.def.xp
+                            |> dropLoot e
+
+                    else
+                        { game | enemies = updateEnemyAt target (\x -> { x | hp = hp, alerted = True, statuses = applyWandElement element x.statuses }) game.enemies }
+                            |> addPopup target (String.fromInt power) "#9be08a"
 
                 Nothing ->
                     game

@@ -64,6 +64,8 @@ ruleset =
         , potionOfCausticGas
         , bomb
         , darts
+        , poisonDarts
+        , fireDarts
         , javelin
         , shuriken
         , ankh
@@ -899,6 +901,32 @@ darts =
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 5
+    }
+
+
+poisonDarts : ItemDef
+poisonDarts =
+    { id = "poison-darts"
+    , name = "poison darts"
+    , glyph = "↑"
+    , color = "#7fd06a"
+    , kind = Consumable (ThrownTipped 4 "corrosion")
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 0
+    }
+
+
+fireDarts : ItemDef
+fireDarts =
+    { id = "fire-darts"
+    , name = "incendiary darts"
+    , glyph = "↑"
+    , color = "#e0834b"
+    , kind = Consumable (ThrownTipped 4 "fire")
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 0
     }
 
 
