@@ -152,6 +152,14 @@ engine plays it.
   bars**, HUD **status icons**, **examine** + **auto-explore**, minimap markers, coloured combat log, a
   **settings panel** (reduce motion / hints), **contextual tutorial hints**, and punchier hit juice.
 
+- **Set 8 — pixel-art & depth:** an **original pixel-art renderer** (hand-drawn sprites for the hero
+  classes, the whole bestiary, bosses, items and dungeon objects, plus textured region tiles, idle-bob,
+  drop shadows and a per-region ambient wash) toggleable against the classic text view; an **item
+  discovery catalog**, a **keyring**, the sad-ghost **reward choice**, **crystal chests**, summon &
+  pitfall **traps**, a **boss nameplate** banner, the Ring of Energy **recharge synergy**, a weapon
+  **enchantment choice**, **run scoring** with a personal best, **tipped darts** (alchemy throwing), and
+  **status pips** over actors.
+
 Every system above is data behind the same two seams — content is a `Ruleset`, rendering is a
 `Renderer` — so mods extend all of it. Run the tests with `ELM=../../elm.sh ./test.sh`; see
 [PERFORMANCE.md](PERFORMANCE.md) for the rendering/speed analysis. Iterating toward Pixel-Dungeon
