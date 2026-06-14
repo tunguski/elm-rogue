@@ -59,6 +59,7 @@ type alias Model =
     , remains : Maybe { depth : Int, gold : Int, itemId : String }
     , reduceMotion : Bool
     , showHints : Bool
+    , pixelArt : Bool
     , resumeSave : Maybe ( String, Game.SaveData )
     , seedInput : String
     , seedBump : Int
@@ -86,6 +87,7 @@ type Msg
     | ToggleChallenge String
     | ToggleMotion
     | ToggleHints
+    | TogglePixels
     | KeyPressed String
     | Continue
     | Choose String
@@ -200,6 +202,7 @@ init _ =
       , challenges = Set.empty
       , remains = Nothing
       , reduceMotion = False
+      , pixelArt = True
       , showHints = True
       , resumeSave = Nothing
       , seedInput = ""
@@ -259,6 +262,9 @@ update msg model =
 
         ToggleHints ->
             ( { model | showHints = not model.showHints }, Cmd.none )
+
+        TogglePixels ->
+            ( { model | pixelArt = not model.pixelArt }, Cmd.none )
 
         ToggleChallenge id ->
             ( { model
@@ -987,7 +993,7 @@ sceneFor model =
         scene =
             Game.toScene model.game
     in
-    { scene | cursor = model.targeting, shake = model.damaged }
+    { scene | cursor = model.targeting, shake = model.damaged, pixelArt = model.pixelArt }
 
 
 toolbar : Model -> Html Msg
@@ -1000,6 +1006,7 @@ toolbar model =
             [ Html.span [ HA.class "rg-chiplabel" ] [ Html.text "Settings" ]
             , chip "Reduce motion" model.reduceMotion ToggleMotion
             , chip "Hints" model.showHints ToggleHints
+            , chip "Pixel art" model.pixelArt TogglePixels
             ]
         ]
 

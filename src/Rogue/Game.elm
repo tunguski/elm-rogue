@@ -5455,6 +5455,7 @@ toScene game =
     , camera = game.hero.pos
     , cursor = Nothing
     , shake = False
+    , pixelArt = True
     , hud =
         { title = "elm-rogue"
         , region = (Render.themeForDepth game.depth).name

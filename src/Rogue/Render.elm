@@ -179,6 +179,7 @@ type alias Scene =
     , camera : Pos
     , cursor : Maybe Pos
     , shake : Bool
+    , pixelArt : Bool
     , hud : Hud
     }
 

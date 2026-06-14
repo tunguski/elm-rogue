@@ -380,7 +380,12 @@ cellSvg scene p =
                         , SA.strokeWidth "1"
                         ]
                         []
-                        :: tileDecor tile p dim
+                        :: (if scene.pixelArt then
+                                tileDecor tile p dim
+
+                            else
+                                []
+                           )
                     )
                 )
 
@@ -614,6 +619,9 @@ glyphSvg scene glyph =
     if not seen then
         Nothing
 
+    else if not scene.pixelArt then
+        Just (textGlyph glyph)
+
     else
         case Sprite.resolve glyph.sprite glyph.char of
             Just spr ->
@@ -664,18 +672,22 @@ glyphSvg scene glyph =
                 Just (g attrs (shadow ++ Sprite.toSvg cellSize glyph.pos tint tintAlpha spr))
 
             Nothing ->
-                Just
-                    (text_
-                        [ SA.x (px (glyph.pos.x * cellSize + cellSize // 2))
-                        , SA.y (px (glyph.pos.y * cellSize + cellSize // 2))
-                        , SA.fill glyph.color
-                        , SA.fontSize (px (cellSize - 6))
-                        , SA.fontFamily "ui-monospace, Menlo, Consolas, monospace"
-                        , SA.textAnchor "middle"
-                        , SA.dominantBaseline "central"
-                        ]
-                        [ Svg.text glyph.char ]
-                    )
+                Just (textGlyph glyph)
+
+
+{-| The classic single-character glyph (used when pixel art is toggled off, or no sprite exists). -}
+textGlyph : Glyph -> Svg msg
+textGlyph glyph =
+    text_
+        [ SA.x (px (glyph.pos.x * cellSize + cellSize // 2))
+        , SA.y (px (glyph.pos.y * cellSize + cellSize // 2))
+        , SA.fill glyph.color
+        , SA.fontSize (px (cellSize - 6))
+        , SA.fontFamily "ui-monospace, Menlo, Consolas, monospace"
+        , SA.textAnchor "middle"
+        , SA.dominantBaseline "central"
+        ]
+        [ Svg.text glyph.char ]
 
 
 
