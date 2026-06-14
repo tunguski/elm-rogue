@@ -39,6 +39,7 @@ talent (on level-up). -}
 type Choice
     = SubclassChoice
     | TalentChoice
+    | GhostChoice
 
 
 type alias Model =
@@ -293,6 +294,9 @@ update msg model =
                 Just TalentChoice ->
                     ( { model | game = Game.learnTalent name model.game, pendingChoice = Nothing }, Cmd.none )
 
+                Just GhostChoice ->
+                    ( { model | game = Game.takeGhostGift name model.game, pendingChoice = Nothing }, Cmd.none )
+
                 Nothing ->
                     ( model, Cmd.none )
 
@@ -355,7 +359,10 @@ runGame gm model =
                     Set.union model.bestiary (seenMonsters nextGame)
 
                 pending =
-                    if nextGame.hero.subclass == Nothing && nextGame.depth >= subclassDepth then
+                    if nextGame.awaitingGhostGift && not model.game.awaitingGhostGift then
+                        Just GhostChoice
+
+                    else if nextGame.hero.subclass == Nothing && nextGame.depth >= subclassDepth then
                         Just SubclassChoice
 
                     else if nextGame.hero.level > model.game.hero.level && not (List.isEmpty (unlearnedTalents nextGame)) then
@@ -703,6 +710,17 @@ choiceOverlay model =
 
                         TalentChoice ->
                             ( "Level up — learn a talent", unlearnedTalents model.game )
+
+                        GhostChoice ->
+                            let
+                                bladeName =
+                                    model.game.quest |> Maybe.map (\q -> q.reward.name) |> Maybe.withDefault "an old blade"
+                            in
+                            ( "The sad ghost's gift"
+                            , [ ( "rose", "Dried Rose — a wilted artifact that blossoms into a ghostly ally" )
+                              , ( "blade", bladeName ++ " — the ghost's own weapon" )
+                              ]
+                            )
             in
             Html.div [ HA.class "rg-overlay" ]
                 [ Html.div [ HA.class "rg-modal" ]

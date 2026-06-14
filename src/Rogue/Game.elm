@@ -15,6 +15,7 @@ module Rogue.Game exposing
     , challengeChoices
     , alchemyRecipes
     , itemCatalog
+    , takeGhostGift
     , setRemains
     , update
     , toScene
@@ -440,6 +441,7 @@ type alias Game =
     , challenges : List String
     , remains : Maybe Remains
     , ascending : Bool
+    , awaitingGhostGift : Bool
     , popups : List Popup
     , traps : List Trap
     , gas : Dict ( Int, Int ) Gas
@@ -932,6 +934,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
     , challenges = []
     , remains = Nothing
     , ascending = False
+    , awaitingGhostGift = False
     , popups = []
     , traps = traps
     , gas = Dict.empty
@@ -1914,9 +1917,12 @@ talkToNpc game =
             in
             case n.kind of
                 Ghost ->
+                    -- The sad ghost offers a *choice* of parting gift; the UI resolves it via
+                    -- `takeGhostGift`. We stash the offered reward in npc-less state by keeping the
+                    -- flag; the rose option is fixed, the blade option is the ghost's own reward.
                     endTurn
-                        ({ game | npc = Nothing, hero = { hero | inventory = hero.inventory ++ [ n.reward ] } }
-                            |> addLog ("The sad ghost gives you a " ++ displayName game.idents n.reward ++ " and fades away.")
+                        ({ game | npc = Nothing, awaitingGhostGift = True, quest = Just { targetKills = 0, targetDepth = 0, reward = n.reward, giver = "ghost" } }
+                            |> addLog "The sad ghost pleads: 'Free me, and take a token — the rose, or my old blade.'"
                         )
 
                 Sage ->
@@ -1963,6 +1969,37 @@ talkToNpc game =
                          }
                             |> addLog "The ambitious imp offers a bounty: slay 6 more monsters and a reward is yours."
                         )
+
+
+{-| Resolve the sad ghost's parting gift once the player picks. "rose" grants the Dried Rose artifact;
+anything else grants the ghost's stashed reward weapon. Clears the pending flag and the ghost quest. -}
+takeGhostGift : String -> Game -> Game
+takeGhostGift choice game =
+    if not game.awaitingGhostGift then
+        game
+
+    else
+        let
+            hero =
+                game.hero
+
+            reward =
+                if choice == "rose" then
+                    Content.findItem "dried-rose" game.ruleset
+
+                else
+                    Maybe.map .reward game.quest
+
+            cleared =
+                { game | awaitingGhostGift = False, quest = Nothing }
+        in
+        case reward of
+            Just item ->
+                { cleared | hero = { hero | inventory = hero.inventory ++ [ item ] } }
+                    |> addLog ("The ghost sighs in relief as you take the " ++ displayName game.idents item ++ ", and fades away.")
+
+            Nothing ->
+                cleared |> addLog "The ghost fades away."
 
 
 chestAt : Pos -> Game -> Maybe Chest
