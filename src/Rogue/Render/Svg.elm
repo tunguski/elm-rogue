@@ -14,6 +14,7 @@ import Html.Attributes as HA
 import Rogue.Grid exposing (Pos)
 import Rogue.Level as Level exposing (Level)
 import Rogue.Render exposing (Glyph, Hud, Renderer, Scene)
+import Rogue.Sprite as Sprite
 import Rogue.Tile as Tile exposing (Tile(..))
 import Set exposing (Set)
 import Svg exposing (Svg, g, rect, svg, text_)
@@ -458,18 +459,23 @@ glyphSvg scene glyph =
         Nothing
 
     else
-        Just
-            (text_
-                [ SA.x (px (glyph.pos.x * cellSize + cellSize // 2))
-                , SA.y (px (glyph.pos.y * cellSize + cellSize // 2))
-                , SA.fill glyph.color
-                , SA.fontSize (px (cellSize - 6))
-                , SA.fontFamily "ui-monospace, Menlo, Consolas, monospace"
-                , SA.textAnchor "middle"
-                , SA.dominantBaseline "central"
-                ]
-                [ Svg.text glyph.char ]
-            )
+        case Sprite.resolve glyph.sprite glyph.char of
+            Just spr ->
+                Just (g [] (Sprite.toSvg cellSize glyph.pos "" 0 spr))
+
+            Nothing ->
+                Just
+                    (text_
+                        [ SA.x (px (glyph.pos.x * cellSize + cellSize // 2))
+                        , SA.y (px (glyph.pos.y * cellSize + cellSize // 2))
+                        , SA.fill glyph.color
+                        , SA.fontSize (px (cellSize - 6))
+                        , SA.fontFamily "ui-monospace, Menlo, Consolas, monospace"
+                        , SA.textAnchor "middle"
+                        , SA.dominantBaseline "central"
+                        ]
+                        [ Svg.text glyph.char ]
+                    )
 
 
 

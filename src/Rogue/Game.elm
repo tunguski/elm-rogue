@@ -5535,6 +5535,12 @@ heroGlyph game =
     , color = game.hero.color
     , layer = Render.layerHero
     , heavy = True
+    , sprite =
+        if game.hero.heroClass == "" then
+            "hero"
+
+        else
+            "hero-" ++ game.hero.heroClass
     }
 
 
@@ -5550,6 +5556,7 @@ enemyGlyph enemy =
             enemy.def.color
     , layer = Render.layerActor
     , heavy = enemy.ally
+    , sprite = enemy.def.id
     }
 
 
@@ -5585,6 +5592,7 @@ itemGlyph idents item =
     , color = displayColor idents item.def
     , layer = Render.layerItem
     , heavy = False
+    , sprite = item.def.id
     }
 
 
@@ -5610,7 +5618,7 @@ npcGlyphs maybeNpc =
                         Imp ->
                             ( "&", "#c97fe0" )
             in
-            [ { pos = n.pos, char = ch, color = color, layer = Render.layerActor, heavy = True } ]
+            [ { pos = n.pos, char = ch, color = color, layer = Render.layerActor, heavy = True, sprite = "npc" } ]
 
         Nothing ->
             []
@@ -5619,7 +5627,7 @@ npcGlyphs maybeNpc =
 statueGlyphs : List Pos -> List Render.Glyph
 statueGlyphs statues =
     List.map
-        (\p -> { pos = p, char = "&", color = "#7a7a82", layer = Render.layerItem, heavy = False })
+        (\p -> { pos = p, char = "&", color = "#7a7a82", layer = Render.layerItem, heavy = False, sprite = "statue" })
         statues
 
 
@@ -5639,7 +5647,7 @@ wellGlyphs maybeWell =
                         TransmuteWell ->
                             "#6ad8c0"
             in
-            [ { pos = w.pos, char = "○", color = color, layer = Render.layerItem, heavy = False } ]
+            [ { pos = w.pos, char = "○", color = color, layer = Render.layerItem, heavy = False, sprite = "well" } ]
 
         Nothing ->
             []
@@ -5666,7 +5674,7 @@ plantGlyphs plants =
                             Earthroot ->
                                 "#8a6a4a"
                 in
-                { pos = { x = x, y = y }, char = "♣", color = color, layer = Render.layerItem, heavy = False }
+                { pos = { x = x, y = y }, char = "♣", color = color, layer = Render.layerItem, heavy = False, sprite = "plant" }
             )
 
 
@@ -5677,6 +5685,7 @@ chestGlyph chest =
     , color = "#caa24a"
     , layer = Render.layerItem
     , heavy = True
+    , sprite = "chest"
     }
 
 
@@ -5684,7 +5693,7 @@ altarGlyphs : Maybe Pos -> List Render.Glyph
 altarGlyphs maybeAltar =
     case maybeAltar of
         Just p ->
-            [ { pos = p, char = "_", color = "#9be0ff", layer = Render.layerItem, heavy = False } ]
+            [ { pos = p, char = "_", color = "#9be0ff", layer = Render.layerItem, heavy = False, sprite = "altar" } ]
 
         Nothing ->
             []
@@ -5697,6 +5706,7 @@ shopGlyph entry =
     , color = "#ffd166"
     , layer = Render.layerItem
     , heavy = False
+    , sprite = entry.def.id
     }
 
 
@@ -5707,4 +5717,5 @@ trapGlyph trap =
     , color = "#e0824b"
     , layer = Render.layerTerrain
     , heavy = False
+    , sprite = "trap"
     }
