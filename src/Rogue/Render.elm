@@ -178,6 +178,7 @@ type alias Scene =
     , popups : List Popup
     , gas : List GasCell
     , healthBars : List HealthBar
+    , statusMarks : List StatusMark
     , mapMarkers : List MapMarker
     , theme : Theme
     , camera : Pos
@@ -216,6 +217,13 @@ type alias HealthBar =
 type alias MapMarker =
     { pos : Pos
     , color : String
+    }
+
+
+{-| Small status pips drawn above an actor — one coloured dot per active condition (poison, burn…). -}
+type alias StatusMark =
+    { pos : Pos
+    , colors : List String
     }
 
 

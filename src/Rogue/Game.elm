@@ -155,6 +155,50 @@ statusLabel status =
     name ++ " (" ++ String.fromInt status.turns ++ ")"
 
 
+{-| A pip colour for an over-actor status icon — harmful reds/greens, helpful blues/golds. "" hides it. -}
+statusColor : StatusKind -> String
+statusColor kind =
+    case kind of
+        Poison ->
+            "#7fd06a"
+
+        Burn ->
+            "#e0834b"
+
+        Bleed ->
+            "#d04a3a"
+
+        Regen ->
+            "#5dd47a"
+
+        Lit ->
+            "#ecd24c"
+
+        Paralyzed ->
+            "#c9a23a"
+
+        Hasted ->
+            "#5dd4cf"
+
+        Slowed ->
+            "#82aaff"
+
+        Invisible ->
+            "#aab4c8"
+
+        Levitating ->
+            "#9be0ff"
+
+        Weakened ->
+            "#9a6ad8"
+
+        Vulnerable ->
+            "#e07ab0"
+
+        Crippled ->
+            "#b88a4a"
+
+
 hasStatus : StatusKind -> Hero -> Bool
 hasStatus kind hero =
     List.any (\s -> s.kind == kind) hero.statuses
@@ -5637,6 +5681,27 @@ toScene game =
                     else
                         Nothing
                 )
+    , statusMarks =
+        let
+            marksFor pos statuses =
+                case List.map (\s -> statusColor s.kind) statuses |> List.filter (\c -> c /= "") of
+                    [] ->
+                        Nothing
+
+                    colors ->
+                        Just { pos = pos, colors = List.take 4 colors }
+        in
+        (case marksFor game.hero.pos game.hero.statuses of
+            Just m ->
+                [ m ]
+
+            Nothing ->
+                []
+        )
+            ++ (game.enemies
+                    |> List.filter (\e -> Set.member ( e.pos.x, e.pos.y ) game.visible)
+                    |> List.filterMap (\e -> marksFor e.pos e.statuses)
+               )
     , mapMarkers =
         let
             explored p =

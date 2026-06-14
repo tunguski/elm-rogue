@@ -96,6 +96,7 @@ view scene =
                 , g [] (List.map gasSvg (List.filter (\gc -> inWindow gc.pos) scene.gas))
                 , g [] (List.filterMap (glyphSvg scene) (List.sortBy .layer (List.filter (\gl -> inWindow gl.pos) scene.glyphs)))
                 , g [] (List.map healthBarSvg (List.filter (\hb -> inWindow hb.pos) scene.healthBars))
+                , g [] (List.map statusMarkSvg (List.filter (\sm -> inWindow sm.pos) scene.statusMarks))
                 , ambientOverlay scene.theme win
                 , g [] (List.map popupSvg (List.filter (\pp -> inWindow pp.pos) scene.popups))
                 , cursorSvg scene.cursor
@@ -243,6 +244,26 @@ healthBarSvg hb =
         [ rect [ SA.x (px (hb.pos.x * cellSize + 2)), SA.y (px (hb.pos.y * cellSize + 1)), SA.width (px w), SA.height "2", SA.fill "#10151f" ] []
         , rect [ SA.x (px (hb.pos.x * cellSize + 2)), SA.y (px (hb.pos.y * cellSize + 1)), SA.width (px fillW), SA.height "2", SA.fill color ] []
         ]
+
+
+{-| A small row of coloured pips just above an actor, one per active status (poison/burn/haste…). -}
+statusMarkSvg : Rogue.Render.StatusMark -> Svg msg
+statusMarkSvg sm =
+    let
+        pip i color =
+            rect
+                [ SA.x (px (sm.pos.x * cellSize + 3 + i * 5))
+                , SA.y (px (sm.pos.y * cellSize - 3))
+                , SA.width "3"
+                , SA.height "3"
+                , SA.rx "1"
+                , SA.fill color
+                , SA.stroke "#0a0c11"
+                , SA.strokeWidth "0.5"
+                ]
+                []
+    in
+    g [] (List.indexedMap pip sm.colors)
 
 
 gasSvg : Rogue.Render.GasCell -> Svg msg
