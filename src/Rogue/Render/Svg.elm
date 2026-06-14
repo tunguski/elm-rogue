@@ -91,6 +91,7 @@ view scene =
                 , g [] (List.map gasSvg (List.filter (\gc -> inWindow gc.pos) scene.gas))
                 , g [] (List.filterMap (glyphSvg scene) (List.sortBy .layer (List.filter (\gl -> inWindow gl.pos) scene.glyphs)))
                 , g [] (List.map healthBarSvg (List.filter (\hb -> inWindow hb.pos) scene.healthBars))
+                , ambientOverlay scene.theme win
                 , g [] (List.map popupSvg (List.filter (\pp -> inWindow pp.pos) scene.popups))
                 , cursorSvg scene.cursor
                 ]
@@ -498,6 +499,44 @@ fc =
     String.fromFloat
 
 
+{-| A faint full-viewport colour wash that gives each region its own light/mood — green damp for the
+Sewers through hellish red for the Demon Halls. Drawn over everything (pointer-events off) at low
+alpha so it tints the scene without hiding the art. -}
+ambientOverlay : Rogue.Render.Theme -> { x0 : Int, y0 : Int, x1 : Int, y1 : Int } -> Svg msg
+ambientOverlay theme win =
+    let
+        color =
+            case theme.name of
+                "Sewers" ->
+                    "#103024"
+
+                "Prison" ->
+                    "#2a1e0a"
+
+                "Caves" ->
+                    "#2a140a"
+
+                "Halls" ->
+                    "#190a2a"
+
+                "Metropolis" ->
+                    "#181820"
+
+                _ ->
+                    "#2a0808"
+    in
+    rect
+        [ SA.x (px (win.x0 * cellSize))
+        , SA.y (px (win.y0 * cellSize))
+        , SA.width (px ((win.x1 - win.x0 + 1) * cellSize))
+        , SA.height (px ((win.y1 - win.y0 + 1) * cellSize))
+        , SA.fill color
+        , HA.style "opacity" "0.12"
+        , HA.style "pointer-events" "none"
+        ]
+        []
+
+
 visibilityAt : Scene -> ( Int, Int ) -> Rogue.Render.Visibility
 visibilityAt scene key =
     if Set.member key scene.visible then
@@ -589,8 +628,11 @@ glyphSvg scene glyph =
                     -- Living things gently bob in place; the per-cell phase keeps a room of monsters
                     -- from breathing in unison. Furniture/items stay still. Reduce Motion stills it
                     -- (the global `.rg-reduce-motion *` rule's !important beats this inline animation).
+                    isActor =
+                        glyph.layer == Rogue.Render.layerActor || glyph.layer == Rogue.Render.layerHero
+
                     attrs =
-                        if glyph.layer == Rogue.Render.layerActor || glyph.layer == Rogue.Render.layerHero then
+                        if isActor then
                             let
                                 delay =
                                     toFloat (modBy 9 (glyph.pos.x * 3 + glyph.pos.y * 5)) * 0.16
@@ -599,8 +641,27 @@ glyphSvg scene glyph =
 
                         else
                             []
+
+                    -- A soft shadow grounds a living actor on the floor; furniture/items don't get one.
+                    shadow =
+                        if isActor then
+                            [ rect
+                                [ SA.x (fc (toFloat (glyph.pos.x * cellSize) + toFloat cellSize * 0.22))
+                                , SA.y (fc (toFloat (glyph.pos.y * cellSize) + toFloat cellSize - 3.5))
+                                , SA.width (fc (toFloat cellSize * 0.56))
+                                , SA.height "3"
+                                , SA.rx "1.5"
+                                , SA.fill "#000000"
+                                , HA.style "opacity" "0.33"
+                                , HA.style "pointer-events" "none"
+                                ]
+                                []
+                            ]
+
+                        else
+                            []
                 in
-                Just (g attrs (Sprite.toSvg cellSize glyph.pos tint tintAlpha spr))
+                Just (g attrs (shadow ++ Sprite.toSvg cellSize glyph.pos tint tintAlpha spr))
 
             Nothing ->
                 Just
