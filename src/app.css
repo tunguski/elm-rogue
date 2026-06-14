@@ -687,6 +687,30 @@ body {
   }
 }
 
+.rg-boss-banner {
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #ffd8d8;
+  background: linear-gradient(180deg, #5c1414, #2c0a0a);
+  border: 1px solid #8a2c22;
+  border-radius: 8px;
+  padding: 5px 12px;
+  margin: 0 auto 8px;
+  max-width: 560px;
+  animation: rg-bosspulse 1.4s ease-in-out infinite;
+}
+
+@keyframes rg-bosspulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(208, 74, 58, 0);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(208, 74, 58, 0.6);
+  }
+}
+
 @keyframes rg-bob {
   0%,
   100% {

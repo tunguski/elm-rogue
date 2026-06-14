@@ -5647,6 +5647,12 @@ toScene game =
                 abilityName game.hero.heroClass ++ " (" ++ String.fromInt game.hero.abilityCharge ++ "/" ++ String.fromInt abilityMax ++ ")"
         , statuses = List.map statusLabel game.hero.statuses
         , keyring = keyringLabel game.hero.inventory
+        , boss =
+            game.enemies
+                |> List.filter (\e -> e.def.boss && not e.ally)
+                |> List.head
+                |> Maybe.map (\e -> e.def.name)
+                |> Maybe.withDefault ""
         , inventory = List.map (displayName game.idents) (List.filter (\d -> not (isKey d)) game.hero.inventory)
         , log = List.take 7 game.log
         , gameOver = game.gameOver

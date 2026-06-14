@@ -68,7 +68,12 @@ view scene =
             p.x >= win.x0 && p.x <= win.x1 && p.y >= win.y0 && p.y <= win.y1
     in
     Html.div [ HA.class "rg-gamewrap" ]
-        [ Html.div
+        [ if scene.hud.boss /= "" then
+            Html.div [ HA.class "rg-boss-banner" ] [ Html.text ("⚔  " ++ scene.hud.boss ++ "  ⚔") ]
+
+          else
+            Html.text ""
+        , Html.div
             [ HA.class
                 (if scene.shake then
                     "rg-mapwrap rg-shake-on"
