@@ -3101,6 +3101,18 @@ wandChainOrSplash element center game =
             in
             { game | level = grown } |> addLog "Grass erupts and entangles the area!"
 
+        "transfusion" ->
+            let
+                hero =
+                    game.hero
+
+                heal =
+                    6 + game.depth // 2
+            in
+            { game | hero = { hero | hp = min hero.maxHp (hero.hp + heal) } }
+                |> addPopup game.hero.pos ("+" ++ String.fromInt heal) "#5dd47a"
+                |> addLog "Life flows from your foe into you!"
+
         _ ->
             game
 

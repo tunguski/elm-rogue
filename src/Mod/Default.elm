@@ -111,6 +111,7 @@ ruleset =
         , wandFirebolt
         , wandLightning
         , wandFrost
+        , wandTransfusion
         , wandCorrosion
         , wandBlastWave
         , wandDisintegration
@@ -1726,6 +1727,19 @@ wandFrost =
     , glyph = "-"
     , color = "#bcd6ff"
     , kind = Wand { damage = 6, charges = 4, maxCharges = 4, element = "frost" }
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+wandTransfusion : ItemDef
+wandTransfusion =
+    { id = "wand-transfusion"
+    , name = "wand of transfusion"
+    , glyph = "-"
+    , color = "#e07ab0"
+    , kind = Wand { damage = 5, charges = 3, maxCharges = 3, element = "transfusion" }
     , minDepth = 3
     , maxDepth = 99
     , spawnWeight = 3
