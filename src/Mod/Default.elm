@@ -122,6 +122,7 @@ ruleset =
         , wandFirebolt
         , wandLightning
         , wandFrost
+        , wandWarding
         , wandTransfusion
         , wandCorrosion
         , wandBlastWave
@@ -1928,6 +1929,19 @@ wandFrost =
     , color = "#bcd6ff"
     , kind = Wand { damage = 6, charges = 4, maxCharges = 4, element = "frost" }
     , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+wandWarding : ItemDef
+wandWarding =
+    { id = "wand-warding"
+    , name = "wand of warding"
+    , glyph = "-"
+    , color = "#bcd0e0"
+    , kind = Wand { damage = 3, charges = 3, maxCharges = 3, element = "warding" }
+    , minDepth = 4
     , maxDepth = 99
     , spawnWeight = 3
     }

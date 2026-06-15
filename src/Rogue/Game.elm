@@ -3407,6 +3407,17 @@ wandChainOrSplash element center game =
         "frost" ->
             freezeWaterNear center game
 
+        "warding" ->
+            let
+                warded e =
+                    if not e.ally && Grid.chebyshev e.pos center <= 1 then
+                        { e | statuses = addEnemyStatus Paralyzed 1 3 e.statuses, alerted = True }
+
+                    else
+                        e
+            in
+            { game | enemies = List.map warded game.enemies } |> addLog "Glyphs of warding freeze your foes in place!"
+
         "transfusion" ->
             let
                 hero =
