@@ -25,6 +25,7 @@ import Rogue.Grid as Grid
 import Rogue.Render exposing (Renderer)
 import Rogue.Render.Ascii as AsciiRenderer
 import Rogue.Render.Svg as SvgRenderer
+import Rogue.Render.Webgl as WebglRenderer
 import Set exposing (Set)
 import Storage
 
@@ -62,6 +63,7 @@ type alias Model =
     , reduceMotion : Bool
     , showHints : Bool
     , pixelArt : Bool
+    , time : Float
     , resumeSave : Maybe ( String, Game.SaveData )
     , seedInput : String
     , seedBump : Int
@@ -90,6 +92,7 @@ type Msg
     | ToggleMotion
     | ToggleHints
     | TogglePixels
+    | Tick Float
     | KeyPressed String
     | Continue
     | Choose String
@@ -145,6 +148,7 @@ renderers : List ( String, Renderer Msg )
 renderers =
     [ ( "SVG", SvgRenderer.renderer )
     , ( "ASCII", AsciiRenderer.renderer )
+    , ( "3D", WebglRenderer.renderer )
     ]
 
 
@@ -205,6 +209,7 @@ init _ =
       , remains = Nothing
       , reduceMotion = False
       , pixelArt = True
+      , time = 0
       , showHints = True
       , resumeSave = Nothing
       , seedInput = ""
@@ -267,6 +272,10 @@ update msg model =
 
         TogglePixels ->
             ( { model | pixelArt = not model.pixelArt }, Cmd.none )
+
+        Tick dt ->
+            -- Accumulate wall-clock time (ms) for the 3D renderer's continuous animations.
+            ( { model | time = model.time + dt }, Cmd.none )
 
         ToggleChallenge id ->
             ( { model
@@ -1174,7 +1183,7 @@ sceneFor model =
         scene =
             Game.toScene model.game
     in
-    { scene | cursor = model.targeting, shake = model.damaged, pixelArt = model.pixelArt }
+    { scene | cursor = model.targeting, shake = model.damaged, pixelArt = model.pixelArt, time = model.time }
 
 
 toolbar : Model -> Html Msg
@@ -1514,8 +1523,16 @@ keyToGameMsg key =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Browser.Events.onKeyDown (Decode.map KeyPressed (Decode.field "key" Decode.string))
+subscriptions model =
+    Sub.batch
+        [ Browser.Events.onKeyDown (Decode.map KeyPressed (Decode.field "key" Decode.string))
+        , -- The 3D renderer animates continuously; only pay for an animation-frame clock when it's on.
+          if model.screen == Playing && model.rendererName == "3D" then
+            Browser.Events.onAnimationFrameDelta Tick
+
+          else
+            Sub.none
+        ]
 
 
 main : Program () Model Msg

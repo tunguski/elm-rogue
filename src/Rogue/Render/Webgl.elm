@@ -1,0 +1,555 @@
+module Rogue.Render.Webgl exposing (renderer)
+
+{-| A third rendering engine for the same `Scene`: a real-time **WebGL** view that lifts the dungeon
+into an isometric 3-D diorama. Floors are flat tiles, walls are extruded blocks, and the hero and
+monsters are little cubes that hover and bob. A single directional light (plus ambient) shades every
+face, and a continuous time uniform — fed from the app's animation-frame clock — drives the idle
+animations and a slowly circling light.
+
+Like `Rogue.Render.Svg` and `Rogue.Render.Ascii`, this is a plain `Renderer` value: the engine knows
+nothing about WebGL. It consumes the same renderer-agnostic `Scene`, so the toolbar can swap to "3D"
+and the game plays identically. All geometry is generated here from the `Scene`; nothing in the engine
+changed except a `time` field threaded onto the scene so the shaders can animate.
+-}
+
+import Char
+import Html exposing (Html)
+import Html.Attributes as HA
+import Math.Matrix4 as M4 exposing (Mat4)
+import Math.Vector3 as V3 exposing (Vec3, vec3)
+import Rogue.Grid exposing (Pos)
+import Rogue.Level as Level exposing (Level)
+import Rogue.Render as Render exposing (Glyph, Hud, Scene)
+import Rogue.Tile as Tile exposing (Tile(..))
+import Set
+import WebGL exposing (Mesh, Shader)
+
+
+renderer : Render.Renderer msg
+renderer =
+    { name = "3D"
+    , cellSize = 24
+    , view = view
+    }
+
+
+canvasW : Int
+canvasW =
+    760
+
+
+canvasH : Int
+canvasH =
+    540
+
+
+
+-- VIEW -------------------------------------------------------------------------------------------
+
+
+view : Scene -> Html msg
+view scene =
+    let
+        win =
+            viewport scene.camera scene.level.width scene.level.height
+
+        t =
+            scene.time
+
+        pv =
+            cameraMatrix scene t
+
+        light =
+            -- A directional light that drifts in a slow circle so faces re-shade over time.
+            vec3 (0.5 + 0.4 * sin (t / 2600)) 1.0 (0.4 + 0.4 * cos (t / 2600))
+
+        terrain =
+            WebGL.entity vertexShader fragmentShader (terrainMesh scene win) (uniforms pv M4.identity light (vec3 1 1 1) 1.0)
+
+        actors =
+            scene.glyphs
+                |> List.filter (\g -> inWindow win g.pos && Set.member ( g.pos.x, g.pos.y ) scene.visible)
+                |> List.map (actorEntity pv light t)
+    in
+    Html.div [ HA.class "rg-gamewrap" ]
+        [ Html.div [ HA.class "rg-mapwrap" ]
+            [ WebGL.toHtmlWith
+                [ WebGL.depth 1
+                , WebGL.antialias
+                , WebGL.clearColor 0.02 0.03 0.05 1
+                ]
+                [ HA.width canvasW
+                , HA.height canvasH
+                , HA.style "width" "100%"
+                , HA.style "height" "auto"
+                , HA.style "max-width" (String.fromInt canvasW ++ "px")
+                , HA.style "display" "block"
+                , HA.style "border" "1px solid #1b2433"
+                , HA.style "border-radius" "8px"
+                , HA.style "background" "#05070b"
+                ]
+                (terrain :: actors)
+            , overlayView scene.hud
+            ]
+        , hudView scene.hud
+        ]
+
+
+{-| The inclusive cell window to render, centred on the camera and clamped to the map. A touch wider
+than the SVG view because the isometric camera reveals more ground. -}
+viewport : Pos -> Int -> Int -> { x0 : Int, y0 : Int, x1 : Int, y1 : Int }
+viewport camera width height =
+    let
+        vw =
+            min width 23
+
+        vh =
+            min height 23
+
+        clampStart c span extent =
+            max 0 (min (extent - span) (c - span // 2))
+
+        x0 =
+            clampStart camera.x vw width
+
+        y0 =
+            clampStart camera.y vh height
+    in
+    { x0 = x0, y0 = y0, x1 = x0 + vw - 1, y1 = y0 + vh - 1 }
+
+
+inWindow : { x0 : Int, y0 : Int, x1 : Int, y1 : Int } -> Pos -> Bool
+inWindow win p =
+    p.x >= win.x0 && p.x <= win.x1 && p.y >= win.y0 && p.y <= win.y1
+
+
+{-| An isometric camera: an orthographic projection viewed from a fixed diagonal, looking at the hero.
+A gentle bob on the eye height makes the whole diorama breathe. -}
+cameraMatrix : Scene -> Float -> Mat4
+cameraMatrix scene t =
+    let
+        cx =
+            toFloat scene.camera.x + 0.5
+
+        cz =
+            toFloat scene.camera.y + 0.5
+
+        center =
+            vec3 cx 0 cz
+
+        d =
+            10.5
+
+        eye =
+            vec3 (cx + d) (d * 1.15 + 0.3 * sin (t / 1400)) (cz + d)
+
+        viewM =
+            M4.makeLookAt eye center (vec3 0 1 0)
+
+        aspect =
+            toFloat canvasW / toFloat canvasH
+
+        hh =
+            10.5
+
+        hw =
+            hh * aspect
+
+        proj =
+            M4.makeOrtho -hw hw -hh hh -60 60
+    in
+    M4.mul proj viewM
+
+
+uniforms : Mat4 -> Mat4 -> Vec3 -> Vec3 -> Float -> Uniforms
+uniforms pv model light tint size =
+    { pv = pv, model = model, light = light, tint = tint, size = size }
+
+
+
+-- ACTORS -----------------------------------------------------------------------------------------
+
+
+{-| One hovering cube per actor, tinted to its glyph colour. The hero rides higher and a little larger;
+everyone bobs on a per-cell phase so a room doesn't pulse in unison. -}
+actorEntity : Mat4 -> Vec3 -> Float -> Glyph -> WebGL.Entity
+actorEntity pv light t glyph =
+    let
+        isHero =
+            glyph.layer == Render.layerHero
+
+        size =
+            if isHero then
+                0.6
+
+            else if glyph.layer == Render.layerActor then
+                0.46
+
+            else
+                0.34
+
+        phase =
+            toFloat (glyph.pos.x * 3 + glyph.pos.y * 5)
+
+        bob =
+            0.1 * sin (t / 320 + phase)
+
+        baseY =
+            (if isHero then
+                0.62
+
+             else
+                0.5
+            )
+                + bob
+
+        model =
+            M4.makeTranslate (vec3 (toFloat glyph.pos.x + 0.5) baseY (toFloat glyph.pos.y + 0.5))
+    in
+    WebGL.entity vertexShader fragmentShader cubeMesh (uniforms pv model light (hexToVec3 glyph.color) size)
+
+
+
+-- TERRAIN MESH -----------------------------------------------------------------------------------
+
+
+terrainMesh : Scene -> { x0 : Int, y0 : Int, x1 : Int, y1 : Int } -> Mesh Vertex
+terrainMesh scene win =
+    let
+        cells =
+            List.concatMap
+                (\gy -> List.map (\gx -> { x = gx, y = gy }) (List.range win.x0 win.x1))
+                (List.range win.y0 win.y1)
+    in
+    WebGL.triangles (List.concatMap (cellGeometry scene) cells)
+
+
+cellGeometry : Scene -> Pos -> List ( Vertex, Vertex, Vertex )
+cellGeometry scene p =
+    let
+        key =
+            ( p.x, p.y )
+
+        visible =
+            Set.member key scene.visible
+
+        seen =
+            visible || Set.member key scene.explored
+    in
+    if not seen then
+        []
+
+    else
+        let
+            dim =
+                if visible then
+                    1.0
+
+                else
+                    0.45
+
+            tile =
+                Level.at p scene.level
+
+            col =
+                V3.scale dim (tileColor scene.theme tile)
+
+            fx =
+                toFloat p.x
+
+            fz =
+                toFloat p.y
+        in
+        case tile of
+            Wall ->
+                wallBlock fx fz 0.95 col
+
+            SecretDoor ->
+                wallBlock fx fz 0.95 col
+
+            Chasm ->
+                -- A sunken dark pit.
+                floorQuad fx fz -0.6 (V3.scale 0.5 col)
+
+            Water ->
+                floorQuad fx fz -0.12 col
+
+            _ ->
+                floorQuad fx fz 0.0 col
+
+
+{-| A flat floor tile (top face only) at height `y`. -}
+floorQuad : Float -> Float -> Float -> Vec3 -> List ( Vertex, Vertex, Vertex )
+floorQuad x z y col =
+    quad col
+        (vec3 0 1 0)
+        (vec3 x y z)
+        (vec3 (x + 1) y z)
+        (vec3 (x + 1) y (z + 1))
+        (vec3 x y (z + 1))
+
+
+{-| An extruded wall: a top face plus four sides, so the directional light shades the vertical faces
+darker than the lit top. -}
+wallBlock : Float -> Float -> Float -> Vec3 -> List ( Vertex, Vertex, Vertex )
+wallBlock x z h col =
+    let
+        x1 =
+            x + 1
+
+        z1 =
+            z + 1
+
+        top =
+            V3.scale 1.15 col
+
+        side =
+            col
+    in
+    -- top
+    quad top (vec3 0 1 0) (vec3 x h z) (vec3 x1 h z) (vec3 x1 h z1) (vec3 x h z1)
+        -- north (-z)
+        ++ quad side (vec3 0 0 -1) (vec3 x 0 z) (vec3 x1 0 z) (vec3 x1 h z) (vec3 x h z)
+        -- south (+z)
+        ++ quad side (vec3 0 0 1) (vec3 x 0 z1) (vec3 x1 0 z1) (vec3 x1 h z1) (vec3 x h z1)
+        -- west (-x)
+        ++ quad side (vec3 -1 0 0) (vec3 x 0 z) (vec3 x 0 z1) (vec3 x h z1) (vec3 x h z)
+        -- east (+x)
+        ++ quad side (vec3 1 0 0) (vec3 x1 0 z) (vec3 x1 0 z1) (vec3 x1 h z1) (vec3 x1 h z)
+
+
+{-| Two triangles for a quad with a single colour and normal. Winding is unspecified because face
+culling is off; the normal carries the lighting. -}
+quad : Vec3 -> Vec3 -> Vec3 -> Vec3 -> Vec3 -> Vec3 -> List ( Vertex, Vertex, Vertex )
+quad col n a b c d =
+    let
+        v pos =
+            Vertex pos col n
+    in
+    [ ( v a, v b, v c ), ( v a, v c, v d ) ]
+
+
+
+-- COLOURS ----------------------------------------------------------------------------------------
+
+
+tileColor : Render.Theme -> Tile -> Vec3
+tileColor theme tile =
+    case tile of
+        Wall ->
+            hexToVec3 theme.wallLit
+
+        SecretDoor ->
+            hexToVec3 theme.wallLit
+
+        Door ->
+            hexToVec3 theme.door
+
+        LockedDoor ->
+            hexToVec3 "#c9a23a"
+
+        StairsDown ->
+            hexToVec3 "#d8b24c"
+
+        StairsUp ->
+            hexToVec3 "#4f8bff"
+
+        Water ->
+            hexToVec3 "#274b6b"
+
+        Grass ->
+            hexToVec3 "#2f5a32"
+
+        Chasm ->
+            hexToVec3 "#140d20"
+
+        _ ->
+            hexToVec3 theme.floorLit
+
+
+hexToVec3 : String -> Vec3
+hexToVec3 raw =
+    let
+        s =
+            String.replace "#" "" raw
+
+        comp from =
+            toFloat (hexPair (String.slice from (from + 2) s)) / 255
+    in
+    vec3 (comp 0) (comp 2) (comp 4)
+
+
+hexPair : String -> Int
+hexPair s =
+    case String.toList s of
+        a :: b :: _ ->
+            16 * hexDigit a + hexDigit b
+
+        _ ->
+            128
+
+
+hexDigit : Char -> Int
+hexDigit c =
+    let
+        n =
+            Char.toCode c
+    in
+    if n >= 48 && n <= 57 then
+        n - 48
+
+    else if n >= 97 && n <= 102 then
+        n - 87
+
+    else if n >= 65 && n <= 70 then
+        n - 55
+
+    else
+        0
+
+
+
+-- CUBE (shared actor mesh) -----------------------------------------------------------------------
+
+
+cubeMesh : Mesh Vertex
+cubeMesh =
+    let
+        h =
+            0.5
+
+        white =
+            vec3 1 1 1
+
+        face n a b c d =
+            quad white n a b c d
+    in
+    WebGL.triangles <|
+        List.concat
+            [ face (vec3 0 1 0) (vec3 -h h -h) (vec3 h h -h) (vec3 h h h) (vec3 -h h h)
+            , face (vec3 0 -1 0) (vec3 -h -h -h) (vec3 h -h -h) (vec3 h -h h) (vec3 -h -h h)
+            , face (vec3 0 0 -1) (vec3 -h -h -h) (vec3 h -h -h) (vec3 h h -h) (vec3 -h h -h)
+            , face (vec3 0 0 1) (vec3 -h -h h) (vec3 h -h h) (vec3 h h h) (vec3 -h h h)
+            , face (vec3 -1 0 0) (vec3 -h -h -h) (vec3 -h -h h) (vec3 -h h h) (vec3 -h h -h)
+            , face (vec3 1 0 0) (vec3 h -h -h) (vec3 h -h h) (vec3 h h h) (vec3 h h -h)
+            ]
+
+
+
+-- SHADERS ----------------------------------------------------------------------------------------
+
+
+type alias Vertex =
+    { position : Vec3
+    , color : Vec3
+    , normal : Vec3
+    }
+
+
+type alias Uniforms =
+    { pv : Mat4
+    , model : Mat4
+    , light : Vec3
+    , tint : Vec3
+    , size : Float
+    }
+
+
+type alias Varyings =
+    { vcolor : Vec3 }
+
+
+vertexShader : Shader Vertex Uniforms Varyings
+vertexShader =
+    [glsl|
+        attribute vec3 position;
+        attribute vec3 color;
+        attribute vec3 normal;
+        uniform mat4 pv;
+        uniform mat4 model;
+        uniform vec3 light;
+        uniform float size;
+        varying vec3 vcolor;
+        void main () {
+            gl_Position = pv * model * vec4(position * size, 1.0);
+            float diff = max(dot(normalize(normal), normalize(light)), 0.0);
+            float l = 0.4 + 0.6 * diff;
+            vcolor = color * l;
+        }
+    |]
+
+
+fragmentShader : Shader {} Uniforms Varyings
+fragmentShader =
+    [glsl|
+        precision mediump float;
+        uniform vec3 tint;
+        varying vec3 vcolor;
+        void main () {
+            gl_FragColor = vec4(vcolor * tint, 1.0);
+        }
+    |]
+
+
+
+-- HUD --------------------------------------------------------------------------------------------
+
+
+{-| A compact heads-up display beside the 3-D view (the SVG renderer's HUD lives in its own module, so
+this carries a slim version: vitals and the recent log). -}
+hudView : Hud -> Html msg
+hudView hud =
+    Html.div [ HA.class "rg-hud" ]
+        [ Html.div [ HA.class "rg-hud-title" ] [ Html.text (hud.title ++ " · 3D") ]
+        , statLine "Depth" (String.fromInt hud.depth ++ "  " ++ hud.region)
+        , statLine "Level" (String.fromInt hud.level)
+        , statLine "HP" (String.fromInt (max 0 hud.hp) ++ " / " ++ String.fromInt hud.maxHp)
+        , statLine "Turn" (String.fromInt hud.turn)
+        , statLine "Gold" (String.fromInt hud.gold)
+        , if hud.weapon /= "" then
+            statLine "Weapon" hud.weapon
+
+          else
+            Html.text ""
+        , if hud.boss /= "" then
+            Html.div [ HA.class "rg-boss-banner" ] [ Html.text ("⚔  " ++ hud.boss ++ "  ⚔") ]
+
+          else
+            Html.text ""
+        , if hud.status /= "" then
+            Html.div [ HA.class "rg-status-note" ] [ Html.text hud.status ]
+
+          else
+            Html.text ""
+        , Html.div [ HA.class "rg-log" ]
+            (List.map (\line -> Html.div [ HA.class "rg-log-line" ] [ Html.text line ]) hud.log)
+        ]
+
+
+statLine : String -> String -> Html msg
+statLine label value =
+    Html.div [ HA.class "rg-stat" ]
+        [ Html.span [ HA.class "rg-stat-label" ] [ Html.text label ]
+        , Html.span [] [ Html.text value ]
+        ]
+
+
+overlayView : Hud -> Html msg
+overlayView hud =
+    if not hud.gameOver then
+        Html.text ""
+
+    else
+        let
+            ( title, color ) =
+                if hud.won then
+                    ( "VICTORY", "#5dd47a" )
+
+                else
+                    ( "YOU DIED", "#e0564b" )
+        in
+        Html.div [ HA.class "rg-banner" ]
+            [ Html.div [ HA.class "rg-banner-title", HA.style "color" color ] [ Html.text title ]
+            , Html.div [ HA.class "rg-banner-sub" ] [ Html.text ("Score " ++ String.fromInt hud.score) ]
+            , Html.div [ HA.class "rg-banner-sub" ] [ Html.text "press R to play again" ]
+            ]
