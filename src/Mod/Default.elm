@@ -70,6 +70,7 @@ ruleset =
         , darts
         , poisonDarts
         , fireDarts
+        , boomerang
         , seedSungrass
         , seedFirebloom
         , seedSorrowmoss
@@ -1030,6 +1031,19 @@ honeypot =
     , glyph = "%"
     , color = "#e0b84b"
     , kind = Consumable ReleaseBees
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+boomerang : ItemDef
+boomerang =
+    { id = "boomerang"
+    , name = "boomerang"
+    , glyph = "↑"
+    , color = "#c8a060"
+    , kind = Consumable (ThrownHit 5)
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 2

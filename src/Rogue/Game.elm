@@ -3110,16 +3110,23 @@ throwConsumable index def eff game =
                 |> addLog ("You hurl the " ++ name ++ "!")
 
         -- Thrown *weapons* (darts/javelins/tipped) clatter to the floor to be reclaimed; a fraction
-        -- shatter on impact. Lobbed potions/bombs always shatter and leave nothing.
+        -- shatter on impact. A boomerang always returns. Lobbed potions/bombs always shatter.
         ( recovers, seedR ) =
-            if isRecoverableThrow eff then
+            if def.id == "boomerang" then
+                ( True, resolved.seed )
+
+            else if isRecoverableThrow eff then
                 Rng.chance 66 resolved.seed
 
             else
                 ( False, resolved.seed )
 
+        -- A returning boomerang flies back to the hero's hand rather than landing afield.
         landing =
-            if Level.isPassableAt target resolved.level then
+            if def.id == "boomerang" then
+                hero.pos
+
+            else if Level.isPassableAt target resolved.level then
                 target
 
             else
