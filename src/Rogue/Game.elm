@@ -2036,6 +2036,51 @@ tryMove dir game =
             endTurn (heroAttack enemy game)
 
         Nothing ->
+            -- Reach weapons (spear) strike a foe two cells away in a straight line, through the empty
+            -- cell you'd have stepped into.
+            case reachTarget dir game of
+                Just farEnemy ->
+                    endTurn (heroAttack farEnemy game)
+
+                Nothing ->
+                    moveOrInteract dir target game
+
+
+{-| The enemy a reach weapon can hit: two cells out in `dir`, when the hero wields a reach weapon and
+the intervening cell is passable and empty. -}
+reachTarget : Dir -> Game -> Maybe Enemy
+reachTarget dir game =
+    if not (weaponReach game.hero.weapon) then
+        Nothing
+
+    else
+        let
+            mid =
+                Grid.move game.hero.pos dir
+
+            far =
+                Grid.move mid dir
+        in
+        if Level.isPassableAt mid game.level && enemyAt mid game == Nothing then
+            enemyAt far game |> Maybe.andThen (\e -> if e.ally then Nothing else Just e)
+
+        else
+            Nothing
+
+
+{-| Does the wielded weapon have extended reach (hits at range 2)? -}
+weaponReach : Maybe ItemDef -> Bool
+weaponReach maybeWeapon =
+    case maybeWeapon of
+        Just w ->
+            w.id == "spear" || w.id == "glaive" || w.id == "grim-glaive"
+
+        Nothing ->
+            False
+
+
+moveOrInteract : Dir -> Pos -> Game -> Game
+moveOrInteract dir target game =
             if npcAt target game then
                 talkToNpc game
 

@@ -87,6 +87,7 @@ ruleset =
         , goldPile
         , dagger
         , shortSword
+        , spear
         , mace
         , rapier
         , vampiricDagger
@@ -1243,6 +1244,19 @@ shortSword =
     , minDepth = 2
     , maxDepth = 6
     , spawnWeight = 5
+    }
+
+
+spear : ItemDef
+spear =
+    { id = "spear"
+    , name = "spear"
+    , glyph = "/"
+    , color = "#c8b88a"
+    , kind = Equipment WeaponSlot { damage = 5, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "" }
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 4
     }
 
 
