@@ -15,6 +15,7 @@ module Rogue.Game exposing
     , challengeChoices
     , alchemyRecipes
     , itemCatalog
+    , nearShop
     , takeGhostGift
     , chooseEnchant
     , setRemains
@@ -560,6 +561,7 @@ type Msg
     | Examine
     | AutoExplore
     | Drop Int
+    | Sell Int
     | Restart
     | NoOp
 
@@ -1759,6 +1761,9 @@ update rawMsg rawGame =
             Drop index ->
                 dropItem index game
 
+            Sell index ->
+                sellItem index game
+
             Restart ->
                 -- The shell (Main) owns reseeding a new run; inside a game it's a no-op.
                 game
@@ -1781,6 +1786,9 @@ isActionMsg msg =
             False
 
         Drop _ ->
+            False
+
+        Sell _ ->
             False
 
         _ ->
@@ -2672,6 +2680,41 @@ dropItem index game =
                 , items = { def = def, pos = hero.pos } :: game.items
             }
                 |> addLog ("You drop the " ++ displayName game.idents def ++ ".")
+
+
+{-| Is the hero standing in (or right beside) the floor's shop, so it can trade? -}
+nearShop : Game -> Bool
+nearShop game =
+    List.any (\e -> Grid.chebyshev e.pos game.hero.pos <= 4) game.shop
+
+
+{-| The gold a shopkeeper pays for an item — half its asking price, floored at a token amount. -}
+resaleValue : Game -> ItemDef -> Int
+resaleValue game def =
+    max 5 (priceFor game.depth def // 2)
+
+
+{-| Sell the inventory item at `index` for gold — only near the floor's shop. Instant (no turn). -}
+sellItem : Int -> Game -> Game
+sellItem index game =
+    case nth index game.hero.inventory of
+        Nothing ->
+            game
+
+        Just def ->
+            if not (nearShop game) then
+                addLog "You can only sell at a shop." game
+
+            else
+                let
+                    hero =
+                        game.hero
+
+                    value =
+                        resaleValue game def
+                in
+                { game | hero = { hero | inventory = removeAt index hero.inventory, gold = hero.gold + value } }
+                    |> addLog ("Sold the " ++ displayName game.idents def ++ " for " ++ String.fromInt value ++ " gold.")
 
 
 {-| Use the inventory item at `index` (0-based): drink a consumable (apply effect, remove it) or wear

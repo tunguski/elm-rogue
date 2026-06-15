@@ -837,12 +837,19 @@ sheetView game =
             , sheetStat "HP" (String.fromInt (max 0 hero.hp) ++ " / " ++ String.fromInt hero.maxHp)
             , sheetStat "Gold" (String.fromInt hero.gold)
             , Html.div [ HA.class "rg-inv-hint" ]
-                [ Html.text "Inventory — by bag (tap to use · ✕ to drop)" ]
+                [ Html.text
+                    (if Game.nearShop game then
+                        "Inventory — at a shop (tap to use · 💰 to sell · ✕ to drop)"
+
+                     else
+                        "Inventory — by bag (tap to use · ✕ to drop)"
+                    )
+                ]
             , if List.isEmpty hero.inventory then
                 Html.div [ HA.class "rg-inv-empty" ] [ Html.text "— empty —" ]
 
               else
-                Html.div [] (categorizedInventory hero.inventory)
+                Html.div [] (categorizedInventory (Game.nearShop game) hero.inventory)
             , Html.div [ HA.class "rg-inv-hint" ] [ Html.text "Alchemy recipes (brew with C)" ]
             , Html.div []
                 (List.map
@@ -889,8 +896,8 @@ itemBag def =
 
 
 {-| The inventory grouped into labelled bags, each item keeping its true inventory index for use/drop. -}
-categorizedInventory : List Content.ItemDef -> List (Html Msg)
-categorizedInventory inventory =
+categorizedInventory : Bool -> List Content.ItemDef -> List (Html Msg)
+categorizedInventory shopping inventory =
     let
         indexed =
             List.indexedMap Tuple.pair inventory
@@ -908,7 +915,7 @@ categorizedInventory inventory =
 
             else
                 Html.div [ HA.style "color" "#5b6b82", HA.style "font-size" "11px", HA.style "margin" "6px 0 2px" ] [ Html.text bag ]
-                    :: List.map (\( i, def ) -> sheetItem i def) items
+                    :: List.map (\( i, def ) -> sheetItem shopping i def) items
     in
     List.concatMap section bags
 
@@ -921,16 +928,24 @@ sheetStat label value =
         ]
 
 
-sheetItem : Int -> Content.ItemDef -> Html Msg
-sheetItem i def =
+sheetItem : Bool -> Int -> Content.ItemDef -> Html Msg
+sheetItem shopping i def =
     Html.div [ HA.class "rg-item-row" ]
-        [ Html.button [ onClick (GameMsg (Game.Use i)), HA.class "rg-btn rg-item-use" ]
+        ([ Html.button [ onClick (GameMsg (Game.Use i)), HA.class "rg-btn rg-item-use" ]
             [ Html.span [ HA.style "color" def.color ] [ Html.text (String.fromInt (i + 1) ++ ". " ++ def.name) ]
             , Html.span [ HA.class "rg-item-desc" ] [ Html.text (Content.describe def) ]
             ]
-        , Html.button [ onClick (GameMsg (Game.Drop i)), HA.class "rg-btn rg-item-drop" ]
-            [ Html.text "✕" ]
-        ]
+         ]
+            ++ (if shopping then
+                    [ Html.button [ onClick (GameMsg (Game.Sell i)), HA.class "rg-btn rg-item-drop" ] [ Html.text "💰" ] ]
+
+                else
+                    []
+               )
+            ++ [ Html.button [ onClick (GameMsg (Game.Drop i)), HA.class "rg-btn rg-item-drop" ]
+                    [ Html.text "✕" ]
+               ]
+        )
 
 
 {-| A hotbar of the first inventory items: a tappable quick-use button per item (numbered, matching the
