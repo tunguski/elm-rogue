@@ -3354,7 +3354,13 @@ knockBack pos game =
                 occupied =
                     enemyAt dest game /= Nothing || dest == game.hero.pos
             in
-            if Level.isPassableAt dest game.level && not occupied then
+            if Level.at dest game.level == Chasm && not occupied && not e.ally then
+                -- Hurled over the edge: the foe plunges into the chasm and is gone.
+                { game | enemies = List.filter (\x -> x.pos /= pos) game.enemies, kills = game.kills + 1 }
+                    |> gainXp e.def.xp
+                    |> addLog ("The " ++ e.def.name ++ " is hurled screaming into the chasm!")
+
+            else if Level.isPassableAt dest game.level && not occupied then
                 { game | enemies = updateEnemyAt pos (\x -> { x | pos = dest }) game.enemies }
 
             else
