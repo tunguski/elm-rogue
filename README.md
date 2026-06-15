@@ -167,6 +167,13 @@ engine plays it.
   deep-floor **ambient hazards** (quakes & gas vents), **monster packs**, a hexing **warlock**, original
   **bestiary lore**, a blacksmith **fetch quest**, more **achievements**, and **end-of-run scoring**.
 
+- **Set 10 — more parity:** a thrown **frost potion**, the **Ring of Regeneration**, a **ghoul** that
+  rises once when felled, a **spore fungus**, the succubus's **charm**, floor-arrival **feelings**,
+  **garden** & **armory** special rooms, knockback that **hurls foes into chasms**, a **blink** scroll,
+  **varied altar blessings**, **boss bonus loot**, **reach** (spear) and **heavy** (warhammer) weapons,
+  a returning **boomerang**, a **fire elemental**, the **Wand of Warding**, **well-fed** regeneration,
+  two new **challenges** (+score bonus), and three tier-3 **talents**.
+
 Every system above is data behind the same two seams — content is a `Ruleset`, rendering is a
 `Renderer` — so mods extend all of it. Run the tests with `ELM=../../elm.sh ./test.sh`; see
 [PERFORMANCE.md](PERFORMANCE.md) for the rendering/speed analysis. Iterating toward Pixel-Dungeon
