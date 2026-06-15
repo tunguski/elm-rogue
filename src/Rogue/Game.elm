@@ -3865,6 +3865,27 @@ applyEffect def game =
                 Nothing ->
                     addLog "You read the scroll, but there is no creature in sight to transform." game
 
+        Blink ->
+            case nearestVisibleEnemy game of
+                Just target ->
+                    let
+                        spot =
+                            Grid.neighbors8 target.pos
+                                |> List.filter (\p -> Level.isPassableAt p game.level && enemyAt p game == Nothing && p /= game.hero.pos)
+                                |> List.sortBy (\p -> Grid.chebyshev p game.hero.pos)
+                                |> List.head
+                    in
+                    case spot of
+                        Just p ->
+                            refreshFov { game | hero = { hero | pos = p } }
+                                |> addLog "Reality folds — you blink to your quarry's side!"
+
+                        Nothing ->
+                            addLog "You read the scroll, but there is no room beside your target." game
+
+                Nothing ->
+                    addLog "You read the scroll, but no foe is in sight to blink toward." game
+
         SummonDecoy ->
             let
                 free =
@@ -4158,6 +4179,8 @@ scrollPalette =
     , { adjective = "ULAR", color = "#c8b890" }
     , { adjective = "DROV", color = "#b0a8c8" }
     , { adjective = "SKAL", color = "#c8a890" }
+    , { adjective = "BRIX", color = "#a0c8b0" }
+    , { adjective = "VOTH", color = "#c8c090" }
     ]
 
 

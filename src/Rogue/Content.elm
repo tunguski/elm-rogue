@@ -123,6 +123,7 @@ type ItemEffect
     | Polymorph
     | SummonDecoy
     | Freeze Int
+    | Blink
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -438,6 +439,9 @@ describeEffect effect =
 
         Freeze radius ->
             "thrown: freezes water and chills foes within " ++ String.fromInt radius ++ " tiles"
+
+        Blink ->
+            "blinks you next to a distant foe"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}

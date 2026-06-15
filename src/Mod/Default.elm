@@ -102,6 +102,7 @@ ruleset =
         , scrollOfUpgrade
         , scrollOfRecharging
         , scrollOfTerror
+        , scrollOfBlink
         , scrollOfPolymorph
         , scrollOfRemoveCurse
         , scrollOfLullaby
@@ -1657,6 +1658,19 @@ scrollOfTerror =
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 4
+    }
+
+
+scrollOfBlink : ItemDef
+scrollOfBlink =
+    { id = "scroll-blink"
+    , name = "scroll of blink"
+    , glyph = "?"
+    , color = "#a0e0ff"
+    , kind = Consumable Blink
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 3
     }
 
 
