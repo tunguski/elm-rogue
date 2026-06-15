@@ -93,6 +93,8 @@ type FeatureKind
     | Library
     | Pool
     | Pit
+    | Garden
+    | Armory
 
 
 type alias Feature =
@@ -576,7 +578,7 @@ pickFeatures rooms seed =
         treasure :: nest :: special :: _ ->
             let
                 ( pick, s2 ) =
-                    Rng.pick Library [ Library, Pool, Pit ] seed1
+                    Rng.pick Library [ Library, Pool, Pit, Garden, Armory ] seed1
             in
             ( [ { kind = Treasure, cells = roomCells treasure }
               , { kind = Nest, cells = roomCells nest }
@@ -614,6 +616,10 @@ paintFeature feature level =
                     cellsCenter feature.cells
             in
             paintInterior (\p _ -> Grid.chebyshev p c <= 1) Chasm feature.cells level
+
+        Garden ->
+            -- An overgrown greenhouse: the interior is thick with tall grass.
+            paintInterior (\_ _ -> True) Grass feature.cells level
 
         _ ->
             level

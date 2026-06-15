@@ -1678,6 +1678,28 @@ spawnFeatures ruleset depth features seed level =
 
                 Dungeon.Pit ->
                     ( accE, accI, s )
+
+                Dungeon.Garden ->
+                    let
+                        seeds =
+                            ruleset.items
+                                |> List.filter (\i -> String.startsWith "seed-" i.id)
+
+                        ( items, s2 ) =
+                            spawnFrom seeds depth (List.take 2 feature.cells) s
+                    in
+                    ( accE, items ++ accI, s2 )
+
+                Dungeon.Armory ->
+                    let
+                        gear =
+                            ruleset.items
+                                |> List.filter isGearLoot
+
+                        ( items, s2 ) =
+                            spawnFrom gear depth (List.take 3 feature.cells) s
+                    in
+                    ( accE, items ++ accI, s2 )
         )
         ( [], [], seed )
         features
