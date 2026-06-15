@@ -101,6 +101,7 @@ type StatusKind
     | Vulnerable
     | Crippled
     | Shielded
+    | Charmed
 
 
 type alias Status =
@@ -156,6 +157,9 @@ statusLabel status =
 
                 Shielded ->
                     "Shield " ++ String.fromInt status.magnitude
+
+                Charmed ->
+                    "Charmed"
     in
     name ++ " (" ++ String.fromInt status.turns ++ ")"
 
@@ -205,6 +209,9 @@ statusColor kind =
 
         Shielded ->
             "#82c8ff"
+
+        Charmed ->
+            "#e07ab0"
 
 
 hasStatus : StatusKind -> Hero -> Bool
@@ -1796,6 +1803,10 @@ update rawMsg rawGame =
         -- Paralysed: the action is lost but time still passes (monsters act, the status counts down).
         endTurn (addLog "You are paralysed and cannot move!" game)
 
+    else if hasStatus Charmed game.hero && isActionMsg msg && charmFalters game then
+        -- Charmed: now and then you stand transfixed, losing the action while the world moves on.
+        endTurn (addLog "You stand transfixed, charmed!" { game | seed = Tuple.second (Rng.int 2 game.seed) })
+
     else
         case msg of
             Move dir ->
@@ -1850,6 +1861,12 @@ update rawMsg rawGame =
 
 
 {-| Does this message represent a turn-consuming hero action (the kind paralysis blocks)? -}
+{-| Whether a charmed hero falters this action (≈50%), losing the turn to fascination. -}
+charmFalters : Game -> Bool
+charmFalters game =
+    Tuple.first (Rng.chance 50 game.seed)
+
+
 isActionMsg : Msg -> Bool
 isActionMsg msg =
     case msg of
@@ -1962,6 +1979,9 @@ abilityNote ability =
 
         Content.Spores ->
             " (spews spores)"
+
+        Content.Charms ->
+            " (charms on hit)"
 
 
 {-| The hero's intent for one cell: bumping a monster attacks it, an open cell is a step, a wall is a
@@ -5267,6 +5287,9 @@ attackHero enemy verb done acc =
 
             else if enemy.def.ability == Content.Weakens then
                 ( addEnemyStatus Weakened 1 5 hero.statuses, " A hex saps your strength!" )
+
+            else if enemy.def.ability == Content.Charms then
+                ( addEnemyStatus Charmed 1 4 hero.statuses, " You are charmed!" )
 
             else
                 ( hero.statuses, "" )
