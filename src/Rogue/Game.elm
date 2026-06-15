@@ -258,6 +258,18 @@ heroDamage hero =
                    else
                     0
                   )
+                + (if List.member "Executioner" hero.talents then
+                    4
+
+                   else
+                    0
+                  )
+                + (if List.member "Bloodlust" hero.talents && hero.hp * 2 <= hero.maxHp then
+                    3
+
+                   else
+                    0
+                  )
 
         weak =
             if hasStatus Weakened hero then
@@ -289,6 +301,12 @@ heroDefense hero =
             )
                 + (if List.member "Bulwark" hero.talents then
                     3
+
+                   else
+                    0
+                  )
+                + (if List.member "Last Stand" hero.talents && hero.hp * 2 <= hero.maxHp then
+                    4
 
                    else
                     0
@@ -874,6 +892,9 @@ talentChoices =
     , { name = "Heroism", desc = "+3 damage", minLevel = 7 }
     , { name = "Bulwark", desc = "+3 defense", minLevel = 7 }
     , { name = "Second Wind", desc = "heal fully now", minLevel = 7 }
+    , { name = "Executioner", desc = "+4 damage", minLevel = 7 }
+    , { name = "Bloodlust", desc = "+3 damage while below half HP", minLevel = 7 }
+    , { name = "Last Stand", desc = "+4 defense while below half HP", minLevel = 7 }
     ]
 
 
