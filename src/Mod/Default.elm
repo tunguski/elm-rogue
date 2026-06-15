@@ -88,6 +88,7 @@ ruleset =
         , dagger
         , shortSword
         , spear
+        , warhammer
         , mace
         , rapier
         , vampiricDagger
@@ -1244,6 +1245,19 @@ shortSword =
     , minDepth = 2
     , maxDepth = 6
     , spawnWeight = 5
+    }
+
+
+warhammer : ItemDef
+warhammer =
+    { id = "warhammer"
+    , name = "warhammer"
+    , glyph = "/"
+    , color = "#c0707a"
+    , kind = Equipment WeaponSlot { damage = 11, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "" }
+    , minDepth = 6
+    , maxDepth = 99
+    , spawnWeight = 3
     }
 
 

@@ -2033,7 +2033,7 @@ tryMove dir game =
     in
     case enemyAt target game of
         Just enemy ->
-            endTurn (heroAttack enemy game)
+            endTurn (heavyRecovery (heroAttack enemy game))
 
         Nothing ->
             -- Reach weapons (spear) strike a foe two cells away in a straight line, through the empty
@@ -2077,6 +2077,26 @@ weaponReach maybeWeapon =
 
         Nothing ->
             False
+
+
+{-| Heavy weapons hit hard but are unwieldy: each swing leaves the hero briefly Slowed, so foes get an
+extra beat to act. The big base damage lives in the weapon's stats; this is the recovery cost. -}
+heavyRecovery : Game -> Game
+heavyRecovery game =
+    let
+        heavy =
+            case game.hero.weapon of
+                Just w ->
+                    w.id == "warhammer" || w.id == "blazing-mace"
+
+                Nothing ->
+                    False
+    in
+    if heavy then
+        addStatus Slowed 1 1 game
+
+    else
+        game
 
 
 moveOrInteract : Dir -> Pos -> Game -> Game
