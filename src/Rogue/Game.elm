@@ -5328,7 +5328,42 @@ endTurn game =
         recharged =
             rechargeAbility (rechargeWands { afterHunger | turn = afterHunger.turn + 1 })
     in
-    checkQuest (maybeWander (cursedBackfire recharged))
+    checkQuest (maybeWander (ambientEvent (cursedBackfire recharged)))
+
+
+{-| Deep floors are unstable: an occasional ambient hazard (a quake raining rubble, or a vent of gas)
+keeps the depths tense even between fights. Only fires from the Caves down (depth >= 6). -}
+ambientEvent : Game -> Game
+ambientEvent game =
+    if game.depth < 6 || game.gameOver then
+        game
+
+    else
+        let
+            ( fires, seed1 ) =
+                Rng.chance 3 game.seed
+        in
+        if not fires then
+            { game | seed = seed1 }
+
+        else
+            let
+                ( pick, seed2 ) =
+                    Rng.int 2 seed1
+            in
+            if pick == 0 then
+                let
+                    ( dmg, seed3 ) =
+                        Rng.range 2 (2 + game.depth // 3) seed2
+                in
+                checkHeroDeath
+                    (damageHero dmg { game | seed = seed3 }
+                        |> addLog ("The floor heaves — falling rubble strikes you! (" ++ String.fromInt dmg ++ ")")
+                    )
+
+            else
+                spawnGas ToxicGasCloud 3 game.hero.pos { game | seed = seed2 }
+                    |> addLog "A vent cracks open, hissing toxic gas into the air!"
 
 
 {-| Cursed worn gear occasionally lashes out: a small chance each turn of a malign hiccup (a sting of
