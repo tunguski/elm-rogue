@@ -1332,7 +1332,11 @@ badgeDefs =
     , { id = "deep-diver", label = "Deep Diver", desc = "Reach depth 8", earned = \r -> r.depth >= 8 }
     , { id = "slayer", label = "Slayer", desc = "25 kills in a run", earned = \r -> r.kills >= 25 }
     , { id = "survivor", label = "Survivor", desc = "Survive 400 turns", earned = \r -> r.turns >= 400 }
+    , { id = "abyssal", label = "Abyssal", desc = "Reach depth 10", earned = \r -> r.depth >= 10 }
+    , { id = "centurion", label = "Centurion", desc = "100 kills in a run", earned = \r -> r.kills >= 100 }
+    , { id = "marathoner", label = "Marathoner", desc = "Survive 800 turns", earned = \r -> r.turns >= 800 }
     , { id = "victor", label = "Victor", desc = "Claim the Amulet", earned = \r -> r.won }
+    , { id = "swift-victor", label = "Swift Victor", desc = "Win in under 600 turns", earned = \r -> r.won && r.turns < 600 }
     ]
 
 
