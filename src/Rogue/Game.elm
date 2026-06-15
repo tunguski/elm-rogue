@@ -825,8 +825,15 @@ startChallenges ids game =
 
             else
                 frail
+
+        bareHanded =
+            if List.member "bare-handed" ids then
+                { stripped | weapon = Nothing, armour = Nothing }
+
+            else
+                stripped
     in
-    { game | challenges = ids, hero = stripped }
+    { game | challenges = ids, hero = bareHanded }
 
 
 {-| The optional run-modifier challenges (id, label, one-line effect). -}
@@ -840,6 +847,8 @@ challengeChoices =
     , ( "starvation", ( "On a Diet", "hunger sets in twice as fast" ) )
     , ( "badder-bosses", ( "Badder Bosses", "bosses are enraged from the start" ) )
     , ( "minimalist", ( "Minimalist", "begin with an empty pack" ) )
+    , ( "bare-handed", ( "Bare-Handed", "begin with no weapon or armour" ) )
+    , ( "swarming", ( "Swarming", "monsters wander in far more often" ) )
     ]
 
 
@@ -5887,8 +5896,9 @@ maybeWander : Game -> Game
 maybeWander game =
     let
         -- The Amulet's bearer is hunted: waves come twice as fast, larger, and already awake.
+        -- The Swarming challenge floods every floor the same way.
         interval =
-            if game.ascending then
+            if game.ascending || List.member "swarming" game.challenges then
                 20
 
             else
@@ -6652,17 +6662,23 @@ toScene game =
                 |> Maybe.map (\e -> e.def.name)
                 |> Maybe.withDefault ""
         , score =
-            max 0
-                ((game.depth * 120)
-                    + (game.kills * 15)
-                    + (if game.won then
-                        1500
+            let
+                base =
+                    (game.depth * 120)
+                        + (game.kills * 15)
+                        + (if game.won then
+                            1500
 
-                       else
-                        0
-                      )
-                    - (game.turn // 20)
-                )
+                           else
+                            0
+                          )
+                        - (game.turn // 20)
+
+                -- Each active challenge modifier is worth a +20% score bonus.
+                multiplier =
+                    100 + 20 * List.length game.challenges
+            in
+            max 0 (base * multiplier // 100)
         , inventory = List.map (displayName game.idents) (List.filter (\d -> not (isKey d)) game.hero.inventory)
         , log = List.take 7 game.log
         , gameOver = game.gameOver
