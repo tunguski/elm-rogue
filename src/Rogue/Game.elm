@@ -934,12 +934,29 @@ enterLevel ruleset depth kills idents seed gen hero log =
                 Nothing ->
                     []
 
+        -- A "feeling" on arrival, SPD-style: a quick read of how this floor is shaping up.
+        feeling =
+            if not (List.isEmpty bossEnemy) then
+                "A powerful presence guards this floor!"
+
+            else if List.length enemies >= Content.spawnCountForDepth depth + 4 then
+                "This floor crawls with danger."
+
+            else if List.length enemies <= 1 then
+                "An uneasy quiet hangs in the air."
+
+            else if List.length items >= Content.itemCountForDepth depth + 2 then
+                "You sense the glint of treasure nearby."
+
+            else
+                ""
+
         bossLog =
-            if List.isEmpty bossEnemy then
+            if feeling == "" then
                 log
 
             else
-                "A powerful presence guards this floor!" :: log
+                feeling :: log
 
         ( shop, seed7 ) =
             if shopDepth depth then
