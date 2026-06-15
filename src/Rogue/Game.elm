@@ -2927,6 +2927,9 @@ isThrown eff =
         ThrownTipped _ _ ->
             True
 
+        Freeze _ ->
+            True
+
         _ ->
             False
 
@@ -3001,6 +3004,22 @@ applyThrownEffect eff target game =
 
         ToxicGas _ ->
             spawnGas CausticGasCloud 6 target game
+
+        Freeze radius ->
+            let
+                chilled =
+                    List.map
+                        (\e ->
+                            if Grid.chebyshev e.pos target <= radius then
+                                { e | statuses = addEnemyStatus Crippled 1 5 (addEnemyStatus Slowed 1 4 e.statuses), alerted = True }
+
+                            else
+                                e
+                        )
+                        game.enemies
+            in
+            freezeWaterNear target { game | enemies = chilled }
+                |> addLog "The flask bursts in a blast of frost!"
 
         ThrownHit power ->
             case enemyAt target game of

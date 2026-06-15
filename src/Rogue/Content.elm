@@ -120,6 +120,7 @@ type ItemEffect
     | Shield Int
     | Polymorph
     | SummonDecoy
+    | Freeze Int
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -432,6 +433,9 @@ describeEffect effect =
 
         SummonDecoy ->
             "conjures a sheep decoy to draw enemy attacks"
+
+        Freeze radius ->
+            "thrown: freezes water and chills foes within " ++ String.fromInt radius ++ " tiles"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}

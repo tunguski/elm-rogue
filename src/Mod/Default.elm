@@ -55,6 +55,7 @@ ruleset =
         , greaterHealingPotion
         , potionOfStrength
         , potionOfShielding
+        , potionOfFrost
         , potionOfRegeneration
         , potionOfHaste
         , potionOfInvisibility
@@ -789,6 +790,19 @@ potionOfStrength =
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 5
+    }
+
+
+potionOfFrost : ItemDef
+potionOfFrost =
+    { id = "potion-frost"
+    , name = "potion of frost"
+    , glyph = "!"
+    , color = "#8fd0e0"
+    , kind = Consumable (Freeze 2)
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 4
     }
 
 
