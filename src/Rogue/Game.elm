@@ -2437,7 +2437,7 @@ blessAtAltar game =
 
             hadCurse =
                 List.any isCursed (List.filterMap identity [ hero.weapon, hero.armour, hero.ring ])
-        in
+
             ( boon, seed1 ) =
                 Rng.int 3 game.seed
 
