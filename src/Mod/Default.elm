@@ -38,6 +38,7 @@ ruleset =
         , caveBat
         , piranha
         , stoneGolem
+        , warlock
         , necromancer
         , dwarfMonk
         , demon
@@ -552,6 +553,27 @@ stoneGolem =
     , spawnWeight = 4
     , xp = 10
     , drop = Just "mail-armour"
+    }
+
+
+warlock : EnemyDef
+warlock =
+    { id = "warlock"
+    , name = "warlock"
+    , glyph = "n"
+    , color = "#c89bff"
+    , maxHp = 18
+    , damage = 5
+    , defense = 1
+    , speed = 1
+    , ranged = 5
+    , ability = Weakens
+    , boss = False
+    , minDepth = 7
+    , maxDepth = 12
+    , spawnWeight = 3
+    , xp = 9
+    , drop = Nothing
     }
 
 

@@ -1946,6 +1946,9 @@ abilityNote ability =
         Content.Aquatic ->
             " (aquatic)"
 
+        Content.Weakens ->
+            " (hexes on hit)"
+
 
 {-| The hero's intent for one cell: bumping a monster attacks it, an open cell is a step, a wall is a
 no-op (costs no turn). A turn-consuming action is followed by every monster taking its turn. -}
@@ -5188,10 +5191,13 @@ attackHero enemy verb done acc =
         hero =
             acc.hero
 
-        -- A blazing champion sets the hero alight on a hit.
+        -- A blazing champion sets the hero alight on a hit; a warlock's hex saps strength.
         ( burnt, burnLog ) =
             if enemy.def.ability == Content.Burns then
                 ( addEnemyStatus Burn 3 3 hero.statuses, " You catch fire!" )
+
+            else if enemy.def.ability == Content.Weakens then
+                ( addEnemyStatus Weakened 1 5 hero.statuses, " A hex saps your strength!" )
 
             else
                 ( hero.statuses, "" )
