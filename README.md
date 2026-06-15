@@ -160,6 +160,13 @@ engine plays it.
   **enchantment choice**, **run scoring** with a personal best, **tipped darts** (alchemy throwing), and
   **status pips** over actors.
 
+- **Set 9 — systems depth:** **shop selling**, **recoverable thrown weapons**, **seeds** you can sow,
+  a **honeypot** that looses friendly bees, the **Talisman of Foresight**, **trap disarming**, the
+  **Wand of Transfusion**, **shielding** as a real absorb layer, a **polymorph** scroll (and **sheep**
+  decoys), **cursed-gear backfire** with altar **uncursing**, **ice** that frost freezes onto water,
+  deep-floor **ambient hazards** (quakes & gas vents), **monster packs**, a hexing **warlock**, original
+  **bestiary lore**, a blacksmith **fetch quest**, more **achievements**, and **end-of-run scoring**.
+
 Every system above is data behind the same two seams — content is a `Ruleset`, rendering is a
 `Renderer` — so mods extend all of it. Run the tests with `ELM=../../elm.sh ./test.sh`; see
 [PERFORMANCE.md](PERFORMANCE.md) for the rendering/speed analysis. Iterating toward Pixel-Dungeon
