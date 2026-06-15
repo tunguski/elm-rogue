@@ -4273,12 +4273,36 @@ searchTraps game =
         ( level1, doorsFound ) =
             revealSecretsNear (\p -> near p) game.level game.hero.pos
 
+        -- Searching also tries to disarm adjacent (now-revealed) traps — each ~55% to dismantle.
+        ( keptTraps, disarmed, seed1 ) =
+            List.foldl
+                (\t ( kept, n, s ) ->
+                    if near t.pos && t.revealed then
+                        let
+                            ( roll, s2 ) =
+                                Rng.chance 55 s
+                        in
+                        if roll then
+                            ( kept, n + 1, s2 )
+
+                        else
+                            ( t :: kept, n, s2 )
+
+                    else
+                        ( t :: kept, n, s )
+                )
+                ( [], 0, game.seed )
+                revealedTraps
+
         total =
             trapsFound + doorsFound
     in
-    { game | traps = revealedTraps, level = level1 }
+    { game | traps = List.reverse keptTraps, level = level1, seed = seed1 }
         |> addLog
-            (if total > 0 then
+            (if disarmed > 0 then
+                "You find and disarm " ++ String.fromInt disarmed ++ " trap(s)."
+
+             else if total > 0 then
                 "You find " ++ String.fromInt total ++ " hidden thing(s) nearby!"
 
              else
