@@ -2801,11 +2801,49 @@ throwConsumable index def eff game =
 
         name =
             displayName game.idents def
+
+        resolved =
+            applyThrownEffect eff target { consumed | seed = consumed.seed }
+                |> identify def
+                |> addLog ("You hurl the " ++ name ++ "!")
+
+        -- Thrown *weapons* (darts/javelins/tipped) clatter to the floor to be reclaimed; a fraction
+        -- shatter on impact. Lobbed potions/bombs always shatter and leave nothing.
+        ( recovers, seedR ) =
+            if isRecoverableThrow eff then
+                Rng.chance 66 resolved.seed
+
+            else
+                ( False, resolved.seed )
+
+        landing =
+            if Level.isPassableAt target resolved.level then
+                target
+
+            else
+                hero.pos
     in
-    applyThrownEffect eff target { consumed | seed = consumed.seed }
-        |> identify def
-        |> addLog ("You hurl the " ++ name ++ "!")
+    (if recovers then
+        { resolved | seed = seedR, items = { def = def, pos = landing } :: resolved.items }
+
+     else
+        { resolved | seed = seedR }
+    )
         |> endTurn
+
+
+{-| Thrown weapons that can be picked back up after they land (as opposed to shattering consumables). -}
+isRecoverableThrow : ItemEffect -> Bool
+isRecoverableThrow eff =
+    case eff of
+        ThrownHit _ ->
+            True
+
+        ThrownTipped _ _ ->
+            True
+
+        _ ->
+            False
 
 
 {-| Resolve a thrown effect bursting at `target`. -}
