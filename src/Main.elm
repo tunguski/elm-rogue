@@ -816,11 +816,96 @@ bestiaryRow seen def =
             [ Html.span [ HA.style "color" def.color ] [ Html.text (def.glyph ++ "  " ++ def.name) ]
             , Html.span [ HA.class "rg-item-desc" ]
                 [ Html.text ("HP " ++ String.fromInt def.maxHp ++ " · DMG " ++ String.fromInt def.damage ++ " · DEF " ++ String.fromInt def.defense ++ " · " ++ String.fromInt def.xp ++ "xp") ]
+            , Html.div [ HA.class "rg-item-desc", HA.style "width" "100%", HA.style "font-style" "italic", HA.style "opacity" "0.8" ]
+                [ Html.text (bestiaryLore def.id) ]
             ]
 
     else
         Html.div [ HA.class "rg-bestiary-row", HA.style "color" "#3f4b5e" ]
             [ Html.text "????  — undiscovered" ]
+
+
+{-| A short, original flavour line for each monster, shown once it's been encountered. -}
+bestiaryLore : String -> String
+bestiaryLore id =
+    case id of
+        "rat" ->
+            "A scrawny sewer rat, bold only in numbers."
+
+        "marsupial-rat" ->
+            "A pouched cousin of the sewer rat, quicker and meaner."
+
+        "gnoll-scout" ->
+            "A wiry skirmisher that ranges ahead of the warband."
+
+        "gnoll-archer" ->
+            "Keeps its distance and looses crude arrows from the dark."
+
+        "crab" ->
+            "An armour-shelled scavenger; its claws crack bone."
+
+        "skeleton" ->
+            "Animated bones that clatter back up unless truly shattered."
+
+        "swarm" ->
+            "A churning cloud of biting flies that splits when struck."
+
+        "slime" ->
+            "A corrosive ooze that digests anything it engulfs."
+
+        "thief" ->
+            "A nimble cutpurse that grabs your gold and bolts."
+
+        "gnoll-brute" ->
+            "A slab of muscle and scars that hits like a falling wall."
+
+        "gnoll-shaman" ->
+            "Channels crude spirit-magic to mend and madden its kin."
+
+        "prison-guard" ->
+            "A disciplined jailer in heavy mail, slow but unyielding."
+
+        "cave-bat" ->
+            "A leathery flier that darts erratically for the throat."
+
+        "piranha" ->
+            "A frenzy of teeth that never leaves the water."
+
+        "stone-golem" ->
+            "A lumbering construct of living rock, near impervious."
+
+        "warlock" ->
+            "A hooded hexer whose curses wither flesh from afar."
+
+        "necromancer" ->
+            "Calls the restless dead to swell its grim ranks."
+
+        "dwarf-monk" ->
+            "A bare-fisted ascetic whose strikes shatter guard and bone."
+
+        "demon" ->
+            "A horned fiend wreathed in heat, hungry for souls."
+
+        "succubus" ->
+            "A beguiling terror that drains the will of the smitten."
+
+        "sheep" ->
+            "Harmless and bewildered — once something far worse."
+
+        "gnoll-warlord" ->
+            "The warband's iron-fisted chieftain, enraged by blood."
+
+        "spider-queen" ->
+            "A bloated matriarch trailing broods of venomous young."
+
+        "dwarf-king" ->
+            "The last crowned ruler of the buried city, raised in undeath."
+
+        "yog-dzewa" ->
+            "An ancient horror dreaming at the dungeon's rotten heart."
+
+        _ ->
+            "A denizen of the deep dungeon."
 
 
 sheetView : Game -> Html Msg
