@@ -2089,14 +2089,25 @@ talkToNpc game =
                         )
 
                 Blacksmith ->
-                    case hero.weapon of
-                        Just _ ->
+                    case ( hero.weapon, Content.findItem "scroll-upgrade" game.ruleset ) of
+                        ( Just _, Just upgradeScroll ) ->
+                            -- A smith's bargain: mine him dark ore from deeper down (reach depth+2),
+                            -- and he forwards a reforging scroll for your trouble.
+                            endTurn
+                                ({ game
+                                    | npc = Nothing
+                                    , quest = Just { targetKills = 0, targetDepth = game.depth + 2, reward = upgradeScroll, giver = "blacksmith" }
+                                 }
+                                    |> addLog "The blacksmith strikes a bargain: bring him dark ore from two floors down for a reforging."
+                                )
+
+                        ( Just _, Nothing ) ->
                             endTurn
                                 ({ game | npc = Nothing, hero = { hero | weapon = Maybe.map enchant hero.weapon } }
                                     |> addLog "The blacksmith reforges your weapon — it gleams sharper (+1)."
                                 )
 
-                        Nothing ->
+                        ( Nothing, _ ) ->
                             endTurn
                                 ({ game | npc = Nothing }
                                     |> addLog "The blacksmith shrugs — you carry no weapon to reforge."
