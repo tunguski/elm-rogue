@@ -503,6 +503,7 @@ type alias Game =
     , traps : List Trap
     , gas : Dict ( Int, Int ) Gas
     , fire : Dict ( Int, Int ) Int
+    , ice : Dict ( Int, Int ) Int
     , plants : Dict ( Int, Int ) PlantKind
     , idents : Idents
     , depth : Int
@@ -1006,6 +1007,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
 
         else
             Dict.empty
+    , ice = Dict.empty
     , plants = plants
     , idents = idents
     , depth = depth
@@ -3151,6 +3153,9 @@ wandChainOrSplash element center game =
                         (cellsWithin 1 center)
             in
             { game | level = grown } |> addLog "Grass erupts and entangles the area!"
+
+        "frost" ->
+            freezeWaterNear center game
 
         "transfusion" ->
             let
@@ -5311,8 +5316,11 @@ endTurn game =
         afterFire =
             tickFire afterGas
 
+        afterIce =
+            tickIce afterFire
+
         afterPerception =
-            passivePerception afterFire
+            passivePerception afterIce
 
         afterHunger =
             tickHunger afterPerception
@@ -5736,6 +5744,48 @@ tickFire game =
         applyFireEffects { game | fire = Dict.fromList alive, level = scorched }
 
 
+{-| Freeze the Water cells within one tile of `center` into ice patches (a timed overlay), dousing any
+fire there. Ice is walkable (water already is) but visibly frozen, thawing back over several turns. -}
+freezeWaterNear : Pos -> Game -> Game
+freezeWaterNear center game =
+    let
+        frozen =
+            cellsWithin 1 center
+                |> List.filter (\p -> Level.at p game.level == Water)
+    in
+    if List.isEmpty frozen then
+        game
+
+    else
+        { game
+            | ice = List.foldl (\p d -> Dict.insert ( p.x, p.y ) 12 d) game.ice frozen
+            , fire = List.foldl (\p d -> Dict.remove ( p.x, p.y ) d) game.fire frozen
+        }
+
+
+{-| Count down ice patches each turn, thawing those that reach zero back to open water. -}
+tickIce : Game -> Game
+tickIce game =
+    if Dict.isEmpty game.ice then
+        game
+
+    else
+        { game
+            | ice =
+                game.ice
+                    |> Dict.toList
+                    |> List.filterMap
+                        (\( k, t ) ->
+                            if t - 1 > 0 then
+                                Just ( k, t - 1 )
+
+                            else
+                                Nothing
+                        )
+                    |> Dict.fromList
+        }
+
+
 {-| Burn the hero and any monster standing in fire this turn. -}
 applyFireEffects : Game -> Game
 applyFireEffects game =
@@ -6053,6 +6103,17 @@ toScene game =
                         (\( ( x, y ), t ) ->
                             if Set.member ( x, y ) game.visible then
                                 Just { pos = { x = x, y = y }, color = "#ff6a2a", alpha = min 0.7 (0.3 + toFloat t * 0.1) }
+
+                            else
+                                Nothing
+                        )
+               )
+            ++ (game.ice
+                    |> Dict.toList
+                    |> List.filterMap
+                        (\( ( x, y ), _ ) ->
+                            if Set.member ( x, y ) game.visible then
+                                Just { pos = { x = x, y = y }, color = "#bfe6ff", alpha = 0.34 }
 
                             else
                                 Nothing
