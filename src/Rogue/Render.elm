@@ -91,6 +91,7 @@ type alias Hud =
     , ability : String
     , keyring : String
     , boss : String
+    , score : Int
     , statuses : List String
     , inventory : List String
     , log : List String
@@ -119,6 +120,7 @@ emptyHud =
     , ability = ""
     , keyring = ""
     , boss = ""
+    , score = 0
     , statuses = []
     , inventory = []
     , log = []

@@ -365,6 +365,8 @@ overlayView hud =
             , Html.div [ HA.class "rg-banner-sub" ]
                 [ Html.text ("Depth " ++ String.fromInt hud.depth ++ " " ++ hud.region ++ " · level " ++ String.fromInt hud.level) ]
             , Html.div [ HA.class "rg-banner-sub" ]
+                [ Html.text ("Score " ++ String.fromInt hud.score) ]
+            , Html.div [ HA.class "rg-banner-sub" ]
                 [ Html.text "press R to play again" ]
             ]
 

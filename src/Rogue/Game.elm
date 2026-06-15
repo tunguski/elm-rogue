@@ -6339,6 +6339,18 @@ toScene game =
                 |> List.head
                 |> Maybe.map (\e -> e.def.name)
                 |> Maybe.withDefault ""
+        , score =
+            max 0
+                ((game.depth * 120)
+                    + (game.kills * 15)
+                    + (if game.won then
+                        1500
+
+                       else
+                        0
+                      )
+                    - (game.turn // 20)
+                )
         , inventory = List.map (displayName game.idents) (List.filter (\d -> not (isKey d)) game.hero.inventory)
         , log = List.take 7 game.log
         , gameOver = game.gameOver
