@@ -1960,6 +1960,9 @@ abilityNote ability =
         Content.Weakens ->
             " (hexes on hit)"
 
+        Content.Spores ->
+            " (spews spores)"
+
 
 {-| The hero's intent for one cell: bumping a monster attacks it, an open cell is a step, a wall is a
 no-op (costs no turn). A turn-consuming action is followed by every monster taking its turn. -}
@@ -5179,6 +5182,22 @@ applyEnemyAuras game =
         { game | enemies = List.map mend game.enemies }
 
 
+{-| Fungal monsters periodically belch a small spore cloud at their feet — a creeping toxic hazard
+that pressures the hero to finish them quickly rather than trade blows in the haze. -}
+applySpores : Game -> Game
+applySpores game =
+    let
+        sporers =
+            game.enemies
+                |> List.filter (\e -> e.def.ability == Content.Spores && not e.ally)
+    in
+    if List.isEmpty sporers || modBy 3 game.turn /= 0 then
+        game
+
+    else
+        List.foldl (\e g -> spawnGas ToxicGasCloud 2 e.pos g) game sporers
+
+
 {-| A thief grabs gold and bolts for the exit. -}
 stealAndFlee : Enemy -> Int -> List Enemy -> TurnAcc -> ( List Enemy, TurnAcc )
 stealAndFlee enemy amount done acc =
@@ -5406,7 +5425,7 @@ endTurn game =
             tickEnemyStatuses bumped
 
         afterAuras =
-            applyEnemyAuras afterEnemyDot
+            applySpores (applyEnemyAuras afterEnemyDot)
 
         afterHazards =
             applyBossHazards afterAuras

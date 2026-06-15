@@ -47,6 +47,7 @@ type MonsterAbility
     | SummonsAllies
     | Aquatic
     | Weakens
+    | Spores
 
 
 {-| A monster archetype. Instances in play (`Rogue.Game.Enemy`) carry a copy of their `EnemyDef`, so

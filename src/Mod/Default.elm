@@ -38,6 +38,7 @@ ruleset =
         , caveBat
         , piranha
         , stoneGolem
+        , sporeFungus
         , ghoul
         , warlock
         , necromancer
@@ -556,6 +557,27 @@ stoneGolem =
     , spawnWeight = 4
     , xp = 10
     , drop = Just "mail-armour"
+    }
+
+
+sporeFungus : EnemyDef
+sporeFungus =
+    { id = "spore-fungus"
+    , name = "spore fungus"
+    , glyph = "f"
+    , color = "#9bd06a"
+    , maxHp = 14
+    , damage = 4
+    , defense = 1
+    , speed = 1
+    , ranged = 0
+    , ability = Spores
+    , boss = False
+    , minDepth = 4
+    , maxDepth = 9
+    , spawnWeight = 4
+    , xp = 5
+    , drop = Nothing
     }
 
 

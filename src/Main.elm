@@ -874,6 +874,9 @@ bestiaryLore id =
         "stone-golem" ->
             "A lumbering construct of living rock, near impervious."
 
+        "spore-fungus" ->
+            "A bloated growth that coughs choking spores into the air around it."
+
         "ghoul" ->
             "A loathsome corpse-eater that drags itself back up once felled."
 
