@@ -118,6 +118,7 @@ type ItemEffect
     | Foresight Int
     | Shield Int
     | Polymorph
+    | SummonDecoy
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -427,6 +428,9 @@ describeEffect effect =
 
         Polymorph ->
             "transforms a visible foe into a harmless sheep"
+
+        SummonDecoy ->
+            "conjures a sheep decoy to draw enemy attacks"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}

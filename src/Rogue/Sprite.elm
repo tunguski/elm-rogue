@@ -224,6 +224,8 @@ sheet key =
         "demon" -> Just demon
         "succubus" -> Just succubus
         "ghost-ally" -> Just ghost
+        "bee-ally" -> Just swarm
+        "sheep" -> Just sheep
         "spider-queen" -> Just spiderQueen
         "dwarf-king" -> Just dwarfKing
         "yog-dzewa" -> Just yogDzewa
@@ -700,6 +702,24 @@ succubus =
         , "..XmmmmmX..."
         , "..Xm..mX...."
         , "..XX..XX...."
+        ]
+
+
+sheep : Sprite
+sheep =
+    Sprite 12
+        [ "............"
+        , "............"
+        , "...wwww....."
+        , "..wwwwww...."
+        , ".wwXwwXww..."
+        , ".kkwwwwkk..."
+        , ".kfwwwwfk..."
+        , ".. wwwww f.."
+        , "..wwwwww...."
+        , "..k.ww.k...."
+        , "..k.ww.k...."
+        , "............"
         ]
 
 

@@ -3670,6 +3670,21 @@ applyEffect def game =
                 Nothing ->
                     addLog "You read the scroll, but there is no creature in sight to transform." game
 
+        SummonDecoy ->
+            let
+                free =
+                    Grid.neighbors8 game.hero.pos
+                        |> List.filter (\p -> Level.isPassableAt p game.level && enemyAt p game == Nothing)
+                        |> List.head
+            in
+            case free of
+                Just spot ->
+                    { game | enemies = { def = sheepDef, pos = spot, hp = sheepDef.maxHp, alerted = True, fleeing = False, statuses = [], ally = True } :: game.enemies }
+                        |> addLog "A sheep decoy bleats into being, drawing your foes' attention!"
+
+                Nothing ->
+                    addLog "There is no room for a decoy to appear." game
+
         PlantSeed kindName ->
             case plantFromName kindName of
                 Just kind ->

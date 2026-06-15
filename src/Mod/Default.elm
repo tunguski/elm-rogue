@@ -71,6 +71,7 @@ ruleset =
         , seedSorrowmoss
         , seedEarthroot
         , honeypot
+        , decoyTotem
         , javelin
         , shuriken
         , ankh
@@ -922,6 +923,19 @@ poisonDarts =
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 0
+    }
+
+
+decoyTotem : ItemDef
+decoyTotem =
+    { id = "decoy-totem"
+    , name = "decoy totem"
+    , glyph = "%"
+    , color = "#cdd6e4"
+    , kind = Consumable SummonDecoy
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 2
     }
 
 
