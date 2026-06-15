@@ -70,6 +70,7 @@ ruleset =
         , seedFirebloom
         , seedSorrowmoss
         , seedEarthroot
+        , honeypot
         , javelin
         , shuriken
         , ankh
@@ -918,6 +919,19 @@ poisonDarts =
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 0
+    }
+
+
+honeypot : ItemDef
+honeypot =
+    { id = "honeypot"
+    , name = "honeypot"
+    , glyph = "%"
+    , color = "#e0b84b"
+    , kind = Consumable ReleaseBees
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 2
     }
 
 

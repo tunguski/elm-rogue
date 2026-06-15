@@ -2196,6 +2196,28 @@ ghostAllyDef depth =
     }
 
 
+{-| A short-lived friendly bee, released from a honeypot, that harries nearby foes. -}
+beeAllyDef : Int -> EnemyDef
+beeAllyDef depth =
+    { id = "bee-ally"
+    , name = "swarm of bees"
+    , glyph = "w"
+    , color = "#ecd24c"
+    , maxHp = 8 + depth
+    , damage = 3 + depth // 2
+    , defense = 1
+    , speed = 1
+    , ranged = 0
+    , ability = Content.NoAbility
+    , boss = False
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 0
+    , xp = 0
+    , drop = Nothing
+    }
+
+
 placeholderEnemyDef : EnemyDef
 placeholderEnemyDef =
     { id = "mimic"
@@ -3497,6 +3519,23 @@ applyEffect def game =
 
                 Nothing ->
                     addLog "There is no room for an ally to appear." game
+
+        ReleaseBees ->
+            let
+                free =
+                    Grid.neighbors8 game.hero.pos
+                        |> List.filter (\p -> Level.isPassableAt p game.level && enemyAt p game == Nothing)
+                        |> List.take 2
+
+                bees =
+                    List.map (\spot -> { def = beeAllyDef game.depth, pos = spot, hp = beeAllyDef game.depth |> .maxHp, alerted = True, fleeing = False, statuses = [], ally = True }) free
+            in
+            if List.isEmpty bees then
+                addLog "The honeypot shatters, but the bees find no room and disperse." game
+
+            else
+                { game | enemies = game.enemies ++ bees }
+                    |> addLog "The honeypot shatters — angry bees swarm to your defense!"
 
         PullNearest ->
             case nearestVisibleEnemy game of

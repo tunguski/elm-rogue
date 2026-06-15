@@ -114,6 +114,7 @@ type ItemEffect
     | Cleanse
     | ChargeAbility
     | PlantSeed String
+    | ReleaseBees
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -411,6 +412,9 @@ describeEffect effect =
 
         PlantSeed kind ->
             "plants " ++ kind ++ " where you stand"
+
+        ReleaseBees ->
+            "releases a swarm of friendly bees"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}
