@@ -5421,7 +5421,29 @@ endTurn game =
         recharged =
             rechargeAbility (rechargeWands { afterHunger | turn = afterHunger.turn + 1 })
     in
-    checkQuest (maybeWander (ambientEvent (cursedBackfire recharged)))
+    checkQuest (maybeWander (ambientEvent (cursedBackfire (ringRegen recharged))))
+
+
+{-| The Ring of Regeneration knits wounds over time: 1 HP back every few turns while it's worn. -}
+ringRegen : Game -> Game
+ringRegen game =
+    let
+        wearing =
+            case game.hero.ring of
+                Just r ->
+                    r.id == "ring-regen"
+
+                Nothing ->
+                    False
+
+        hero =
+            game.hero
+    in
+    if wearing && hero.hp < hero.maxHp && modBy 5 game.turn == 0 then
+        { game | hero = { hero | hp = min hero.maxHp (hero.hp + 1) } }
+
+    else
+        game
 
 
 {-| Deep floors are unstable: an occasional ambient hazard (a quake raining rubble, or a vent of gas)

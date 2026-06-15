@@ -121,6 +121,7 @@ ruleset =
         , wandDisintegration
         , wandRegrowth
         , ringOfPower
+        , ringOfRegeneration
         , ringOfProtection
         , ringOfMight
         , ringOfForce
@@ -1319,6 +1320,19 @@ plateArmour =
 
 
 -- RINGS ------------------------------------------------------------------------------------------
+
+
+ringOfRegeneration : ItemDef
+ringOfRegeneration =
+    { id = "ring-regen"
+    , name = "ring of regeneration"
+    , glyph = "="
+    , color = "#5dd47a"
+    , kind = Equipment RingSlot { damage = 0, defense = 0, maxHp = 4, plus = 0, cursed = False, enchant = "" }
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
 
 
 ringOfPower : ItemDef
