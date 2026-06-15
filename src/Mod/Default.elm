@@ -66,6 +66,10 @@ ruleset =
         , darts
         , poisonDarts
         , fireDarts
+        , seedSungrass
+        , seedFirebloom
+        , seedSorrowmoss
+        , seedEarthroot
         , javelin
         , shuriken
         , ankh
@@ -914,6 +918,58 @@ poisonDarts =
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 0
+    }
+
+
+seedSungrass : ItemDef
+seedSungrass =
+    { id = "seed-sungrass"
+    , name = "sungrass seed"
+    , glyph = "*"
+    , color = "#e0d24b"
+    , kind = Consumable (PlantSeed "sungrass")
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+seedFirebloom : ItemDef
+seedFirebloom =
+    { id = "seed-firebloom"
+    , name = "firebloom seed"
+    , glyph = "*"
+    , color = "#ff7a3c"
+    , kind = Consumable (PlantSeed "firebloom")
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+seedSorrowmoss : ItemDef
+seedSorrowmoss =
+    { id = "seed-sorrowmoss"
+    , name = "sorrowmoss seed"
+    , glyph = "*"
+    , color = "#9b6ad8"
+    , kind = Consumable (PlantSeed "sorrowmoss")
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+seedEarthroot : ItemDef
+seedEarthroot =
+    { id = "seed-earthroot"
+    , name = "earthroot seed"
+    , glyph = "*"
+    , color = "#8a6a4a"
+    , kind = Consumable (PlantSeed "earthroot")
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 2
     }
 
 

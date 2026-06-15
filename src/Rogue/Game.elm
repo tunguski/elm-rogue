@@ -3538,6 +3538,35 @@ applyEffect def game =
             { game | hero = { hero | abilityCharge = abilityMax } }
                 |> addLog "You read the scroll. Your class ability surges to full charge."
 
+        PlantSeed kindName ->
+            case plantFromName kindName of
+                Just kind ->
+                    { game | plants = Dict.insert ( hero.pos.x, hero.pos.y ) kind game.plants }
+                        |> addLog ("You sow the seed; " ++ kindName ++ " sprouts at your feet.")
+
+                Nothing ->
+                    addLog "The seed refuses to take root here." game
+
+
+{-| Map a seed/plant name to its `PlantKind` (for sowing seeds). -}
+plantFromName : String -> Maybe PlantKind
+plantFromName name =
+    case name of
+        "firebloom" ->
+            Just Firebloom
+
+        "sungrass" ->
+            Just Sungrass
+
+        "sorrowmoss" ->
+            Just Sorrowmoss
+
+        "earthroot" ->
+            Just Earthroot
+
+        _ ->
+            Nothing
+
 
 {-| Damage every monster the hero can see (a psionic blast / scroll of retribution). -}
 psionicBlast : Int -> Game -> Game

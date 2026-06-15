@@ -113,6 +113,7 @@ type ItemEffect
     | RandomScroll
     | Cleanse
     | ChargeAbility
+    | PlantSeed String
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -407,6 +408,9 @@ describeEffect effect =
 
         ChargeAbility ->
             "fully charges your class ability"
+
+        PlantSeed kind ->
+            "plants " ++ kind ++ " where you stand"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}
