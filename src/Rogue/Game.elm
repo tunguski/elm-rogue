@@ -5284,7 +5284,45 @@ endTurn game =
         recharged =
             rechargeAbility (rechargeWands { afterHunger | turn = afterHunger.turn + 1 })
     in
-    checkQuest (maybeWander recharged)
+    checkQuest (maybeWander (cursedBackfire recharged))
+
+
+{-| Cursed worn gear occasionally lashes out: a small chance each turn of a malign hiccup (a sting of
+damage or a brief debuff). The more cursed pieces equipped, the likelier it bites. -}
+cursedBackfire : Game -> Game
+cursedBackfire game =
+    let
+        cursedCount =
+            [ game.hero.weapon, game.hero.armour, game.hero.ring ]
+                |> List.filterMap identity
+                |> List.filter isCursed
+                |> List.length
+    in
+    if cursedCount == 0 then
+        game
+
+    else
+        let
+            ( fires, seed1 ) =
+                Rng.chance (4 * cursedCount) game.seed
+        in
+        if not fires then
+            { game | seed = seed1 }
+
+        else
+            let
+                ( which, seed2 ) =
+                    Rng.int 3 seed1
+            in
+            case which of
+                0 ->
+                    checkHeroDeath (damageHero 2 { game | seed = seed2 } |> addLog "Your cursed gear bites into you!")
+
+                1 ->
+                    addStatus Weakened 1 4 { game | seed = seed2 } |> addLog "A curse saps your strength."
+
+                _ ->
+                    addStatus Slowed 1 3 { game | seed = seed2 } |> addLog "Cursed gear drags at your limbs."
 
 
 {-| Build the hero's class-ability charge by one each turn, up to its maximum. -}
