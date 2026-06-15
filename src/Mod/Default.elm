@@ -123,6 +123,7 @@ ruleset =
         , ringOfTenacity
         , cloakOfShadows
         , hornOfPlenty
+        , talismanOfForesight
         , chaliceOfBlood
         , timekeepersHourglass
         , driedRose
@@ -1370,6 +1371,19 @@ hornOfPlenty =
     , glyph = "*"
     , color = "#e0c24b"
     , kind = Artifact { charge = 0, maxCharge = 30, effect = Feed 250 }
+    , minDepth = 2
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+talismanOfForesight : ItemDef
+talismanOfForesight =
+    { id = "talisman-foresight"
+    , name = "talisman of foresight"
+    , glyph = "*"
+    , color = "#9be0ff"
+    , kind = Artifact { charge = 0, maxCharge = 30, effect = Foresight 6 }
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 2

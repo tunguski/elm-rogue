@@ -3537,6 +3537,39 @@ applyEffect def game =
                 { game | enemies = game.enemies ++ bees }
                     |> addLog "The honeypot shatters — angry bees swarm to your defense!"
 
+        Foresight radius ->
+            let
+                origin =
+                    game.hero.pos
+
+                inRange =
+                    Level.positions game.level
+                        |> List.filter (\p -> Grid.chebyshev p origin <= radius)
+
+                ( revealedLevel, found ) =
+                    List.foldl
+                        (\p ( lv, n ) ->
+                            if Level.at p lv == SecretDoor then
+                                ( Level.set p Door lv, n + 1 )
+
+                            else
+                                ( lv, n )
+                        )
+                        ( game.level, 0 )
+                        inRange
+            in
+            { game
+                | level = revealedLevel
+                , explored = Set.union game.explored (Set.fromList (List.map (\p -> ( p.x, p.y )) inRange))
+            }
+                |> addLog
+                    (if found > 0 then
+                        "Foresight floods your mind — you sense the surroundings and " ++ String.fromInt found ++ " hidden door(s)."
+
+                     else
+                        "Foresight floods your mind — you sense the surroundings."
+                    )
+
         PullNearest ->
             case nearestVisibleEnemy game of
                 Just target ->

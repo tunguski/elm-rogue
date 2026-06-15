@@ -115,6 +115,7 @@ type ItemEffect
     | ChargeAbility
     | PlantSeed String
     | ReleaseBees
+    | Foresight Int
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -415,6 +416,9 @@ describeEffect effect =
 
         ReleaseBees ->
             "releases a swarm of friendly bees"
+
+        Foresight radius ->
+            "reveals the area and secret doors within " ++ String.fromInt radius ++ " tiles"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}
