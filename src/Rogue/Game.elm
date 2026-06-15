@@ -894,7 +894,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
             min (floorCount // 6) (Content.spawnCountForDepth depth + floorCount // 55)
 
         ( enemies, seed2 ) =
-            spawnEnemies ruleset depth (List.take enemyCount shuffledSpots) seed1
+            spawnEnemies ruleset depth (List.take enemyCount shuffledSpots) seed1 gen.level
 
         itemCount =
             Content.itemCountForDepth depth + floorCount // 120
@@ -916,7 +916,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
             spawnVault ruleset depth gen keySpots seed4
 
         ( featureEnemies, featureItems, seed6 ) =
-            spawnFeatures ruleset depth (floorFeatures gen) seed5
+            spawnFeatures ruleset depth (floorFeatures gen) seed5 gen.level
 
         bossEnemy =
             case Content.bossForDepth depth ruleset of
@@ -1039,8 +1039,8 @@ checkVictory game =
 
 {-| Drop a depth-appropriate, weight-chosen enemy on each of the given floor cells. Nothing spawns if
 the ruleset offers no enemies for this depth. Returns the monsters and the advanced seed. -}
-spawnEnemies : Ruleset -> Int -> List Pos -> Seed -> ( List Enemy, Seed )
-spawnEnemies ruleset depth spots seed =
+spawnEnemies : Ruleset -> Int -> List Pos -> Seed -> Level -> ( List Enemy, Seed )
+spawnEnemies ruleset depth spots seed level =
     let
         candidates =
             Content.enemiesForDepth depth ruleset
@@ -1050,19 +1050,76 @@ spawnEnemies ruleset depth spots seed =
             ( [], seed )
 
         ( _, firstDef ) :: _ ->
-            List.foldl
-                (\pos ( acc, s ) ->
-                    let
-                        ( def, s2 ) =
-                            Rng.pickWeighted firstDef candidates s
+            let
+                ( enemies, _, finalSeed ) =
+                    List.foldl
+                        (\pos ( acc, occupied, s ) ->
+                            if Set.member ( pos.x, pos.y ) occupied then
+                                ( acc, occupied, s )
 
-                        ( edef, s3 ) =
-                            maybeChampion depth def s2
-                    in
-                    ( { def = edef, pos = pos, hp = edef.maxHp, alerted = False, fleeing = False, statuses = [], ally = False } :: acc, s3 )
-                )
-                ( [], seed )
-                spots
+                            else
+                                let
+                                    ( def, s2 ) =
+                                        Rng.pickWeighted firstDef candidates s
+
+                                    ( edef, s3 ) =
+                                        maybeChampion depth def s2
+
+                                    leader =
+                                        { def = edef, pos = pos, hp = edef.maxHp, alerted = False, fleeing = False, statuses = [], ally = False }
+
+                                    -- Social monsters arrive with kin: pack-mates fill nearby free cells.
+                                    packSpots =
+                                        if packSize def.id > 0 then
+                                            Grid.neighbors8 pos
+                                                |> List.filter (\p -> level7Passable p level && not (Set.member ( p.x, p.y ) occupied) && p /= pos)
+                                                |> List.take (packSize def.id)
+
+                                        else
+                                            []
+
+                                    packMates =
+                                        List.map (\p -> { def = def, pos = p, hp = def.maxHp, alerted = False, fleeing = False, statuses = [], ally = False }) packSpots
+
+                                    occupied2 =
+                                        List.foldl (\p o -> Set.insert ( p.x, p.y ) o) (Set.insert ( pos.x, pos.y ) occupied) packSpots
+                                in
+                                ( leader :: packMates ++ acc, occupied2, s3 )
+                        )
+                        ( [], Set.empty, seed )
+                        spots
+            in
+            ( enemies, finalSeed )
+
+
+{-| How many extra pack-mates a monster type brings (0 = solitary). Social early-floor monsters travel
+in packs, deepening the "ambushed by a group" feel without changing the floor's spawn-point count. -}
+packSize : String -> Int
+packSize id =
+    case id of
+        "rat" ->
+            2
+
+        "marsupial-rat" ->
+            2
+
+        "gnoll-scout" ->
+            1
+
+        "swarm" ->
+            1
+
+        "cave-bat" ->
+            1
+
+        _ ->
+            0
+
+
+{-| Passability check for pack placement (a plain floor-ish cell, not a wall/door). -}
+level7Passable : Pos -> Level -> Bool
+level7Passable p level =
+    Level.isPassableAt p level
 
 
 {-| Now and then (more often deeper) a monster is promoted to a **champion** with one of four
@@ -1547,8 +1604,8 @@ floorFeatures gen =
         gen.features
 
 
-spawnFeatures : Ruleset -> Int -> List Dungeon.Feature -> Seed -> ( List Enemy, List ItemOnFloor, Seed )
-spawnFeatures ruleset depth features seed =
+spawnFeatures : Ruleset -> Int -> List Dungeon.Feature -> Seed -> Level -> ( List Enemy, List ItemOnFloor, Seed )
+spawnFeatures ruleset depth features seed level =
     List.foldl
         (\feature ( accE, accI, s ) ->
             case feature.kind of
@@ -1580,7 +1637,7 @@ spawnFeatures ruleset depth features seed =
                 Dungeon.Nest ->
                     let
                         ( enemies, s2 ) =
-                            spawnEnemies ruleset depth (List.take 4 feature.cells) s
+                            spawnEnemies ruleset depth (List.take 4 feature.cells) s level
                     in
                     ( enemies ++ accE, accI, s2 )
 
