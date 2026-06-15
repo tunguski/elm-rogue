@@ -874,6 +874,9 @@ bestiaryLore id =
         "stone-golem" ->
             "A lumbering construct of living rock, near impervious."
 
+        "ghoul" ->
+            "A loathsome corpse-eater that drags itself back up once felled."
+
         "warlock" ->
             "A hooded hexer whose curses wither flesh from afar."
 

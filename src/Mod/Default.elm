@@ -38,6 +38,7 @@ ruleset =
         , caveBat
         , piranha
         , stoneGolem
+        , ghoul
         , warlock
         , necromancer
         , dwarfMonk
@@ -555,6 +556,27 @@ stoneGolem =
     , spawnWeight = 4
     , xp = 10
     , drop = Just "mail-armour"
+    }
+
+
+ghoul : EnemyDef
+ghoul =
+    { id = "ghoul"
+    , name = "ghoul"
+    , glyph = "z"
+    , color = "#8aa06a"
+    , maxHp = 16
+    , damage = 6
+    , defense = 1
+    , speed = 1
+    , ranged = 0
+    , ability = NoAbility
+    , boss = False
+    , minDepth = 5
+    , maxDepth = 10
+    , spawnWeight = 4
+    , xp = 6
+    , drop = Nothing
     }
 
 

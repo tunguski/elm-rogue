@@ -331,6 +331,7 @@ type alias Enemy =
     , fleeing : Bool
     , statuses : List Status
     , ally : Bool
+    , revives : Int
     }
 
 
@@ -921,7 +922,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
         bossEnemy =
             case Content.bossForDepth depth ruleset of
                 Just def ->
-                    [ { def = def, pos = bossSpot gen, hp = def.maxHp, alerted = False, fleeing = False, statuses = [], ally = False } ]
+                    [ { def = def, pos = bossSpot gen, hp = def.maxHp, alerted = False, fleeing = False, statuses = [], ally = False, revives = 0 } ]
 
                 Nothing ->
                     []
@@ -1066,7 +1067,7 @@ spawnEnemies ruleset depth spots seed level =
                                         maybeChampion depth def s2
 
                                     leader =
-                                        { def = edef, pos = pos, hp = edef.maxHp, alerted = False, fleeing = False, statuses = [], ally = False }
+                                        { def = edef, pos = pos, hp = edef.maxHp, alerted = False, fleeing = False, statuses = [], ally = False, revives = initialRevives edef }
 
                                     -- Social monsters arrive with kin: pack-mates fill nearby free cells.
                                     packSpots =
@@ -1079,7 +1080,7 @@ spawnEnemies ruleset depth spots seed level =
                                             []
 
                                     packMates =
-                                        List.map (\p -> { def = def, pos = p, hp = def.maxHp, alerted = False, fleeing = False, statuses = [], ally = False }) packSpots
+                                        List.map (\p -> { def = def, pos = p, hp = def.maxHp, alerted = False, fleeing = False, statuses = [], ally = False, revives = initialRevives def }) packSpots
 
                                     occupied2 =
                                         List.foldl (\p o -> Set.insert ( p.x, p.y ) o) (Set.insert ( pos.x, pos.y ) occupied) packSpots
@@ -1090,6 +1091,16 @@ spawnEnemies ruleset depth spots seed level =
                         spots
             in
             ( enemies, finalSeed )
+
+
+{-| How many times a monster can claw back from death on a melee kill (ghouls rise once). -}
+initialRevives : EnemyDef -> Int
+initialRevives def =
+    if def.id == "ghoul" then
+        1
+
+    else
+        0
 
 
 {-| How many extra pack-mates a monster type brings (0 = solitary). Social early-floor monsters travel
@@ -1426,7 +1437,7 @@ animateStatues game =
                             def =
                                 guardianDef game.depth
                         in
-                        { def = def, pos = p, hp = def.maxHp, alerted = True, fleeing = False, statuses = [], ally = False }
+                        { def = def, pos = p, hp = def.maxHp, alerted = True, fleeing = False, statuses = [], ally = False, revives = 0 }
                     )
                     woken
         in
@@ -2244,7 +2255,7 @@ springMimic chest game =
                 |> Maybe.withDefault chest.pos
 
         mimic =
-            { def = mimicDef, pos = spot, hp = mimicDef.maxHp, alerted = True, fleeing = False, statuses = [], ally = False }
+            { def = mimicDef, pos = spot, hp = mimicDef.maxHp, alerted = True, fleeing = False, statuses = [], ally = False, revives = 0 }
     in
     { game
         | chests = List.filter (\c -> c.pos /= chest.pos) game.chests
@@ -3672,7 +3683,7 @@ applyEffect def game =
             in
             case free of
                 Just spot ->
-                    { game | enemies = { def = ghostAllyDef game.depth, pos = spot, hp = ghostAllyDef game.depth |> .maxHp, alerted = True, fleeing = False, statuses = [], ally = True } :: game.enemies }
+                    { game | enemies = { def = ghostAllyDef game.depth, pos = spot, hp = ghostAllyDef game.depth |> .maxHp, alerted = True, fleeing = False, statuses = [], ally = True, revives = 0 } :: game.enemies }
                         |> addLog "A spectral ally rises to fight beside you!"
 
                 Nothing ->
@@ -3686,7 +3697,7 @@ applyEffect def game =
                         |> List.take 2
 
                 bees =
-                    List.map (\spot -> { def = beeAllyDef game.depth, pos = spot, hp = beeAllyDef game.depth |> .maxHp, alerted = True, fleeing = False, statuses = [], ally = True }) free
+                    List.map (\spot -> { def = beeAllyDef game.depth, pos = spot, hp = beeAllyDef game.depth |> .maxHp, alerted = True, fleeing = False, statuses = [], ally = True, revives = 0 }) free
             in
             if List.isEmpty bees then
                 addLog "The honeypot shatters, but the bees find no room and disperse." game
@@ -3795,7 +3806,7 @@ applyEffect def game =
             in
             case free of
                 Just spot ->
-                    { game | enemies = { def = sheepDef, pos = spot, hp = sheepDef.maxHp, alerted = True, fleeing = False, statuses = [], ally = True } :: game.enemies }
+                    { game | enemies = { def = sheepDef, pos = spot, hp = sheepDef.maxHp, alerted = True, fleeing = False, statuses = [], ally = True, revives = 0 } :: game.enemies }
                         |> addLog "A sheep decoy bleats into being, drawing your foes' attention!"
 
                 Nothing ->
@@ -4404,7 +4415,7 @@ trapEffect kind game =
                                         ( def, s2 ) =
                                             Rng.pickWeighted firstDef candidates s
                                     in
-                                    ( { def = def, pos = spot, hp = def.maxHp, alerted = True, fleeing = False, statuses = [], ally = False } :: acc, s2 )
+                                    ( { def = def, pos = spot, hp = def.maxHp, alerted = True, fleeing = False, statuses = [], ally = False, revives = 0 } :: acc, s2 )
 
                                 [] ->
                                     ( acc, s )
@@ -4659,7 +4670,16 @@ heroAttack enemy game =
             else
                 ""
     in
-    if remaining <= 0 then
+    if remaining <= 0 && enemy.revives > 0 then
+        -- A ghoul shrugs off the killing blow and claws back up, one fewer life to spare.
+        { game
+            | enemies = updateEnemyAt enemy.pos (\e -> { e | hp = max 1 (e.def.maxHp // 2), revives = e.revives - 1, alerted = True }) game.enemies
+            , seed = seed1
+        }
+            |> addLog ("The " ++ enemy.def.name ++ " collapses — then drags itself back up!")
+            |> addPopup enemy.pos (String.fromInt dmg) color
+
+    else if remaining <= 0 then
         { game
             | enemies = List.filter (\e -> e.pos /= enemy.pos) game.enemies
             , seed = seed1
@@ -4731,7 +4751,7 @@ maybeSplit parent parentHp game =
                         max 1 (parentHp // 2)
 
                     child =
-                        { def = parent.def, pos = spot, hp = childHp, alerted = True, fleeing = False, statuses = [], ally = False }
+                        { def = parent.def, pos = spot, hp = childHp, alerted = True, fleeing = False, statuses = [], ally = False, revives = 0 }
                 in
                 { game
                     | enemies =
@@ -4982,7 +5002,7 @@ trySummon boss done acc =
                     minionDef boss.def
 
                 minion =
-                    { def = def, pos = spot, hp = def.maxHp, alerted = True, fleeing = False, statuses = [], ally = False }
+                    { def = def, pos = spot, hp = def.maxHp, alerted = True, fleeing = False, statuses = [], ally = False, revives = 0 }
             in
             ( minion :: done
             , { acc
@@ -5671,7 +5691,7 @@ maybeWander game =
 
                 else
                     { game
-                        | enemies = { def = def, pos = spot, hp = def.maxHp, alerted = game.ascending, fleeing = False, statuses = [], ally = False } :: game.enemies
+                        | enemies = { def = def, pos = spot, hp = def.maxHp, alerted = game.ascending, fleeing = False, statuses = [], ally = False, revives = 0 } :: game.enemies
                         , seed = s2
                     }
 
