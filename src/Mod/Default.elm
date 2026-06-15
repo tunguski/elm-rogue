@@ -97,6 +97,7 @@ ruleset =
         , scrollOfUpgrade
         , scrollOfRecharging
         , scrollOfTerror
+        , scrollOfPolymorph
         , scrollOfRemoveCurse
         , scrollOfLullaby
         , scrollOfRetribution
@@ -1548,6 +1549,19 @@ scrollOfTerror =
     , minDepth = 2
     , maxDepth = 99
     , spawnWeight = 4
+    }
+
+
+scrollOfPolymorph : ItemDef
+scrollOfPolymorph =
+    { id = "scroll-polymorph"
+    , name = "scroll of polymorph"
+    , glyph = "?"
+    , color = "#e6ebf4"
+    , kind = Consumable Polymorph
+    , minDepth = 3
+    , maxDepth = 99
+    , spawnWeight = 3
     }
 
 

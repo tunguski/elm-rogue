@@ -2225,6 +2225,29 @@ beeAllyDef depth =
     }
 
 
+{-| A harmless sheep — from a polymorph scroll or a decoy. Deals no damage; as an ally it draws enemy
+attacks (a living shield) and blocks corridors. -}
+sheepDef : EnemyDef
+sheepDef =
+    { id = "sheep"
+    , name = "sheep"
+    , glyph = "s"
+    , color = "#e6ebf4"
+    , maxHp = 4
+    , damage = 0
+    , defense = 0
+    , speed = 1
+    , ranged = 0
+    , ability = Content.NoAbility
+    , boss = False
+    , minDepth = 1
+    , maxDepth = 99
+    , spawnWeight = 0
+    , xp = 0
+    , drop = Nothing
+    }
+
+
 placeholderEnemyDef : EnemyDef
 placeholderEnemyDef =
     { id = "mimic"
@@ -3632,6 +3655,20 @@ applyEffect def game =
         Shield amount ->
             addStatus Shielded amount 20 game
                 |> addLog ("A shimmering barrier wraps around you, soaking the next " ++ String.fromInt amount ++ " damage.")
+
+        Polymorph ->
+            case nearestVisibleEnemy game of
+                Just target ->
+                    { game
+                        | enemies =
+                            updateEnemyAt target.pos
+                                (\e -> { e | def = sheepDef, hp = sheepDef.maxHp, ally = False, alerted = False, fleeing = False, statuses = [] })
+                                game.enemies
+                    }
+                        |> addLog ("The " ++ target.def.name ++ " is transformed into a docile sheep!")
+
+                Nothing ->
+                    addLog "You read the scroll, but there is no creature in sight to transform." game
 
         PlantSeed kindName ->
             case plantFromName kindName of

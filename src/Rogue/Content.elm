@@ -117,6 +117,7 @@ type ItemEffect
     | ReleaseBees
     | Foresight Int
     | Shield Int
+    | Polymorph
 
 
 {-| Which body slot a piece of equipment occupies. -}
@@ -423,6 +424,9 @@ describeEffect effect =
 
         Shield amount ->
             "grants a " ++ String.fromInt amount ++ "-point shield that soaks damage"
+
+        Polymorph ->
+            "transforms a visible foe into a harmless sheep"
 
 
 {-| Look up an item archetype by `id` (e.g. to resolve a class's starting gear). -}
