@@ -4705,7 +4705,12 @@ dropLoot enemy game =
                 ( roll, seed1 ) =
                     Rng.int 100 game.seed
             in
-            if enemy.def.boss || roll < 30 then
+            if enemy.def.boss then
+                bossBonusLoot enemy
+                    { game | items = { def = def, pos = enemy.pos } :: game.items, seed = seed1 }
+                    |> addLog ("The " ++ enemy.def.name ++ " drops " ++ withArticle (displayName game.idents def) ++ "!")
+
+            else if roll < 30 then
                 { game | items = { def = def, pos = enemy.pos } :: game.items, seed = seed1 }
                     |> addLog ("The " ++ enemy.def.name ++ " drops " ++ withArticle (displayName game.idents def) ++ "!")
 
@@ -4713,7 +4718,41 @@ dropLoot enemy game =
                 { game | seed = seed1 }
 
         Nothing ->
-            game
+            -- Even bosses with no relic in their def still pay out a victor's reward.
+            if enemy.def.boss then
+                bossBonusLoot enemy game
+
+            else
+                game
+
+
+{-| A boss's guaranteed victor's reward beyond its relic: a scroll of upgrade scattered nearby plus a
+purse of gold, so felling a boss always feels worth the fight. -}
+bossBonusLoot : Enemy -> Game -> Game
+bossBonusLoot enemy game =
+    let
+        ( bonusGold, seed1 ) =
+            Rng.range (20 + game.depth * 5) (40 + game.depth * 8) game.seed
+
+        hero =
+            game.hero
+
+        nearSpot =
+            Grid.neighbors8 enemy.pos
+                |> List.filter (\p -> Level.isPassableAt p game.level && p /= game.hero.pos)
+                |> List.head
+                |> Maybe.withDefault enemy.pos
+
+        withScroll g =
+            case Content.findItem "scroll-upgrade" g.ruleset of
+                Just up ->
+                    { g | items = { def = up, pos = nearSpot } :: g.items }
+
+                Nothing ->
+                    g
+    in
+    withScroll { game | hero = { hero | gold = hero.gold + bonusGold }, seed = seed1 }
+        |> addLog ("You loot " ++ String.fromInt bonusGold ++ " gold from the fallen champion.")
 
 
 heroAttack : Enemy -> Game -> Game
