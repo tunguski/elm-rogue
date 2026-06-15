@@ -100,6 +100,7 @@ type StatusKind
     | Weakened
     | Vulnerable
     | Crippled
+    | Shielded
 
 
 type alias Status =
@@ -152,6 +153,9 @@ statusLabel status =
 
                 Crippled ->
                     "Crippled"
+
+                Shielded ->
+                    "Shield " ++ String.fromInt status.magnitude
     in
     name ++ " (" ++ String.fromInt status.turns ++ ")"
 
@@ -198,6 +202,9 @@ statusColor kind =
 
         Crippled ->
             "#b88a4a"
+
+        Shielded ->
+            "#82c8ff"
 
 
 hasStatus : StatusKind -> Hero -> Bool
@@ -3622,6 +3629,10 @@ applyEffect def game =
             { game | hero = { hero | abilityCharge = abilityMax } }
                 |> addLog "You read the scroll. Your class ability surges to full charge."
 
+        Shield amount ->
+            addStatus Shielded amount 20 game
+                |> addLog ("A shimmering barrier wraps around you, soaking the next " ++ String.fromInt amount ++ " damage.")
+
         PlantSeed kindName ->
             case plantFromName kindName of
                 Just kind ->
@@ -4241,8 +4252,40 @@ damageHero dmg game =
 
             else
                 dmg
+
+        -- A Shield status soaks damage before HP; the absorbed amount drains its magnitude.
+        shieldLeft =
+            hero.statuses
+                |> List.filter (\s -> s.kind == Shielded)
+                |> List.map .magnitude
+                |> List.sum
+
+        absorbed =
+            min shieldLeft actual
+
+        toHp =
+            actual - absorbed
+
+        drainedStatuses =
+            List.filterMap
+                (\s ->
+                    if s.kind == Shielded then
+                        let
+                            left =
+                                s.magnitude - absorbed
+                        in
+                        if left > 0 then
+                            Just { s | magnitude = left }
+
+                        else
+                            Nothing
+
+                    else
+                        Just s
+                )
+                hero.statuses
     in
-    { game | hero = { hero | hp = hero.hp - actual } }
+    { game | hero = { hero | hp = hero.hp - toHp, statuses = drainedStatuses } }
 
 
 {-| Relocate the hero to a random passable cell (used by teleport traps) and refresh fog. -}
