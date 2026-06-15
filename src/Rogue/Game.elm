@@ -6204,7 +6204,7 @@ applyFireEffects game =
                 game
 
         affected e =
-            if Dict.member ( e.pos.x, e.pos.y ) afterHero.fire then
+            if Dict.member ( e.pos.x, e.pos.y ) afterHero.fire && e.def.id /= "fire-elemental" then
                 { e | statuses = addEnemyStatus Burn 3 3 e.statuses, alerted = True }
 
             else

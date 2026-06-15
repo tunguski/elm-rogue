@@ -40,6 +40,7 @@ ruleset =
         , stoneGolem
         , sporeFungus
         , ghoul
+        , fireElemental
         , warlock
         , necromancer
         , dwarfMonk
@@ -602,6 +603,27 @@ ghoul =
     , maxDepth = 10
     , spawnWeight = 4
     , xp = 6
+    , drop = Nothing
+    }
+
+
+fireElemental : EnemyDef
+fireElemental =
+    { id = "fire-elemental"
+    , name = "fire elemental"
+    , glyph = "E"
+    , color = "#ff7a3c"
+    , maxHp = 22
+    , damage = 7
+    , defense = 2
+    , speed = 1
+    , ranged = 0
+    , ability = Burns
+    , boss = False
+    , minDepth = 7
+    , maxDepth = 12
+    , spawnWeight = 3
+    , xp = 10
     , drop = Nothing
     }
 

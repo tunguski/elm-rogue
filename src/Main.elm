@@ -880,6 +880,9 @@ bestiaryLore id =
         "ghoul" ->
             "A loathsome corpse-eater that drags itself back up once felled."
 
+        "fire-elemental" ->
+            "A whirling pillar of living flame; fire only feeds it."
+
         "warlock" ->
             "A hooded hexer whose curses wither flesh from afar."
 
