@@ -2438,14 +2438,29 @@ blessAtAltar game =
             hadCurse =
                 List.any isCursed (List.filterMap identity [ hero.weapon, hero.armour, hero.ring ])
         in
-        { game | hero = cleansed, altar = Nothing }
-            |> addLog
-                (if hadCurse then
-                    "You kneel at the altar; it restores you fully and lifts the curses from your gear."
+            ( boon, seed1 ) =
+                Rng.int 3 game.seed
 
-                 else
-                    "You kneel at the altar; its blessing restores you fully."
-                )
+            baseLog =
+                if hadCurse then
+                    "You kneel at the altar; it heals you and lifts your curses"
+
+                else
+                    "You kneel at the altar; it heals you"
+
+            ( blessedHero, boonLog ) =
+                case boon of
+                    0 ->
+                        ( { cleansed | maxHp = cleansed.maxHp + 3, hp = cleansed.maxHp + 3 }, ", and toughens your flesh (+3 max HP)." )
+
+                    1 ->
+                        ( { cleansed | statuses = addEnemyStatus Shielded 10 25 cleansed.statuses }, ", and wraps you in a shield." )
+
+                    _ ->
+                        ( { cleansed | abilityCharge = abilityMax }, ", and charges your ability." )
+        in
+        { game | hero = blessedHero, altar = Nothing, seed = seed1 }
+            |> addLog (baseLog ++ boonLog)
 
     else
         game
