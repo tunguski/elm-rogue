@@ -2276,9 +2276,30 @@ blessAtAltar game =
         let
             hero =
                 game.hero
+
+            -- The altar's blessing also lifts curses from worn gear.
+            uncurse maybeItem =
+                Maybe.map uncurseItem maybeItem
+
+            cleansed =
+                { hero
+                    | hp = hero.maxHp
+                    , weapon = uncurse hero.weapon
+                    , armour = uncurse hero.armour
+                    , ring = uncurse hero.ring
+                }
+
+            hadCurse =
+                List.any isCursed (List.filterMap identity [ hero.weapon, hero.armour, hero.ring ])
         in
-        { game | hero = { hero | hp = hero.maxHp }, altar = Nothing }
-            |> addLog "You kneel at the altar; its blessing restores you fully."
+        { game | hero = cleansed, altar = Nothing }
+            |> addLog
+                (if hadCurse then
+                    "You kneel at the altar; it restores you fully and lifts the curses from your gear."
+
+                 else
+                    "You kneel at the altar; its blessing restores you fully."
+                )
 
     else
         game
@@ -3890,6 +3911,21 @@ uncurse item =
     case item.kind of
         Content.Equipment slot bonus ->
             { item | kind = Content.Equipment slot { bonus | cursed = False } }
+
+        _ ->
+            item
+
+
+{-| Strip the curse flag from a piece of gear (used by altars / remove-curse). -}
+uncurseItem : ItemDef -> ItemDef
+uncurseItem item =
+    case item.kind of
+        Content.Equipment slot bonus ->
+            if bonus.cursed then
+                { item | kind = Content.Equipment slot { bonus | cursed = False } }
+
+            else
+                item
 
         _ ->
             item
