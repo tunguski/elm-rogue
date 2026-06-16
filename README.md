@@ -83,6 +83,8 @@ visible/explored sets, the drawable `Glyph`s, and a `Hud`) and a **`Renderer msg
 
 - [`Rogue.Render.Svg`](src/Rogue/Render/Svg.elm) — crisp SVG tiles + an HTML HUD (the default).
 - [`Rogue.Render.Ascii`](src/Rogue/Render/Ascii.elm) — a classic coloured text-mode view.
+- [`Rogue.Render.Webgl`](src/Rogue/Render/Webgl.elm) — a real-time **WebGL** isometric 3-D diorama:
+  extruded walls, hovering hero/monster cubes, a directional light, and continuous animations.
 
 Both consume the identical `Scene`, so swapping them changes nothing in the simulation — the
 "alternative game rendering engine" extension point. `Main` lists the installed renderers and lets
