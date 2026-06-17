@@ -6701,7 +6701,7 @@ toScene game =
                     100 + 20 * List.length game.challenges
             in
             max 0 (base * multiplier // 100)
-        , inventory = List.map (displayName game.idents) (List.filter (\d -> not (isKey d)) game.hero.inventory)
+        , inventory = List.map (displayName game.idents) game.hero.inventory
         , log = List.take 7 game.log
         , gameOver = game.gameOver
         , won = game.won

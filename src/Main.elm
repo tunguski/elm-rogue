@@ -1057,23 +1057,39 @@ reuse the renderer's display names so unidentified items stay disguised. -}
 quickslotBar : Model -> Html Msg
 quickslotBar model =
     let
-        names =
-            (Game.toScene model.game).hud.inventory |> List.take 8
+        -- Pair each display name with its TRUE inventory index, then drop keys (auto-used on doors,
+        -- not quick-usable). Keeping the real index is essential: Game.Use indexes the full pack, so
+        -- filtering the displayed list without preserving indices would fire the wrong item.
+        slots =
+            List.map2 Tuple.pair (Game.toScene model.game).hud.inventory model.game.hero.inventory
+                |> List.indexedMap (\i ( name, def ) -> ( i, name, def ))
+                |> List.filter (\( _, _, def ) -> not (isKeyItem def))
+                |> List.take 8
     in
-    if List.isEmpty names then
+    if List.isEmpty slots then
         Html.text ""
 
     else
         Html.div [ HA.class "rg-quickbar" ]
-            (List.indexedMap
-                (\i name ->
+            (List.map
+                (\( i, name, _ ) ->
                     Html.button [ onClick (GameMsg (Game.Use i)), HA.class "rg-btn rg-quick" ]
                         [ Html.span [ HA.class "rg-quick-num" ] [ Html.text (String.fromInt (i + 1)) ]
                         , Html.text name
                         ]
                 )
-                names
+                slots
             )
+
+
+isKeyItem : Content.ItemDef -> Bool
+isKeyItem def =
+    case def.kind of
+        Content.Key ->
+            True
+
+        _ ->
+            False
 
 
 {-| A single line of contextual coaching, shown only while the "Hints" setting is on (M122 toggle).
