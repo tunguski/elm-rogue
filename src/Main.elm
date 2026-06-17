@@ -64,6 +64,8 @@ type alias Model =
     , showHints : Bool
     , pixelArt : Bool
     , time : Float
+    , moves : List Rogue.Render.Move
+    , stepStart : Float
     , resumeSave : Maybe ( String, Game.SaveData )
     , seedInput : String
     , seedBump : Int
@@ -210,6 +212,8 @@ init _ =
       , reduceMotion = False
       , pixelArt = True
       , time = 0
+      , moves = []
+      , stepStart = 0
       , showHints = True
       , resumeSave = Nothing
       , seedInput = ""
@@ -387,12 +391,23 @@ runGame gm model =
                     else
                         model.pendingChoice
 
+                -- For the 3D renderer only, diff actor positions across the turn so it can tween each
+                -- one tile-to-tile. Skipped for the flat renderers (they draw at the final cell).
+                stepMoves =
+                    if model.rendererName == "3D" then
+                        actorMoves (Game.toScene model.game) (Game.toScene nextGame)
+
+                    else
+                        []
+
                 base =
                     { model
                         | game = nextGame
                         , bestiary = bestiary
                         , damaged = nextGame.hero.hp < model.game.hero.hp
                         , pendingChoice = pending
+                        , moves = stepMoves
+                        , stepStart = model.time
                     }
             in
             if justEnded then
@@ -1199,7 +1214,65 @@ sceneFor model =
         scene =
             Game.toScene model.game
     in
-    { scene | cursor = model.targeting, shake = model.damaged, pixelArt = model.pixelArt, time = model.time }
+    { scene
+        | cursor = model.targeting
+        , shake = model.damaged
+        , pixelArt = model.pixelArt
+        , time = model.time
+        , moves = model.moves
+        , stepStart = model.stepStart
+    }
+
+
+{-| Diff two scenes' actor glyphs to find each one-step move (a single-cell slide whose old cell is now
+empty), so the 3D renderer can tween it. Greedy match by layer + adjacency; teleports/spawns don't slide. -}
+actorMoves : Rogue.Render.Scene -> Rogue.Render.Scene -> List Rogue.Render.Move
+actorMoves old new =
+    let
+        isActor g =
+            g.layer == Rogue.Render.layerActor || g.layer == Rogue.Render.layerHero
+
+        olds =
+            List.filter isActor old.glyphs
+
+        newActors =
+            List.filter isActor new.glyphs
+
+        newCells =
+            Set.fromList (List.map (\g -> ( g.pos.x, g.pos.y )) newActors)
+
+        removeFirst o pool =
+            case pool of
+                [] ->
+                    []
+
+                p :: rest ->
+                    if p.pos == o.pos && p.layer == o.layer then
+                        rest
+
+                    else
+                        p :: removeFirst o rest
+
+        step g ( acc, pool ) =
+            let
+                candidate =
+                    pool
+                        |> List.filter
+                            (\o ->
+                                o.layer == g.layer
+                                    && Grid.chebyshev o.pos g.pos == 1
+                                    && not (Set.member ( o.pos.x, o.pos.y ) newCells)
+                            )
+                        |> List.head
+            in
+            case candidate of
+                Just o ->
+                    ( { from = o.pos, to = g.pos } :: acc, removeFirst o pool )
+
+                Nothing ->
+                    ( acc, pool )
+    in
+    List.foldl step ( [], olds ) newActors |> Tuple.first
 
 
 toolbar : Model -> Html Msg

@@ -64,12 +64,16 @@ view scene =
             vec3 (0.5 + 0.4 * sin (t / 2600)) 1.0 (0.4 + 0.4 * cos (t / 2600))
 
         terrain =
-            WebGL.entity vertexShader fragmentShader (terrainMesh scene win) (uniforms pv M4.identity light (vec3 1 1 1) 1.0)
+            WebGL.entity vertexShader fragmentShader (terrainMesh scene win) (uniforms pv M4.identity light (vec3 1 1 1))
+
+        -- How far through the current tile-to-tile slide we are (eased 0..1).
+        slide =
+            smoothstep (clamp 0 1 ((t - scene.stepStart) / stepDuration))
 
         actors =
             scene.glyphs
                 |> List.filter (\g -> inWindow win g.pos && Set.member ( g.pos.x, g.pos.y ) scene.visible)
-                |> List.map (actorEntity pv light t)
+                |> List.map (\g -> actorEntity pv light t (actorWorld scene slide g) g)
     in
     Html.div [ HA.class "rg-gamewrap" ]
         [ Html.div [ HA.class "rg-mapwrap" ]
@@ -161,19 +165,52 @@ cameraMatrix scene t =
     M4.mul proj viewM
 
 
-uniforms : Mat4 -> Mat4 -> Vec3 -> Vec3 -> Float -> Uniforms
-uniforms pv model light tint size =
-    { pv = pv, model = model, light = light, tint = tint, size = size }
+uniforms : Mat4 -> Mat4 -> Vec3 -> Vec3 -> Uniforms
+uniforms pv model light tint =
+    { pv = pv, model = model, light = light, tint = tint }
+
+
+{-| Milliseconds a one-tile slide takes. -}
+stepDuration : Float
+stepDuration =
+    150
+
+
+{-| Smoothstep easing for the slide so it accelerates out and decelerates in. -}
+smoothstep : Float -> Float
+smoothstep p =
+    p * p * (3 - 2 * p)
 
 
 
 -- ACTORS -----------------------------------------------------------------------------------------
 
 
+{-| The actor's animated world (x, z): linearly interpolated from the cell it left toward its current
+cell by the eased slide progress. Actors that didn't move (or teleported) sit at their cell. -}
+actorWorld : Scene -> Float -> Glyph -> ( Float, Float )
+actorWorld scene slide glyph =
+    let
+        to =
+            glyph.pos
+
+        from =
+            scene.moves
+                |> List.filter (\m -> m.to == to)
+                |> List.head
+                |> Maybe.map .from
+                |> Maybe.withDefault to
+
+        lerp a b =
+            toFloat a + (toFloat b - toFloat a) * slide
+    in
+    ( lerp from.x to.x + 0.5, lerp from.y to.y + 0.5 )
+
+
 {-| One hovering cube per actor, tinted to its glyph colour. The hero rides higher and a little larger;
 everyone bobs on a per-cell phase so a room doesn't pulse in unison. -}
-actorEntity : Mat4 -> Vec3 -> Float -> Glyph -> WebGL.Entity
-actorEntity pv light t glyph =
+actorEntity : Mat4 -> Vec3 -> Float -> ( Float, Float ) -> Glyph -> WebGL.Entity
+actorEntity pv light t ( wx, wz ) glyph =
     let
         isHero =
             glyph.layer == Render.layerHero
@@ -204,9 +241,11 @@ actorEntity pv light t glyph =
                 + bob
 
         model =
-            M4.makeTranslate (vec3 (toFloat glyph.pos.x + 0.5) baseY (toFloat glyph.pos.y + 0.5))
+            M4.mul
+                (M4.makeTranslate (vec3 wx baseY wz))
+                (M4.makeScale (vec3 size size size))
     in
-    WebGL.entity vertexShader fragmentShader cubeMesh (uniforms pv model light (hexToVec3 glyph.color) size)
+    WebGL.entity vertexShader fragmentShader cubeMesh (uniforms pv model light (hexToVec3 glyph.color))
 
 
 
@@ -251,21 +290,34 @@ cellGeometry scene p =
             tile =
                 Level.at p scene.level
 
+            prof =
+                regionProfile scene.theme.name
+
+            -- Distance fog: cells far from the hero fade toward the region's fog colour, so the iso
+            -- diorama melts into depth at its edges (and each region tints that fade differently).
+            fog =
+                clamp 0 0.72 ((distTo scene.camera p - 5) / 13)
+
             col =
-                V3.scale dim (tileColor scene.theme tile)
+                fogMix (V3.scale dim (tileColor scene.theme tile)) prof.fog fog
 
             fx =
                 toFloat p.x
 
             fz =
                 toFloat p.y
+
+            -- Per-region wall height, jittered per cell by the region's roughness (caves jagged,
+            -- halls smooth) so skylines vary instead of being a flat ridge.
+            wallH =
+                prof.wallH + prof.rough * (hash01 p - 0.5) * 2
         in
         case tile of
             Wall ->
-                wallBlock fx fz 0.95 col
+                wallBlock fx fz wallH col
 
             SecretDoor ->
-                wallBlock fx fz 0.95 col
+                wallBlock fx fz wallH col
 
             Chasm ->
                 -- A sunken dark pit.
@@ -276,6 +328,54 @@ cellGeometry scene p =
 
             _ ->
                 floorQuad fx fz 0.0 col
+
+
+{-| A region's 3-D character: base wall height, how rough/jagged the wall tops are, and the colour the
+distance fog fades toward. Walls climb and fog darkens as you descend toward the Demon Halls. -}
+regionProfile : String -> { wallH : Float, rough : Float, fog : Vec3 }
+regionProfile name =
+    case name of
+        "Sewers" ->
+            { wallH = 0.8, rough = 0.1, fog = vec3 0.05 0.1 0.09 }
+
+        "Prison" ->
+            { wallH = 0.95, rough = 0.12, fog = vec3 0.1 0.08 0.04 }
+
+        "Caves" ->
+            { wallH = 1.1, rough = 0.35, fog = vec3 0.1 0.05 0.04 }
+
+        "Halls" ->
+            { wallH = 1.25, rough = 0.08, fog = vec3 0.06 0.04 0.12 }
+
+        "Metropolis" ->
+            { wallH = 1.35, rough = 0.15, fog = vec3 0.07 0.07 0.09 }
+
+        _ ->
+            { wallH = 1.5, rough = 0.3, fog = vec3 0.12 0.03 0.03 }
+
+
+{-| Mix a colour toward the fog colour by `f` (0 = none, 1 = full fog). -}
+fogMix : Vec3 -> Vec3 -> Float -> Vec3
+fogMix col fog f =
+    V3.add (V3.scale (1 - f) col) (V3.scale f fog)
+
+
+distTo : Pos -> Pos -> Float
+distTo a b =
+    let
+        dx =
+            toFloat (a.x - b.x)
+
+        dy =
+            toFloat (a.y - b.y)
+    in
+    sqrt (dx * dx + dy * dy)
+
+
+{-| A stable 0..1 value per cell for organic height jitter. -}
+hash01 : Pos -> Float
+hash01 p =
+    toFloat (modBy 100 (p.x * 73 + p.y * 131 + 17)) / 100
 
 
 {-| A flat floor tile (top face only) at height `y`. -}
@@ -451,7 +551,6 @@ type alias Uniforms =
     , model : Mat4
     , light : Vec3
     , tint : Vec3
-    , size : Float
     }
 
 
@@ -468,10 +567,9 @@ vertexShader =
         uniform mat4 pv;
         uniform mat4 model;
         uniform vec3 light;
-        uniform float size;
         varying vec3 vcolor;
         void main () {
-            gl_Position = pv * model * vec4(position * size, 1.0);
+            gl_Position = pv * model * vec4(position, 1.0);
             float diff = max(dot(normalize(normal), normalize(light)), 0.0);
             float l = 0.4 + 0.6 * diff;
             vcolor = color * l;

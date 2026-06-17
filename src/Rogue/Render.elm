@@ -188,7 +188,17 @@ type alias Scene =
     , shake : Bool
     , pixelArt : Bool
     , time : Float
+    , moves : List Move
+    , stepStart : Float
     , hud : Hud
+    }
+
+
+{-| One actor's tile-to-tile slide this step: it animated `from` its old cell `to` its current one.
+Set by the shell from a turn-over-turn diff; renderers that interpolate (the 3D view) use it to tween. -}
+type alias Move =
+    { from : Pos
+    , to : Pos
     }
 
 
