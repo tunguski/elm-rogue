@@ -34,6 +34,7 @@ suite =
         , levelTests
         , dungeonTests
         , gameTests
+        , interactionTests
         , resumeTests
         ]
 
@@ -225,6 +226,131 @@ gameTests =
             \_ -> Expect.equal newGame.hero.maxHp newGame.hero.hp
         , test "the floor is populated with monsters" <|
             \_ -> Expect.equal True (not (List.isEmpty newGame.enemies))
+        ]
+
+
+-- INTERACTIONS (driving Msgs through Game.update) ----------------------------
+
+
+{-| A known 5x3 room — a floor strip walled all round — so movement outcomes are deterministic
+(unlike a procedurally generated floor). Built by overriding a real game's level/hero/contents. -}
+arena : Game.Game
+arena =
+    let
+        hero =
+            newGame.hero
+    in
+    { newGame
+        | level = Level.fromRows [ "#####", "#...#", "#####" ]
+        , hero = { hero | pos = { x = 2, y = 1 } }
+        , enemies = []
+        , items = []
+    }
+
+
+healingPotion : Maybe Content.ItemDef
+healingPotion =
+    Content.findItem "potion-healing" Default.ruleset
+
+
+interactionTests : Test
+interactionTests =
+    describe "Game.update interactions"
+        [ test "moving into open floor relocates the hero and spends a turn" <|
+            \_ ->
+                let
+                    next =
+                        Game.update (Game.Move Grid.dirE) arena
+                in
+                Expect.equal ( { x = 3, y = 1 }, arena.turn + 1 ) ( next.hero.pos, next.turn )
+        , test "moving into a wall does nothing (no move, no turn spent)" <|
+            \_ ->
+                let
+                    next =
+                        Game.update (Game.Move Grid.dirN) arena
+                in
+                Expect.equal ( arena.hero.pos, arena.turn ) ( next.hero.pos, next.turn )
+        , test "waiting spends a turn without moving" <|
+            \_ ->
+                let
+                    next =
+                        Game.update Game.Wait arena
+                in
+                Expect.equal ( arena.hero.pos, arena.turn + 1 ) ( next.hero.pos, next.turn )
+        , test "searching spends a turn" <|
+            \_ ->
+                Expect.equal (arena.turn + 1) (Game.update Game.Search arena).turn
+        , test "bumping a monster damages it (or kills it)" <|
+            \_ ->
+                case List.head newGame.enemies of
+                    Nothing ->
+                        Expect.fail "expected the starting floor to be populated"
+
+                    Just sample ->
+                        let
+                            -- Place a single foe just east of the hero in the controlled arena, so the
+                            -- lone survivor (if any) is unambiguous even after it acts on its own turn.
+                            foe =
+                                { sample | pos = { x = 3, y = 1 }, hp = sample.def.maxHp, alerted = True }
+
+                            staged =
+                                { arena | enemies = [ foe ] }
+
+                            next =
+                                Game.update (Game.Move Grid.dirE) staged
+                        in
+                        case List.head next.enemies of
+                            Just alive ->
+                                Expect.equal True (alive.hp < foe.hp)
+
+                            Nothing ->
+                                Expect.equal True (next.kills > staged.kills)
+        , test "drinking a healing potion restores HP and consumes the item" <|
+            \_ ->
+                case healingPotion of
+                    Nothing ->
+                        Expect.fail "ruleset is missing potion-healing"
+
+                    Just potion ->
+                        let
+                            hero =
+                                newGame.hero
+
+                            wounded =
+                                { newGame | hero = { hero | hp = 1, maxHp = 40, inventory = [ potion ] } }
+
+                            next =
+                                Game.update (Game.Use 0) wounded
+                        in
+                        Expect.equal ( True, [] ) ( next.hero.hp > 1, List.map .id next.hero.inventory )
+        , test "stepping onto an item picks it up" <|
+            \_ ->
+                case healingPotion of
+                    Nothing ->
+                        Expect.fail "ruleset is missing potion-healing"
+
+                    Just potion ->
+                        let
+                            staged =
+                                { arena | items = [ { def = potion, pos = { x = 3, y = 1 } } ] }
+
+                            next =
+                                Game.update (Game.Move Grid.dirE) staged
+                        in
+                        Expect.equal (List.length arena.hero.inventory + 1) (List.length next.hero.inventory)
+        , test "descending on the down-stairs goes one floor deeper" <|
+            \_ ->
+                let
+                    hero =
+                        newGame.hero
+
+                    staged =
+                        { newGame | hero = { hero | pos = newGame.stairsDown } }
+
+                    next =
+                        Game.update Game.Descend staged
+                in
+                Expect.equal (newGame.depth + 1) next.depth
         ]
 
 
