@@ -65,7 +65,7 @@ type alias Model =
     , showHints : Bool
     , pixelArt : Bool
     , time : Float
-    , moves : List Rogue.Render.Move
+    , moves : List Rogue.Render.Slide
     , stepStart : Float
     , resumeSave : Maybe ( String, Game.SaveData )
     , seedInput : String
@@ -1235,7 +1235,7 @@ sceneFor model =
 
 {-| Diff two scenes' actor glyphs to find each one-step move (a single-cell slide whose old cell is now
 empty), so the 3D renderer can tween it. Greedy match by layer + adjacency; teleports/spawns don't slide. -}
-actorMoves : Rogue.Render.Scene -> Rogue.Render.Scene -> List Rogue.Render.Move
+actorMoves : Rogue.Render.Scene -> Rogue.Render.Scene -> List Rogue.Render.Slide
 actorMoves old new =
     let
         isActor g =

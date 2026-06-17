@@ -188,15 +188,18 @@ type alias Scene =
     , shake : Bool
     , pixelArt : Bool
     , time : Float
-    , moves : List Move
+    , moves : List Slide
     , stepStart : Float
     , hud : Hud
     }
 
 
 {-| One actor's tile-to-tile slide this step: it animated `from` its old cell `to` its current one.
-Set by the shell from a turn-over-turn diff; renderers that interpolate (the 3D view) use it to tween. -}
-type alias Move =
+Set by the shell from a turn-over-turn diff; renderers that interpolate (the 3D view) use it to tween.
+
+(Named `Slide`, not `Move`, deliberately: a `Move` type-alias constructor here collides in codegen with
+`Rogue.Game`'s `Move` message constructor and silently breaks movement — see the keyboard-bug fix.) -}
+type alias Slide =
     { from : Pos
     , to : Pos
     }
