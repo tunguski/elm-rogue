@@ -105,10 +105,10 @@ viewport : Pos -> Int -> Int -> { x0 : Int, y0 : Int, x1 : Int, y1 : Int }
 viewport camera width height =
     let
         vw =
-            min width 23
+            min width 19
 
         vh =
-            min height 23
+            min height 19
 
         clampStart c span extent =
             max 0 (min (extent - span) (c - span // 2))
@@ -389,8 +389,9 @@ floorQuad x z y col =
         (vec3 x y (z + 1))
 
 
-{-| An extruded wall: a top face plus four sides, so the directional light shades the vertical faces
-darker than the lit top. -}
+{-| An extruded wall: the top plus only the two sides the fixed isometric camera can actually see (it
+looks from +x/+z, so the north and west faces are always hidden — culling them halves wall geometry
+and keeps the per-frame mesh light). The visible vertical faces shade darker than the lit top. -}
 wallBlock : Float -> Float -> Float -> Vec3 -> List ( Vertex, Vertex, Vertex )
 wallBlock x z h col =
     let
@@ -408,13 +409,9 @@ wallBlock x z h col =
     in
     -- top
     quad top (vec3 0 1 0) (vec3 x h z) (vec3 x1 h z) (vec3 x1 h z1) (vec3 x h z1)
-        -- north (-z)
-        ++ quad side (vec3 0 0 -1) (vec3 x 0 z) (vec3 x1 0 z) (vec3 x1 h z) (vec3 x h z)
-        -- south (+z)
+        -- south (+z) — faces the camera
         ++ quad side (vec3 0 0 1) (vec3 x 0 z1) (vec3 x1 0 z1) (vec3 x1 h z1) (vec3 x h z1)
-        -- west (-x)
-        ++ quad side (vec3 -1 0 0) (vec3 x 0 z) (vec3 x 0 z1) (vec3 x h z1) (vec3 x h z)
-        -- east (+x)
+        -- east (+x) — faces the camera
         ++ quad side (vec3 1 0 0) (vec3 x1 0 z) (vec3 x1 0 z1) (vec3 x1 h z1) (vec3 x1 h z)
 
 
