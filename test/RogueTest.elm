@@ -20,6 +20,7 @@ import Rogue.Dungeon as Dungeon
 import Rogue.Game as Game
 import Rogue.Grid as Grid exposing (Pos)
 import Rogue.Level as Level exposing (Level)
+import Rogue.Path as Path
 import Rogue.Rng as Rng
 import Rogue.Tile as Tile exposing (Tile(..))
 import Set exposing (Set)
@@ -35,6 +36,7 @@ suite =
         , dungeonTests
         , gameTests
         , interactionTests
+        , e2eTests
         , resumeTests
         ]
 
@@ -351,6 +353,285 @@ interactionTests =
                         Game.update Game.Descend staged
                 in
                 Expect.equal (newGame.depth + 1) next.depth
+        ]
+
+
+-- END-TO-END PLAYTHROUGHS ----------------------------------------------------
+--
+-- Because the engine is pure (`update : Msg -> Game -> Game`, seed-threaded), a whole playthrough is
+-- just a long fold of `update` over Msgs. These tests run small "autopilot" bots — descend toward the
+-- stairs, auto-explore a floor, clear a room, walk a loot corridor, heal in a brawl — to exercise
+-- movement, exploration, combat, pickup, descent and item use across many turns at once.
+--
+-- The hero is usually made near-invincible: the point is "can the engine be *played* end to end",
+-- not balance, so a long run probes navigation/combat/descent rather than dying to damage RNG.
+
+
+mightyHero : Game.Hero -> Game.Hero
+mightyHero hero =
+    { hero | hp = 1000000, maxHp = 1000000, damage = 999, defense = 999 }
+
+
+bossAlive : Game.Game -> Bool
+bossAlive game =
+    List.any (\e -> e.def.boss) game.enemies
+
+
+bossPos : Game.Game -> Maybe Pos
+bossPos game =
+    game.enemies |> List.filter (\e -> e.def.boss) |> List.head |> Maybe.map .pos
+
+
+{-| The step direction toward `target` along a shortest passable path, if one exists. -}
+stepToward game target =
+    Path.firstStep game.level Set.empty game.hero.pos target
+        |> Maybe.map (\step -> Grid.sub step game.hero.pos)
+
+
+adjacentEnemyDir game =
+    game.enemies
+        |> List.filter (\e -> not e.ally && Grid.chebyshev e.pos game.hero.pos == 1)
+        |> List.head
+        |> Maybe.map (\e -> Grid.sub e.pos game.hero.pos)
+
+
+nearestVisibleEnemy : Game.Game -> Maybe Game.Enemy
+nearestVisibleEnemy game =
+    game.enemies
+        |> List.filter (\e -> not e.ally && Set.member ( e.pos.x, e.pos.y ) game.visible)
+        |> List.sortBy (\e -> Grid.chebyshev e.pos game.hero.pos)
+        |> List.head
+
+
+{-| One autopilot turn: march toward the down-stairs, bumping (attacking) whatever blocks the way; if
+a boss is sealing the stairs, hunt it down first; descend once standing on the stairs. (A pure
+shortest-path bot, so it stalls on floors whose stairs sit behind an undiscovered secret door — those
+need active searching, a deliberately separate mechanic — which is why it reliably clears whole floors
+but does not descend arbitrarily deep.) -}
+descendStep : Game.Game -> Game.Msg
+descendStep game =
+    if game.hero.pos == game.stairsDown && not (bossAlive game) then
+        Game.Descend
+
+    else
+        let
+            target =
+                if bossAlive game then
+                    bossPos game |> Maybe.withDefault game.stairsDown
+
+                else
+                    game.stairsDown
+        in
+        case stepToward game target of
+            Just d ->
+                Game.Move d
+
+            Nothing ->
+                case adjacentEnemyDir game of
+                    Just d ->
+                        Game.Move d
+
+                    Nothing ->
+                        Game.Search
+
+
+{-| One exploration turn: clear an adjacent foe; otherwise engage the nearest visible foe so the
+engine's own auto-explore isn't blocked by "there are monsters about"; otherwise auto-explore. -}
+exploreStep : Game.Game -> Game.Msg
+exploreStep game =
+    case adjacentEnemyDir game of
+        Just d ->
+            Game.Move d
+
+        Nothing ->
+            case nearestVisibleEnemy game of
+                Just e ->
+                    case stepToward game e.pos of
+                        Just d ->
+                            Game.Move d
+
+                        Nothing ->
+                            Game.AutoExplore
+
+                Nothing ->
+                    Game.AutoExplore
+
+
+{-| One combat turn: hit an adjacent foe, else wait. -}
+combatStep : Game.Game -> Game.Msg
+combatStep game =
+    case adjacentEnemyDir game of
+        Just d ->
+            Game.Move d
+
+        Nothing ->
+            Game.Wait
+
+
+{-| One brawl turn: drink a healing potion when below half HP, otherwise hit an adjacent foe. -}
+brawlStep : Game.Game -> Game.Msg
+brawlStep game =
+    if game.hero.hp * 2 <= game.hero.maxHp && hasHealing game then
+        Game.Use (healingIndex game)
+
+    else
+        case adjacentEnemyDir game of
+            Just d ->
+                Game.Move d
+
+            Nothing ->
+                Game.Wait
+
+
+hasHealing : Game.Game -> Bool
+hasHealing game =
+    List.any (\it -> it.id == "potion-healing") game.hero.inventory
+
+
+healingIndex : Game.Game -> Int
+healingIndex game =
+    game.hero.inventory
+        |> List.indexedMap (\i it -> ( i, it.id ))
+        |> List.filter (\( _, id ) -> id == "potion-healing")
+        |> List.head
+        |> Maybe.map Tuple.first
+        |> Maybe.withDefault 0
+
+
+{-| Fold `update` over the autopilot's chosen Msgs until the fuel runs out or the hero dies. -}
+playOut : (Game.Game -> Game.Msg) -> Int -> Game.Game -> Game.Game
+playOut choose fuel game =
+    if fuel <= 0 || game.gameOver then
+        game
+
+    else
+        playOut choose (fuel - 1) (Game.update (choose game) game)
+
+
+{-| A fresh game on a seed whose floor-1 stairs are reachable without first searching out a secret
+door (so the shortest-path autopilot can actually get moving — many seeds gate the route behind one). -}
+playableStart : Game.Game
+playableStart =
+    Game.newGame Default.ruleset (Content.defaultClass Default.ruleset) 1
+
+
+{-| Autopilot the hero through floor 1 to the down-stairs and on down. -}
+godRun : Game.Game
+godRun =
+    playOut descendStep 1200 { playableStart | hero = mightyHero playableStart.hero }
+
+
+{-| Auto-explore floor 1 (no descending) so the explored set grows within a single level. -}
+exploreRun : Game.Game
+exploreRun =
+    playOut exploreStep 400 { playableStart | hero = mightyHero playableStart.hero }
+
+
+{-| A 3x3 room with one monster on each side of the hero. -}
+combatResult : Game.Game
+combatResult =
+    case List.head playableStart.enemies of
+        Nothing ->
+            playableStart
+
+        Just sample ->
+            let
+                hero0 =
+                    playableStart.hero
+
+                foeAt p =
+                    { sample | pos = p, hp = sample.def.maxHp, alerted = True, ally = False }
+
+                start =
+                    { playableStart
+                        | level = Level.fromRows [ "#####", "#...#", "#...#", "#...#", "#####" ]
+                        , hero = mightyHero { hero0 | pos = { x = 2, y = 2 } }
+                        , enemies = [ foeAt { x = 2, y = 1 }, foeAt { x = 1, y = 2 }, foeAt { x = 3, y = 2 }, foeAt { x = 2, y = 3 } ]
+                        , items = []
+                        , kills = 0
+                    }
+            in
+            playOut combatStep 40 start
+
+
+{-| A straight corridor with three potions on it; the hero marches across and should pick up each. -}
+lootResult : Game.Game
+lootResult =
+    case healingPotion of
+        Nothing ->
+            playableStart
+
+        Just potion ->
+            let
+                hero0 =
+                    playableStart.hero
+
+                start =
+                    { playableStart
+                        | level = Level.fromRows [ "##########", "#........#", "##########" ]
+                        , hero = mightyHero { hero0 | pos = { x = 1, y = 1 }, inventory = [] }
+                        , enemies = []
+                        , items =
+                            [ { def = potion, pos = { x = 3, y = 1 } }
+                            , { def = potion, pos = { x = 5, y = 1 } }
+                            , { def = potion, pos = { x = 7, y = 1 } }
+                            ]
+                        , stairsDown = { x = 8, y = 1 }
+                    }
+            in
+            playOut descendStep 7 start
+
+
+brawlResult : Game.Game
+brawlResult =
+    case healingPotion of
+        Nothing ->
+            newGame
+
+        Just potion ->
+            let
+                hero =
+                    newGame.hero
+
+                foes =
+                    [ Grid.dirN, Grid.dirE, Grid.dirS, Grid.dirW ]
+                        |> List.map (Grid.add newGame.hero.pos)
+                        |> List.filter (\p -> Level.isPassableAt p newGame.level)
+                        |> List.filterMap (\p -> List.head newGame.enemies |> Maybe.map (\s -> { s | pos = p, hp = s.def.maxHp, alerted = True, ally = False }))
+
+                start =
+                    { newGame
+                        | hero = { hero | hp = 24, maxHp = 24, defense = 0, damage = 2, inventory = List.repeat 6 potion }
+                        , enemies = foes
+                    }
+            in
+            playOut brawlStep 300 start
+
+
+brawlPotionsUsed : Int
+brawlPotionsUsed =
+    6 - List.length (List.filter (\it -> it.id == "potion-healing") brawlResult.hero.inventory)
+
+
+e2eTests : Test
+e2eTests =
+    describe "Game.update end-to-end playthroughs"
+        [ test "an autopilot hero crosses a whole floor and descends to the next" <|
+            \_ -> Expect.equal True (godRun.depth >= 2)
+        , test "the hero fights monsters on the way down" <|
+            \_ -> Expect.equal True (godRun.kills > 0)
+        , test "the autopilot hero survives the descent" <|
+            \_ -> Expect.equal False godRun.gameOver
+        , test "auto-exploring uncovers a large part of the floor" <|
+            \_ -> Expect.equal True (Set.size exploreRun.explored - Set.size playableStart.explored >= 80)
+        , test "the hero clears a room full of monsters" <|
+            \_ -> Expect.equal 4 combatResult.kills
+        , test "winning fights earns the hero experience" <|
+            \_ -> Expect.equal True (combatResult.hero.xp > 0 || combatResult.hero.level > 1)
+        , test "the hero picks up every item it walks over" <|
+            \_ -> Expect.equal 3 (List.length lootResult.hero.inventory)
+        , test "a wounded hero drinks healing potions to survive a brawl" <|
+            \_ -> Expect.equal True (brawlPotionsUsed >= 1)
         ]
 
 
