@@ -259,12 +259,29 @@ terrainMesh scene win =
             List.concatMap
                 (\gy -> List.map (\gx -> { x = gx, y = gy }) (List.range win.x0 win.x1))
                 (List.range win.y0 win.y1)
+
+        -- The visible torch-bearing walls: every ~10th wall carries a sconce. Precomputed so each
+        -- cell can sum the warm, flickering glow of nearby torches into its colour.
+        torches =
+            cells
+                |> List.filter (\p -> isWall (Level.at p scene.level) && isTorchWall p && Set.member ( p.x, p.y ) scene.visible)
     in
-    WebGL.triangles (List.concatMap (cellGeometry scene) cells)
+    WebGL.triangles (List.concatMap (cellGeometry scene torches) cells)
 
 
-cellGeometry : Scene -> Pos -> List ( Vertex, Vertex, Vertex )
-cellGeometry scene p =
+isWall : Tile -> Bool
+isWall tile =
+    tile == Wall || tile == SecretDoor
+
+
+{-| Roughly one wall in ten bears a torch (a stable per-cell choice). -}
+isTorchWall : Pos -> Bool
+isTorchWall p =
+    modBy 10 (p.x * 37 + p.y * 71 + 5) == 0
+
+
+cellGeometry : Scene -> List Pos -> Pos -> List ( Vertex, Vertex, Vertex )
+cellGeometry scene torches p =
     let
         key =
             ( p.x, p.y )
@@ -298,8 +315,16 @@ cellGeometry scene p =
             fog =
                 clamp 0 0.72 ((distTo scene.camera p - 5) / 13)
 
+            -- Warm, flickering light pooled from nearby torches (only on cells in view).
+            warm =
+                if visible then
+                    torchGlow scene.time torches p
+
+                else
+                    vec3 0 0 0
+
             col =
-                fogMix (V3.scale dim (tileColor scene.theme tile)) prof.fog fog
+                addWarm (fogMix (V3.scale dim (tileColor scene.theme tile)) prof.fog fog) warm
 
             fx =
                 toFloat p.x
@@ -311,23 +336,117 @@ cellGeometry scene p =
             -- halls smooth) so skylines vary instead of being a flat ridge.
             wallH =
                 prof.wallH + prof.rough * (hash01 p - 0.5) * 2
+
+            torchHere =
+                visible && isWall tile && isTorchWall p
         in
         case tile of
             Wall ->
-                wallBlock fx fz wallH col
+                wallBlock fx fz wallH col (hash01 p)
+                    ++ torchOn torchHere scene.time p fx fz wallH
 
             SecretDoor ->
-                wallBlock fx fz wallH col
+                wallBlock fx fz wallH col (hash01 p)
 
             Chasm ->
                 -- A sunken dark pit.
                 floorQuad fx fz -0.6 (V3.scale 0.5 col)
 
             Water ->
-                floorQuad fx fz -0.12 col
+                -- A gentle surface: the sheet bobs a hair and brightens/darkens in a slow swell.
+                let
+                    ripple =
+                        sin (scene.time / 700 + (fx + fz) * 0.9)
+
+                    y =
+                        -0.12 + 0.025 * ripple
+
+                    shimmer =
+                        V3.scale (1.0 + 0.12 * ripple) col
+                in
+                floorQuad fx fz y shimmer
 
             _ ->
                 floorQuad fx fz 0.0 col
+
+
+{-| Warm light a cell receives from nearby torches: each contributes a flickering, distance-falloff
+glow in a fire colour. Summed across torches in range and clamped by `addWarm` at the call site. -}
+torchGlow : Float -> List Pos -> Pos -> Vec3
+torchGlow time torches p =
+    let
+        warmColor =
+            vec3 1.0 0.62 0.28
+
+        contribute tc acc =
+            let
+                d =
+                    distTo tc p
+            in
+            if d > 4.5 then
+                acc
+
+            else
+                let
+                    falloff =
+                        let
+                            f =
+                                1 - d / 4.5
+                        in
+                        f * f
+
+                    phase =
+                        toFloat (tc.x * 13 + tc.y * 29)
+
+                    flicker =
+                        0.72 + 0.18 * sin (time / 110 + phase) + 0.1 * sin (time / 47 + phase * 1.7)
+                in
+                V3.add acc (V3.scale (0.55 * falloff * flicker) warmColor)
+    in
+    List.foldl contribute (vec3 0 0 0) torches
+
+
+{-| Add a warm light contribution to a colour, clamping each channel to 1 so highlights don't blow out. -}
+addWarm : Vec3 -> Vec3 -> Vec3
+addWarm base warm =
+    vec3
+        (min 1 (V3.getX base + V3.getX warm))
+        (min 1 (V3.getY base + V3.getY warm))
+        (min 1 (V3.getZ base + V3.getZ warm))
+
+
+{-| The torch itself: a small flickering flame quad on the wall's camera-facing (south) side near the
+top, bright warm so it reads as the light's source. Only drawn when `on`. -}
+torchOn : Bool -> Float -> Pos -> Float -> Float -> Float -> List ( Vertex, Vertex, Vertex )
+torchOn on time p fx fz h =
+    if not on then
+        []
+
+    else
+        let
+            phase =
+                toFloat (p.x * 13 + p.y * 29)
+
+            flick =
+                0.8 + 0.2 * sin (time / 90 + phase)
+
+            flame =
+                V3.scale flick (vec3 1.0 0.7 0.3)
+
+            cx =
+                fx + 0.5
+
+            y0 =
+                h * 0.55
+
+            y1 =
+                h * 0.85
+
+            z =
+                fz + 1.02
+        in
+        -- a small flame patch standing slightly proud of the south face
+        quad flame (vec3 0 0 1) (vec3 (cx - 0.12) y0 z) (vec3 (cx + 0.12) y0 z) (vec3 (cx + 0.12) y1 z) (vec3 (cx - 0.12) y1 z)
 
 
 {-| A region's 3-D character: base wall height, how rough/jagged the wall tops are, and the colour the
@@ -391,9 +510,13 @@ floorQuad x z y col =
 
 {-| An extruded wall: the top plus only the two sides the fixed isometric camera can actually see (it
 looks from +x/+z, so the north and west faces are always hidden — culling them halves wall geometry
-and keeps the per-frame mesh light). The visible vertical faces shade darker than the lit top. -}
-wallBlock : Float -> Float -> Float -> Vec3 -> List ( Vertex, Vertex, Vertex )
-wallBlock x z h col =
+and keeps the per-frame mesh light).
+
+A little stone detail, kept deliberately cheap: each block is tinted slightly by a per-cell hash so
+neighbours differ in tone, and each visible side splits into a lighter upper course over a darker
+lower course (one extra quad per face) — a subtle masonry band rather than a flat slab. -}
+wallBlock : Float -> Float -> Float -> Vec3 -> Float -> List ( Vertex, Vertex, Vertex )
+wallBlock x z h col tone =
     let
         x1 =
             x + 1
@@ -401,18 +524,33 @@ wallBlock x z h col =
         z1 =
             z + 1
 
-        top =
-            V3.scale 1.15 col
+        -- ±8% tonal variation between blocks.
+        v =
+            V3.scale (0.92 + 0.16 * tone) col
 
-        side =
-            col
+        top =
+            V3.scale 1.18 v
+
+        upper =
+            V3.scale 1.0 v
+
+        lower =
+            V3.scale 0.82 v
+
+        -- the height the upper/lower courses meet at
+        band =
+            h * 0.62
+
+        -- a vertical face split into a darker lower course and lighter upper course
+        face n xa za xb zb =
+            quad lower n (vec3 xa 0 za) (vec3 xb 0 zb) (vec3 xb band zb) (vec3 xa band za)
+                ++ quad upper n (vec3 xa band za) (vec3 xb band zb) (vec3 xb h zb) (vec3 xa h za)
     in
     -- top
     quad top (vec3 0 1 0) (vec3 x h z) (vec3 x1 h z) (vec3 x1 h z1) (vec3 x h z1)
-        -- south (+z) — faces the camera
-        ++ quad side (vec3 0 0 1) (vec3 x 0 z1) (vec3 x1 0 z1) (vec3 x1 h z1) (vec3 x h z1)
-        -- east (+x) — faces the camera
-        ++ quad side (vec3 1 0 0) (vec3 x1 0 z) (vec3 x1 0 z1) (vec3 x1 h z1) (vec3 x1 h z)
+        -- south (+z) and east (+x) faces (the two the camera sees), each banded
+        ++ face (vec3 0 0 1) x z1 x1 z1
+        ++ face (vec3 1 0 0) x1 z1 x1 z
 
 
 {-| Two triangles for a quad with a single colour and normal. Winding is unspecified because face

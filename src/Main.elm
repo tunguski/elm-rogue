@@ -28,6 +28,7 @@ import Rogue.Render.Svg as SvgRenderer
 import Rogue.Render.Webgl as WebglRenderer
 import Set exposing (Set)
 import Storage
+import Time
 
 
 type Screen
@@ -139,11 +140,11 @@ maxHistory =
     8
 
 
-{-| How long (ms) the 3D view keeps animating after a move before going idle (and re-render stops).
-A touch longer than the renderer's slide so the tween fully settles. -}
-animWindow : Float
-animWindow =
-    260
+{-| The 3D view's animation tick interval (ms) — ~30fps. Throttled below 60fps so the continuous
+WebGL re-render (torch flicker, water, slides) stays light and keyboard input stays responsive. -}
+animFrameMs : Float
+animFrameMs =
+    33
 
 
 mods : List ( String, Ruleset )
@@ -285,14 +286,9 @@ update msg model =
             ( { model | pixelArt = not model.pixelArt }, Cmd.none )
 
         Tick dt ->
-            -- Advance the 3D animation clock ONLY during the short slide after a move. When idle we
-            -- return the model unchanged so Elm skips re-rendering entirely — otherwise the heavy
-            -- WebGL re-render every animation frame starves keyboard input. The next move reopens it.
-            if model.time - model.stepStart < animWindow then
-                ( { model | time = model.time + dt }, Cmd.none )
-
-            else
-                ( model, Cmd.none )
+            -- Advance the 3D animation clock (torch flicker, water shimmer, idle bob, move slides).
+            -- Driven by a throttled ~30fps Time.every clock, so it's light enough to stay responsive.
+            ( { model | time = model.time + dt }, Cmd.none )
 
         ToggleChallenge id ->
             ( { model
@@ -1626,17 +1622,13 @@ keyToGameMsg key =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    let
-        -- Only run the 3D animation-frame clock while a move is actively sliding. When idle there is NO
-        -- animation-frame subscription at all, so nothing re-renders and keyboard input stays instant;
-        -- the next move reopens the window (which re-subscribes). This is what keeps keys responsive.
-        animating =
-            model.screen == Playing && model.rendererName == "3D" && (model.time - model.stepStart) < animWindow
-    in
     Sub.batch
         [ Browser.Events.onKeyDown (Decode.map KeyPressed (Decode.field "key" Decode.string))
-        , if animating then
-            Browser.Events.onAnimationFrameDelta Tick
+        , -- The 3D view animates continuously (torch flicker, water, idle bob) but at a throttled
+          -- ~30fps so the per-frame WebGL rebuild stays cheap and keyboard input stays responsive.
+          -- The flat SVG/ASCII renderers need no clock at all.
+          if model.screen == Playing && model.rendererName == "3D" then
+            Time.every animFrameMs (\_ -> Tick animFrameMs)
 
           else
             Sub.none
