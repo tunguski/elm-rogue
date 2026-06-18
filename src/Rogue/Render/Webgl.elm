@@ -56,19 +56,26 @@ view scene =
         t =
             scene.time
 
+        -- How far through the current tile-to-tile slide we are (eased 0..1).
+        slide =
+            smoothstep (clamp 0 1 ((t - scene.stepStart) / stepDuration))
+
         pv =
-            cameraMatrix scene t
+            -- The camera glides with the hero (tweened by the same slide) instead of snapping.
+            cameraMatrix (cameraCenter scene slide) t
 
         light =
             -- A directional light that drifts in a slow circle so faces re-shade over time.
             vec3 (0.5 + 0.4 * sin (t / 2600)) 1.0 (0.4 + 0.4 * cos (t / 2600))
 
-        terrain =
-            WebGL.entity vertexShader fragmentShader (terrainMesh scene win) (uniforms pv M4.identity light (vec3 1 1 1))
+        -- Torches near the window (a few cells of margin so off-screen sconces still spill light onto
+        -- edge cells). Engine-provided, so out-of-sight torches still warm the cells you *can* see.
+        torches =
+            scene.torches
+                |> List.filter (\p -> p.x >= win.x0 - 4 && p.x <= win.x1 + 4 && p.y >= win.y0 - 4 && p.y <= win.y1 + 4)
 
-        -- How far through the current tile-to-tile slide we are (eased 0..1).
-        slide =
-            smoothstep (clamp 0 1 ((t - scene.stepStart) / stepDuration))
+        terrain =
+            WebGL.entity vertexShader fragmentShader (terrainMesh scene torches win) (uniforms pv M4.identity light (vec3 1 1 1))
 
         actors =
             scene.glyphs
@@ -127,16 +134,37 @@ inWindow win p =
     p.x >= win.x0 && p.x <= win.x1 && p.y >= win.y0 && p.y <= win.y1
 
 
+{-| The camera's focus cell as floats, tweened from the hero's previous cell toward its current one by
+the slide progress — so panning the diorama tracks the animated hero rather than jumping a whole tile. -}
+cameraCenter : Scene -> Float -> ( Float, Float )
+cameraCenter scene slide =
+    let
+        to =
+            scene.camera
+
+        from =
+            scene.moves
+                |> List.filter (\m -> m.to == to)
+                |> List.head
+                |> Maybe.map .from
+                |> Maybe.withDefault to
+
+        lerp a b =
+            toFloat a + (toFloat b - toFloat a) * slide
+    in
+    ( lerp from.x to.x, lerp from.y to.y )
+
+
 {-| An isometric camera: an orthographic projection viewed from a fixed diagonal, looking at the hero.
 A gentle bob on the eye height makes the whole diorama breathe. -}
-cameraMatrix : Scene -> Float -> Mat4
-cameraMatrix scene t =
+cameraMatrix : ( Float, Float ) -> Float -> Mat4
+cameraMatrix ( camX, camZ ) t =
     let
         cx =
-            toFloat scene.camera.x + 0.5
+            camX + 0.5
 
         cz =
-            toFloat scene.camera.y + 0.5
+            camZ + 0.5
 
         center =
             vec3 cx 0 cz
@@ -252,19 +280,13 @@ actorEntity pv light t ( wx, wz ) glyph =
 -- TERRAIN MESH -----------------------------------------------------------------------------------
 
 
-terrainMesh : Scene -> { x0 : Int, y0 : Int, x1 : Int, y1 : Int } -> Mesh Vertex
-terrainMesh scene win =
+terrainMesh : Scene -> List Pos -> { x0 : Int, y0 : Int, x1 : Int, y1 : Int } -> Mesh Vertex
+terrainMesh scene torches win =
     let
         cells =
             List.concatMap
                 (\gy -> List.map (\gx -> { x = gx, y = gy }) (List.range win.x0 win.x1))
                 (List.range win.y0 win.y1)
-
-        -- The visible torch-bearing walls: every ~10th wall carries a sconce. Precomputed so each
-        -- cell can sum the warm, flickering glow of nearby torches into its colour.
-        torches =
-            cells
-                |> List.filter (\p -> isWall (Level.at p scene.level) && isTorchWall p && Set.member ( p.x, p.y ) scene.visible)
     in
     WebGL.triangles (List.concatMap (cellGeometry scene torches) cells)
 
@@ -272,12 +294,6 @@ terrainMesh scene win =
 isWall : Tile -> Bool
 isWall tile =
     tile == Wall || tile == SecretDoor
-
-
-{-| Roughly one wall in ten bears a torch (a stable per-cell choice). -}
-isTorchWall : Pos -> Bool
-isTorchWall p =
-    modBy 10 (p.x * 37 + p.y * 71 + 5) == 0
 
 
 cellGeometry : Scene -> List Pos -> Pos -> List ( Vertex, Vertex, Vertex )
@@ -338,7 +354,7 @@ cellGeometry scene torches p =
                 prof.wallH + prof.rough * (hash01 p - 0.5) * 2
 
             torchHere =
-                visible && isWall tile && isTorchWall p
+                visible && isWall tile && Level.isTorchWall p
         in
         case tile of
             Wall ->
@@ -367,7 +383,8 @@ cellGeometry scene torches p =
                 floorQuad fx fz y shimmer
 
             _ ->
-                floorQuad fx fz 0.0 col
+                -- Flagstones: a faint per-cell tone shift so open ground reads as tiled, not a flat slab.
+                floorQuad fx fz 0.0 (V3.scale (0.93 + 0.14 * hash01 p) col)
 
 
 {-| Warm light a cell receives from nearby torches: each contributes a flickering, distance-falloff
@@ -383,7 +400,7 @@ torchGlow time torches p =
                 d =
                     distTo tc p
             in
-            if d > 4.5 then
+            if d > 4.0 then
                 acc
 
             else
@@ -391,19 +408,32 @@ torchGlow time torches p =
                     falloff =
                         let
                             f =
-                                1 - d / 4.5
+                                1 - d / 4.0
                         in
                         f * f
-
-                    phase =
-                        toFloat (tc.x * 13 + tc.y * 29)
-
-                    flicker =
-                        0.72 + 0.18 * sin (time / 110 + phase) + 0.1 * sin (time / 47 + phase * 1.7)
                 in
-                V3.add acc (V3.scale (0.55 * falloff * flicker) warmColor)
+                V3.add acc (V3.scale (0.34 * falloff * torchFlicker time tc) warmColor)
     in
     List.foldl contribute (vec3 0 0 0) torches
+
+
+{-| A torch's brightness multiplier over time. Each torch gets its own base period and phase from its
+coordinates, and three incommensurate sine terms are summed, so no two torches flicker in step and the
+pattern never visibly repeats (rather than the obvious single-sine loop it had before). -}
+torchFlicker : Float -> Pos -> Float
+torchFlicker time tc =
+    let
+        phase =
+            toFloat (tc.x * 13 + tc.y * 29)
+
+        -- per-torch base period, 70..145 ms-ish, so neighbours run at unrelated speeds
+        rate =
+            70 + toFloat (modBy 75 (tc.x * 17 + tc.y * 53 + 11))
+    in
+    0.7
+        + 0.15 * sin (time / rate + phase)
+        + 0.09 * sin (time / (rate * 0.41) + phase * 1.7)
+        + 0.06 * sin (time / (rate * 0.23) + phase * 2.9)
 
 
 {-| Add a warm light contribution to a colour, clamping each channel to 1 so highlights don't blow out. -}
@@ -424,14 +454,8 @@ torchOn on time p fx fz h =
 
     else
         let
-            phase =
-                toFloat (p.x * 13 + p.y * 29)
-
-            flick =
-                0.8 + 0.2 * sin (time / 90 + phase)
-
             flame =
-                V3.scale flick (vec3 1.0 0.7 0.3)
+                V3.scale (0.7 + 0.5 * torchFlicker time p) (vec3 1.0 0.7 0.3)
 
             cx =
                 fx + 0.5
@@ -531,20 +555,29 @@ wallBlock x z h col tone =
         top =
             V3.scale 1.18 v
 
-        upper =
-            V3.scale 1.0 v
+        -- three stacked masonry courses, darkest at the base lightening upward
+        c0 =
+            V3.scale 0.78 v
 
-        lower =
-            V3.scale 0.82 v
+        c1 =
+            V3.scale 0.93 v
 
-        -- the height the upper/lower courses meet at
-        band =
-            h * 0.62
+        c2 =
+            V3.scale 1.05 v
 
-        -- a vertical face split into a darker lower course and lighter upper course
+        b1 =
+            h * 0.38
+
+        b2 =
+            h * 0.7
+
+        -- a vertical face split into three courses (a subtle row of stone bands rather than a flat slab)
         face n xa za xb zb =
-            quad lower n (vec3 xa 0 za) (vec3 xb 0 zb) (vec3 xb band zb) (vec3 xa band za)
-                ++ quad upper n (vec3 xa band za) (vec3 xb band zb) (vec3 xb h zb) (vec3 xa h za)
+            let
+                seg c ya yb =
+                    quad c n (vec3 xa ya za) (vec3 xb ya zb) (vec3 xb yb zb) (vec3 xa yb za)
+            in
+            seg c0 0 b1 ++ seg c1 b1 b2 ++ seg c2 b2 h
     in
     -- top
     quad top (vec3 0 1 0) (vec3 x h z) (vec3 x1 h z) (vec3 x1 h z1) (vec3 x h z1)

@@ -9,6 +9,7 @@ proof of the "alternative game rendering engine" promise: the simulation has no 
 being drawn as SVG tiles or ASCII glyphs.
 -}
 
+import Char
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as HA
@@ -130,12 +131,94 @@ cellView scene glyphs p =
 
             else
                 ( " ", "#05070b" )
+
+        -- Firelight: warm the colour of lit cells by their nearness to a torch (the torch wall itself,
+        -- at distance 0, glows brightest — so sconces read in text mode too). Matches the SVG/3D pooling.
+        litColor =
+            if visible then
+                warmTint (Rogue.Render.torchWarmth scene.torches p) color
+
+            else
+                color
     in
     Html.span
         [ HA.class "rg-ascii-cell"
-        , HA.style "color" color
+        , HA.style "color" litColor
         ]
         [ Html.text ch ]
+
+
+{-| Blend a hex colour toward torch-orange by `t` (0 = unchanged), for the ASCII firelight wash. -}
+warmTint : Float -> String -> String
+warmTint t hex =
+    if t <= 0.02 then
+        hex
+
+    else
+        let
+            k =
+                min 0.55 (t * 0.6)
+
+            mix a target =
+                round (toFloat a * (1 - k) + toFloat target * k)
+
+            ( r, g, b ) =
+                parseHex hex
+        in
+        "#" ++ hex2 (mix r 255) ++ hex2 (mix g 170) ++ hex2 (mix b 90)
+
+
+parseHex : String -> ( Int, Int, Int )
+parseHex raw =
+    let
+        s =
+            String.replace "#" "" raw
+
+        comp from =
+            hexPair (String.slice from (from + 2) s)
+    in
+    ( comp 0, comp 2, comp 4 )
+
+
+hexPair : String -> Int
+hexPair s =
+    case String.toList s of
+        a :: b :: _ ->
+            16 * hexDigit a + hexDigit b
+
+        _ ->
+            128
+
+
+hexDigit : Char -> Int
+hexDigit c =
+    let
+        n =
+            Char.toCode c
+    in
+    if n >= 48 && n <= 57 then
+        n - 48
+
+    else if n >= 97 && n <= 102 then
+        n - 87
+
+    else if n >= 65 && n <= 70 then
+        n - 55
+
+    else
+        0
+
+
+hex2 : Int -> String
+hex2 n =
+    let
+        clamped =
+            clamp 0 255 n
+
+        digit d =
+            String.slice d (d + 1) "0123456789abcdef"
+    in
+    digit (clamped // 16) ++ digit (modBy 16 clamped)
 
 
 tileColor : Rogue.Render.Theme -> Tile -> Bool -> String

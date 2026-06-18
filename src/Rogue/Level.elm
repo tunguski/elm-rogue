@@ -10,6 +10,8 @@ module Rogue.Level exposing
     , positions
     , find
     , toRows
+    , torches
+    , isTorchWall
     )
 
 {-| A dungeon level: a fixed-size rectangular grid of `Tile`s, stored sparsely in a `Dict` keyed by
@@ -116,6 +118,20 @@ positions level =
     List.concatMap
         (\y -> List.map (\x -> { x = x, y = y }) (List.range 0 (level.width - 1)))
         (List.range 0 (level.height - 1))
+
+
+{-| Wall cells that bear a lit torch sconce — a stable ~1-in-10 of the floor's walls. Shared by the
+engine (firelight extends the hero's view, [[Fov]]) and every renderer (warm light pooled on nearby
+cells), so torches sit in the same places however the floor is drawn. -}
+torches : Level -> List Pos
+torches level =
+    List.filter (\p -> at p level == Wall && isTorchWall p) (positions level)
+
+
+{-| Whether a wall at this position carries a torch — a deterministic per-cell choice (no state). -}
+isTorchWall : Pos -> Bool
+isTorchWall p =
+    modBy 10 (p.x * 37 + p.y * 71 + 5) == 0
 
 
 {-| The first position whose tile satisfies the predicate (row-major), if any. -}

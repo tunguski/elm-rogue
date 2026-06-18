@@ -10,6 +10,7 @@ module Rogue.Render exposing
     , themeForDepth
     , defaultTheme
     , layerTerrain, layerItem, layerActor, layerHero
+    , torchWarmth
     )
 
 {-| The rendering seam — the boundary that makes the *graphics engine* itself a mod.
@@ -190,6 +191,7 @@ type alias Scene =
     , time : Float
     , moves : List Move
     , stepStart : Float
+    , torches : List Pos
     , hud : Hud
     }
 
@@ -247,3 +249,36 @@ type alias Renderer msg =
     , cellSize : Int
     , view : Scene -> Html msg
     }
+
+
+{-| How strongly cell `p` is bathed in torchlight: 0 well away from any torch, rising toward 1 right
+beside one, summed with a quadratic falloff over `torches` and clamped to 1. Shared by all three
+renderers so firelight pools the same way whether the floor is drawn as SVG, ASCII or WebGL. -}
+torchWarmth : List Pos -> Pos -> Float
+torchWarmth torches p =
+    let
+        range =
+            3.6
+
+        contribute t acc =
+            let
+                dx =
+                    toFloat (t.x - p.x)
+
+                dy =
+                    toFloat (t.y - p.y)
+
+                d =
+                    sqrt (dx * dx + dy * dy)
+            in
+            if d >= range then
+                acc
+
+            else
+                let
+                    f =
+                        1 - d / range
+                in
+                acc + f * f
+    in
+    min 1 (List.foldl contribute 0 torches)

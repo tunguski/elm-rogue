@@ -395,10 +395,12 @@ cellSvg scene p =
 
                 dim =
                     vis == Rogue.Render.Remembered
-            in
-            Just
-                (g []
-                    (rect
+
+                visible =
+                    vis == Rogue.Render.Visible
+
+                base =
+                    rect
                         [ SA.x (px (p.x * cellSize))
                         , SA.y (px (p.y * cellSize))
                         , SA.width (px cellSize)
@@ -408,14 +410,81 @@ cellSvg scene p =
                         , SA.strokeWidth "1"
                         ]
                         []
-                        :: (if scene.pixelArt then
-                                tileDecor tile p dim
 
-                            else
-                                []
-                           )
-                    )
-                )
+                decor =
+                    if scene.pixelArt then
+                        tileDecor tile p dim
+
+                    else
+                        []
+            in
+            Just (g [] (base :: (decor ++ torchSvg scene tile p visible)))
+
+
+{-| Firelight in SVG: a warm wash over a lit cell that scales with its distance to nearby torches
+(`Render.torchWarmth`, the same pooling the 3D view uses), plus a small flickering flame drawn on each
+visible torch-bearing wall. The CSS classes drive a gentle flicker so it isn't dead-static. -}
+torchSvg : Scene -> Tile -> Pos -> Bool -> List (Svg msg)
+torchSvg scene tile p visible =
+    let
+        cx =
+            toFloat (p.x * cellSize)
+
+        cy =
+            toFloat (p.y * cellSize)
+
+        -- A per-cell negative animation offset so neighbouring torches don't flicker in lock-step
+        -- (otherwise the shared keyframe makes them pulse as one obvious loop).
+        dly =
+            HA.style "animation-delay" (fc (toFloat (modBy 23 (p.x * 7 + p.y * 13)) * -0.17) ++ "s")
+
+        warm =
+            if visible then
+                Rogue.Render.torchWarmth scene.torches p
+
+            else
+                0
+
+        glow =
+            if warm > 0.04 then
+                [ rect
+                    [ SA.x (fc cx)
+                    , SA.y (fc cy)
+                    , SA.width (px cellSize)
+                    , SA.height (px cellSize)
+                    , SA.fill "#ff9a44"
+                    , HA.class "rg-torchlight"
+                    , HA.style "opacity" (fc (min 0.34 (warm * 0.32)))
+                    , HA.style "pointer-events" "none"
+                    , dly
+                    ]
+                    []
+                ]
+
+            else
+                []
+
+        flame =
+            if visible && tile == Wall && Level.isTorchWall p then
+                [ rect [ SA.x (fc (cx + 8.5)), SA.y (fc (cy + 9.5)), SA.width "7", SA.height "2", SA.fill "#3a2616", HA.style "pointer-events" "none" ] []
+                , rect
+                    [ SA.x (fc (cx + 10.5))
+                    , SA.y (fc (cy + 3))
+                    , SA.width "3"
+                    , SA.height "7"
+                    , SA.rx "1.5"
+                    , SA.fill "#ffcf85"
+                    , HA.class "rg-torch"
+                    , HA.style "pointer-events" "none"
+                    , dly
+                    ]
+                    []
+                ]
+
+            else
+                []
+    in
+    glow ++ flame
 
 
 {-| Texture overlays that give a cell pixel-art relief without needing per-region colour maths: each
@@ -460,21 +529,43 @@ tileDecor tile p dim =
 
         white =
             "#ffffff"
+
+        -- A water wave: like `ov` but carries the CSS shimmer class and a per-cell phase offset so the
+        -- surface drifts subtly out of sync from tile to tile.
+        wave dx dy w h color op =
+            rect
+                [ SA.x (fc (cx + dx))
+                , SA.y (fc (cy + dy))
+                , SA.width (fc w)
+                , SA.height (fc h)
+                , SA.fill color
+                , HA.class "rg-water-wave"
+                , HA.style "opacity" (fc (op * f))
+                , HA.style "animation-delay" (fc (toFloat (hash 13) * -0.27) ++ "s")
+                , HA.style "pointer-events" "none"
+                ]
+                []
     in
     case tile of
         Wall ->
-            -- Brick courses: two dark mortar lines, vertical joints offset every other row, a top hi-light.
-            [ ov 0 0 24 2 white 0.07
+            -- Brick courses: mortar lines top/mid/bottom, vertical joints offset per row, a top hi-light
+            -- and a faint lower shadow so each block reads with a little more relief.
+            [ ov 0 0 24 2 white 0.08
             , ov 0 7.5 24 1.5 black 0.32
             , ov 0 15.5 24 1.5 black 0.32
+            , ov 0 22.5 24 1.5 black 0.22
             , ov 11 0 1.5 8 black 0.28
             , (if modBy 2 p.y == 0 then ov 5 16 1.5 8 black 0.28 else ov 17 16 1.5 8 black 0.28)
+            , ov 17 8 1.5 8 black 0.22
+            , ov 1 9 9 1 white 0.05
             ]
 
         Floor ->
-            -- A couple of faint speckles so open ground isn't a flat slab.
+            -- A few faint speckles and a grit fleck so open ground isn't a flat slab.
             [ ov (toFloat (2 + hash 16)) (toFloat (3 + hash 14)) 2 2 black 0.16
             , ov (toFloat (10 + hash 9)) (toFloat (13 + hash 7)) 2 2 white 0.05
+            , ov (toFloat (15 + hash 6)) (toFloat (5 + hash 8)) 1 1 black 0.13
+            , ov (toFloat (5 + hash 7)) (toFloat (17 + hash 4)) 1 1 white 0.045
             ]
 
         Grass ->
@@ -487,9 +578,11 @@ tileDecor tile p dim =
             ]
 
         Water ->
-            [ ov 3 7 10 1.5 white 0.14
-            , ov 12 14 9 1.5 white 0.1
-            , ov 6 17 6 1.5 black 0.18
+            -- Lightly animated surface: highlight ripples drift/fade so it reads as water, just barely.
+            [ ov 0 0 24 24 black 0.12
+            , wave 3 7 10 1.5 white 0.16
+            , wave 12 14 9 1.5 white 0.11
+            , wave 6 17 6 1.5 white 0.08
             ]
 
         Door ->

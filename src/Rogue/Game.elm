@@ -1030,7 +1030,7 @@ enterLevel ruleset depth kills idents seed gen hero log =
             buildStatues depth (List.drop 21 leftover) seed12
 
         vis =
-            Fov.compute (fovRadiusFor heroAt depth) heroAt.pos gen.level
+            withTorchlight gen.level (Fov.compute (fovRadiusFor heroAt depth) heroAt.pos gen.level)
     in
     { ruleset = ruleset
     , level = gen.level
@@ -5649,9 +5649,24 @@ refreshFov game =
             max 2 (fovRadiusFor game.hero game.depth - darkness)
 
         vis =
-            Fov.compute radius game.hero.pos game.level
+            withTorchlight game.level (Fov.compute radius game.hero.pos game.level)
     in
     { game | visible = vis, explored = Set.union game.explored vis }
+
+
+{-| Firelight extends sight: any torch the hero can already see also lights the cells around it (their
+own little field of view), so the glow of a sconce helps you make out a room you couldn't otherwise.
+Folded into the hero's visible set. -}
+torchSightRadius : Int
+torchSightRadius =
+    3
+
+
+withTorchlight : Level -> Set ( Int, Int ) -> Set ( Int, Int )
+withTorchlight level vis =
+    Level.torches level
+        |> List.filter (\t -> Set.member ( t.x, t.y ) vis)
+        |> List.foldl (\t acc -> Set.union acc (Fov.compute torchSightRadius t level)) vis
 
 
 {-| Close out a turn-consuming hero action: run the monsters, then tick the counter. -}
@@ -6647,6 +6662,7 @@ toScene game =
     , time = 0
     , moves = []
     , stepStart = 0
+    , torches = Level.torches game.level
     , hud =
         { title = "elm-rogue"
         , region = (Render.themeForDepth game.depth).name
