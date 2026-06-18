@@ -21,6 +21,10 @@ import Mod.Default
 import Mod.Hard
 import Rogue.Content as Content exposing (ClassDef, Ruleset)
 import Rogue.Game as Game exposing (Game)
+import Rogue.Game.Scene as Scene
+import Rogue.Game.ItemEffects as ItemEffects
+import Rogue.Game.Items as Items
+import Rogue.Game.Actions as Actions
 import Rogue.Grid as Grid
 import Rogue.Render exposing (Renderer)
 import Rogue.Render.Ascii as AsciiRenderer
@@ -318,10 +322,10 @@ update msg model =
                     ( { model | game = Game.learnTalent name model.game, pendingChoice = Nothing }, Cmd.none )
 
                 Just GhostChoice ->
-                    ( { model | game = Game.takeGhostGift name model.game, pendingChoice = Nothing }, Cmd.none )
+                    ( { model | game = Actions.takeGhostGift name model.game, pendingChoice = Nothing }, Cmd.none )
 
                 Just EnchantChoice ->
-                    ( { model | game = Game.chooseEnchant name model.game, pendingChoice = Nothing }, Cmd.none )
+                    ( { model | game = ItemEffects.chooseEnchant name model.game, pendingChoice = Nothing }, Cmd.none )
 
                 Nothing ->
                     ( model, Cmd.none )
@@ -404,7 +408,7 @@ runGame gm model =
                 -- one tile-to-tile. Skipped for the flat renderers (they draw at the final cell).
                 stepMoves =
                     if model.rendererName == "3D" then
-                        actorMoves (Game.toScene model.game) (Game.toScene nextGame)
+                        actorMoves (Scene.toScene model.game) (Scene.toScene nextGame)
 
                     else
                         []
@@ -812,7 +816,7 @@ catalogRows : Game -> List (Html Msg)
 catalogRows game =
     let
         entries =
-            Game.itemCatalog game
+            ItemEffects.itemCatalog game
 
         categories =
             [ "Weapons", "Armour", "Potions", "Scrolls", "Wands", "Rings", "Artifacts", "Other" ]
@@ -965,7 +969,7 @@ sheetView game =
             , sheetStat "Gold" (String.fromInt hero.gold)
             , Html.div [ HA.class "rg-inv-hint" ]
                 [ Html.text
-                    (if Game.nearShop game then
+                    (if Items.nearShop game then
                         "Inventory — at a shop (tap to use · 💰 to sell · ✕ to drop)"
 
                      else
@@ -976,7 +980,7 @@ sheetView game =
                 Html.div [ HA.class "rg-inv-empty" ] [ Html.text "— empty —" ]
 
               else
-                Html.div [] (categorizedInventory (Game.nearShop game) hero.inventory)
+                Html.div [] (categorizedInventory (Items.nearShop game) hero.inventory)
             , Html.div [ HA.class "rg-inv-hint" ] [ Html.text "Alchemy recipes (brew with C)" ]
             , Html.div []
                 (List.map
@@ -984,7 +988,7 @@ sheetView game =
                         Html.div [ HA.style "font-size" "11.5px", HA.style "color" "#7f8ba0", HA.style "padding" "1px 0" ]
                             [ Html.text (String.join " + " r.inputs ++ " → " ++ r.name) ]
                     )
-                    Game.alchemyRecipes
+                    Items.alchemyRecipes
                 )
             , Html.button [ onClick ToggleSheet, HA.class "rg-modal-close" ]
                 [ Html.text "Close (I)" ]
@@ -1085,7 +1089,7 @@ quickslotBar model =
         -- not quick-usable). Keeping the real index is essential: Game.Use indexes the full pack, so
         -- filtering the displayed list without preserving indices would fire the wrong item.
         slots =
-            List.map2 Tuple.pair (Game.toScene model.game).hud.inventory model.game.hero.inventory
+            List.map2 Tuple.pair (Scene.toScene model.game).hud.inventory model.game.hero.inventory
                 |> List.indexedMap (\i ( name, def ) -> ( i, name, def ))
                 |> List.filter (\( _, _, def ) -> not (isKeyItem def))
                 |> List.take 8
@@ -1140,7 +1144,7 @@ hintFor : Model -> Maybe String
 hintFor model =
     let
         hud =
-            (Game.toScene model.game).hud
+            (Scene.toScene model.game).hud
     in
     if hud.gameOver then
         Nothing
@@ -1221,7 +1225,7 @@ sceneFor : Model -> Rogue.Render.Scene
 sceneFor model =
     let
         scene =
-            Game.toScene model.game
+            Scene.toScene model.game
     in
     { scene
         | cursor = model.targeting

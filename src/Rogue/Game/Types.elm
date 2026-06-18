@@ -897,3 +897,44 @@ findIndex pred xs =
                         go (i + 1) rest
     in
     go 0 xs
+nearestVisibleEnemy : Game -> Maybe Enemy
+nearestVisibleEnemy game =
+    game.enemies
+        |> List.filter (\e -> not e.ally && Set.member ( e.pos.x, e.pos.y ) game.visible)
+        |> List.foldl
+            (\e best ->
+                case best of
+                    Nothing ->
+                        Just e
+
+                    Just b ->
+                        if Grid.chebyshev e.pos game.hero.pos < Grid.chebyshev b.pos game.hero.pos then
+                            Just e
+
+                        else
+                            best
+            )
+            Nothing
+
+
+-- priceFor (moved to base) ----------------------------------------------------------------------
+
+priceFor : Int -> ItemDef -> Int
+priceFor depth def =
+    let
+        base =
+            case def.kind of
+                Content.Equipment _ _ ->
+                    60
+
+                Content.Wand _ ->
+                    80
+
+                Content.Consumable _ ->
+                    30
+
+                Content.Key ->
+                    20
+    in
+    base + depth * 5
+
