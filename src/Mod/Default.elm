@@ -134,6 +134,7 @@ ruleset =
         , ringOfMight
         , ringOfForce
         , ringOfEvasion
+        , ringOfSharpshooting
         , ringOfTenacity
         , cloakOfShadows
         , hornOfPlenty
@@ -1504,6 +1505,19 @@ ringOfEvasion =
     , glyph = "="
     , color = "#9be08a"
     , kind = Equipment RingSlot { damage = 0, defense = 3, maxHp = 0, plus = 0, cursed = False, enchant = "" }
+    , minDepth = 4
+    , maxDepth = 99
+    , spawnWeight = 3
+    }
+
+
+ringOfSharpshooting : ItemDef
+ringOfSharpshooting =
+    { id = "ring-accuracy"
+    , name = "ring of sharpshooting"
+    , glyph = "="
+    , color = "#ffd166"
+    , kind = Equipment RingSlot { damage = 0, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "" }
     , minDepth = 4
     , maxDepth = 99
     , spawnWeight = 3

@@ -217,18 +217,23 @@ moveOrInteract dir target game =
                     steppedTile =
                         Level.at target game.level
 
-                    -- Stepping into a closed door opens it; trampling tall grass flattens it — both
-                    -- stop the cell from blocking sight once you've passed through.
-                    opened =
+                    -- Stepping into a closed door opens it.
+                    openedDoor =
                         case steppedTile of
                             Door ->
                                 Level.set target OpenDoor game.level
 
-                            Grass ->
-                                Level.set target Floor game.level
-
                             _ ->
                                 game.level
+
+                    -- You can hide in fresh tall grass (it conceals you this turn); moving on tramples
+                    -- the cell you *leave* into trodden floor, so the grass ahead still hides you.
+                    opened =
+                        if Level.at game.hero.pos game.level == Grass then
+                            Level.set game.hero.pos Floor openedDoor
+
+                        else
+                            openedDoor
                 in
                 endTurn (stepOnWell (stepOnPlant (blessAtAltar (applyTerrainStep steppedTile (triggerTrap (tryBuy (pickUp (refreshFov { game | hero = moved, level = opened }))))))))
 

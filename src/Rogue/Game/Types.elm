@@ -950,12 +950,16 @@ probability accuracy / (accuracy + evasion); a surprise attack bypasses the roll
 (see `strModifier`) nudges these once the hero is over/under a weapon's requirement. -}
 heroAccuracy : Hero -> Int
 heroAccuracy hero =
-    9 + hero.level + strModifier hero
+    9 + hero.level + strModifier hero + (if Maybe.map .id hero.ring == Just "ring-accuracy" then 3 else 0)
 
 
 heroEvasion : Hero -> Int
 heroEvasion hero =
-    4 + hero.level // 2 + min 0 (strModifier hero)
+    4
+        + hero.level // 2
+        + min 0 (strModifier hero)
+        + (if itemEnchant hero.armour == "swift" then 3 else 0)
+        + (if Maybe.map .id hero.ring == Just "ring-evasion" then 3 else 0)
 
 
 enemyAccuracy : EnemyDef -> Int

@@ -405,7 +405,7 @@ applySpores game =
         List.foldl (\e g -> spawnGas ToxicGasCloud 2 e.pos g) game sporers
 
 
-{-| A thief grabs gold and bolts for the exit. -}
+{-| A thief grabs gold — and snatches a consumable from your bag if it can — then bolts for the exit. -}
 stealAndFlee : Enemy -> Int -> List Enemy -> TurnAcc -> ( List Enemy, TurnAcc )
 stealAndFlee enemy amount done acc =
     let
@@ -414,11 +414,34 @@ stealAndFlee enemy amount done acc =
 
         stolen =
             min amount hero.gold
+
+        isConsumable it =
+            case it.kind of
+                Content.Consumable _ ->
+                    True
+
+                _ ->
+                    False
+
+        ( newInv, snatchLog ) =
+            case findIndex isConsumable hero.inventory of
+                Just i ->
+                    ( removeAt i hero.inventory
+                    , case nth i hero.inventory of
+                        Just it ->
+                            " and snatches your " ++ it.name ++ "!"
+
+                        Nothing ->
+                            " and flees!"
+                    )
+
+                Nothing ->
+                    ( hero.inventory, " and flees!" )
     in
     ( { enemy | fleeing = True } :: done
     , { acc
-        | hero = { hero | gold = hero.gold - stolen }
-        , log = ("The " ++ enemy.def.name ++ " steals " ++ String.fromInt stolen ++ " gold and flees!") :: acc.log
+        | hero = { hero | gold = hero.gold - stolen, inventory = newInv }
+        , log = ("The " ++ enemy.def.name ++ " steals " ++ String.fromInt stolen ++ " gold" ++ snatchLog) :: acc.log
       }
     )
 

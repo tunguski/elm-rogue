@@ -216,8 +216,14 @@ tickFire game =
                     )
                     game.level
                     expired
+            -- Chemistry: open flame burns away any gas cloud sharing a cell.
+            burnt =
+                List.map Tuple.first alive
+
+            clearedGas =
+                Dict.filter (\k _ -> not (List.member k burnt)) game.gas
         in
-        applyFireEffects { game | fire = Dict.fromList alive, level = scorched }
+        applyFireEffects { game | fire = Dict.fromList alive, level = scorched, gas = clearedGas }
 
 
 {-| Freeze the Water cells within one tile of `center` into ice patches (a timed overlay), dousing any
