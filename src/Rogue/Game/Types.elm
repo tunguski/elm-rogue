@@ -422,6 +422,7 @@ type TrapKind
     | FlameTrap
     | SummonTrap
     | PitfallTrap
+    | Web
 
 
 type alias Trap =

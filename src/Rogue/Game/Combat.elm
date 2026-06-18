@@ -89,6 +89,26 @@ bossBonusLoot enemy game =
         |> addLog ("You loot " ++ String.fromInt bonusGold ++ " gold from the fallen champion.")
 
 
+{-| A slain monster has a good chance to leave a healing **dewdrop** on its cell (Shattered Pixel's
+between-fights sustain). Walking over it restores a little HP — see `Items.pickUpItem`. -}
+dewItem : ItemDef
+dewItem =
+    { id = "dew", name = "dewdrop", glyph = "˚", color = "#9be0ff", kind = Content.Consumable (HealHp 0), minDepth = 1, maxDepth = 0, spawnWeight = 0 }
+
+
+maybeDropDew : Enemy -> Game -> Game
+maybeDropDew enemy game =
+    let
+        ( roll, s1 ) =
+            Rng.int 100 game.seed
+    in
+    if roll < 40 && not enemy.ally then
+        { game | items = { def = dewItem, pos = enemy.pos } :: game.items, seed = s1 }
+
+    else
+        { game | seed = s1 }
+
+
 heroAttack : Enemy -> Game -> Game
 heroAttack enemy game =
     let
@@ -99,8 +119,14 @@ heroAttack enemy game =
                 || List.any (\s -> s.kind == Paralyzed) enemy.statuses
                 || (Level.at game.hero.pos game.level == Grass)
 
+        ( critRoll, seedC ) =
+            Rng.int 12 game.seed
+
+        crit =
+            critRoll == 0
+
         ( base, seed1 ) =
-            rollDamage (heroDamage game.hero) enemy.def.defense game.seed
+            rollDamage (heroDamage game.hero) enemy.def.defense seedC
 
         glass =
             if List.member "glass-cannon" game.challenges then
@@ -124,16 +150,26 @@ heroAttack enemy game =
                     base
                   )
 
-        -- A Vulnerable foe takes 50% more.
-        dmg =
+        -- A Vulnerable foe takes 50% more; a critical hit adds another half on top.
+        vulnerable =
             if List.any (\s -> s.kind == Vulnerable) enemy.statuses then
                 raw * 3 // 2
 
             else
                 raw
 
+        dmg =
+            if crit then
+                vulnerable * 3 // 2
+
+            else
+                vulnerable
+
         color =
-            if surprised then
+            if crit then
+                "#ff4d4d"
+
+            else if surprised then
                 "#ff7adf"
 
             else
@@ -143,11 +179,18 @@ heroAttack enemy game =
             enemy.hp - dmg
 
         surpriseNote =
-            if surprised then
+            (if surprised then
                 " (surprise!)"
 
-            else
+             else
                 ""
+            )
+                ++ (if crit then
+                        " (critical!)"
+
+                    else
+                        ""
+                   )
     in
     if remaining <= 0 && enemy.revives > 0 then
         -- A ghoul shrugs off the killing blow and claws back up, one fewer life to spare.
@@ -168,6 +211,7 @@ heroAttack enemy game =
             |> addPopup enemy.pos (String.fromInt dmg) color
             |> gainXp enemy.def.xp
             |> dropLoot enemy
+            |> maybeDropDew enemy
             |> applyHitEnchant enemy dmg
 
     else
@@ -202,6 +246,41 @@ applyHitEnchant enemy dmg game =
                     max 1 (dmg // 3)
             in
             { game | hero = { hero | hp = min hero.maxHp (hero.hp + heal) } }
+
+        "chilling" ->
+            -- Frost-bound: the struck foe is slowed.
+            { game | enemies = updateEnemyAt enemy.pos (\e -> { e | statuses = addEnemyStatus Slowed 1 4 e.statuses }) game.enemies }
+
+        "shocking" ->
+            -- Lightning arcs to one foe beside the target for half the blow (never a killing jolt).
+            case game.enemies |> List.filter (\e -> e.pos /= enemy.pos && Grid.chebyshev e.pos enemy.pos <= 1 && not e.ally) |> List.head of
+                Just other ->
+                    let
+                        zap =
+                            max 1 (dmg // 2)
+                    in
+                    { game | enemies = updateEnemyAt other.pos (\e -> { e | hp = max 1 (e.hp - zap), alerted = True }) game.enemies }
+                        |> addPopup other.pos (String.fromInt zap) "#9be0ff"
+
+                Nothing ->
+                    game
+
+        "lucky" ->
+            -- A lucky strike now and then shakes loose a little coin.
+            let
+                ( roll, s1 ) =
+                    Rng.int 100 game.seed
+            in
+            if roll < 20 then
+                let
+                    ( bonus, s2 ) =
+                        Rng.range 1 (2 + game.depth) s1
+                in
+                { game | hero = { hero | gold = hero.gold + bonus }, seed = s2 }
+                    |> addPopup game.hero.pos ("+" ++ String.fromInt bonus ++ "g") "#ffd166"
+
+            else
+                { game | seed = s1 }
 
         _ ->
             game

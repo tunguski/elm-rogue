@@ -402,7 +402,21 @@ tickStatuses game =
         hero =
             game.hero
 
-        ( hpDelta, logs ) =
+        -- Standing in water douses flames: the Burn status is quenched before it can tick.
+        onWater =
+            Level.at hero.pos game.level == Water
+
+        wasBurning =
+            onWater && List.any (\s -> s.kind == Burn) hero.statuses
+
+        active =
+            if onWater then
+                List.filter (\s -> s.kind /= Burn) hero.statuses
+
+            else
+                hero.statuses
+
+        ( hpDelta, logs0 ) =
             List.foldl
                 (\status ( dhp, ls ) ->
                     case status.kind of
@@ -422,10 +436,17 @@ tickStatuses game =
                             ( dhp, ls )
                 )
                 ( 0, [] )
-                hero.statuses
+                active
+
+        logs =
+            if wasBurning then
+                "The water douses the flames." :: logs0
+
+            else
+                logs0
 
         ticked =
-            hero.statuses
+            active
                 |> List.map (\s -> { s | turns = s.turns - 1 })
                 |> List.filter (\s -> s.turns > 0)
 

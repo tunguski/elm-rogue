@@ -768,6 +768,9 @@ trapEffect kind game =
                 { game | enemies = game.enemies ++ picks, seed = s1 }
                     |> addLog "A summoning trap! Monsters claw out of the floor!"
 
+        Web ->
+            addStatus Crippled 1 6 game |> addLog "Sticky webs spring from the floor and ensnare you!"
+
         PitfallTrap ->
             fallThroughChasm game
 

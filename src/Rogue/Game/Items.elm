@@ -42,6 +42,22 @@ pickUpOne it game =
         { game | ascending = True, enemies = List.map (\e -> { e | alerted = True }) game.enemies }
             |> addLog "You claim the Amulet of Yendor! Now escape to the surface — the dungeon awakens!"
 
+    else if it.def.id == "dew" then
+        -- Dewdrops aren't carried — they restore a little HP the instant you walk over them.
+        let
+            hero =
+                game.hero
+
+            heal =
+                1 + game.depth // 2
+        in
+        if hero.hp >= hero.maxHp then
+            game
+
+        else
+            { game | hero = { hero | hp = min hero.maxHp (hero.hp + heal) } }
+                |> addLog "You absorb a refreshing dewdrop."
+
     else
         pickUpItem it game
 

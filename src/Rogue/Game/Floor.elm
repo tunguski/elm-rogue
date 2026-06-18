@@ -357,7 +357,7 @@ rollTrapKind depth seed =
         candidates =
             [ ( 5, DartTrap ), ( 4, PoisonTrap ), ( 3, AlarmTrap ) ]
                 ++ (if depth >= 3 then
-                        [ ( 3, TeleportTrap ), ( 3, ParalysisTrap ), ( 3, FrostTrap ) ]
+                        [ ( 3, TeleportTrap ), ( 3, ParalysisTrap ), ( 3, FrostTrap ), ( 3, Web ) ]
 
                     else
                         []
