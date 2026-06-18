@@ -99,13 +99,21 @@ stepEnemy enemy ( done, acc ) =
         los =
             Fov.visibleFrom healed.pos heroPos acc.level
 
+        -- Crouching in tall grass halves how far a foe can first spot you (SPD stealth).
+        sightRange =
+            if Level.at heroPos acc.level == Grass then
+                aggroRange // 2
+
+            else
+                aggroRange
+
         -- An invisible hero can't be acquired or tracked at range; only an adjacent foe still reacts.
         aware =
             if heroHidden then
                 dist == 1
 
             else
-                healed.alerted || (dist <= aggroRange && los)
+                healed.alerted || (dist <= sightRange && los)
 
         woken =
             { healed | alerted = healed.alerted && not heroHidden || aware }
@@ -333,9 +341,8 @@ applyBossHazards game =
                 ( roll, seed1 ) =
                     Rng.int 100 game.seed
             in
-            if roll < 18 then
-                spawnGas ParalyticGasCloud 4 boss.pos { game | seed = seed1 }
-                    |> addLog ("The " ++ boss.def.name ++ " unleashes a paralysing burst!")
+            if roll < 22 then
+                bossSignature boss { game | seed = seed1 }
 
             else
                 { game | seed = seed1 }
@@ -939,3 +946,36 @@ guardianDef depth =
     , drop = Nothing
     }
 
+
+
+{-| Each boss's signature desperation move (fired by `applyBossHazards` once enraged): the Spider
+Queen ensnares you in webs, the Dwarf King brings the ceiling down, Yog-Dzewa calls down hellfire,
+and the rest loose a paralysing burst. -}
+bossSignature : Enemy -> Game -> Game
+bossSignature boss game =
+    case boss.def.id of
+        "spider-queen" ->
+            let
+                webs =
+                    Grid.neighbors8 game.hero.pos
+                        |> List.filter (\p -> Level.isPassableAt p game.level)
+                        |> List.take 3
+                        |> List.map (\p -> { pos = p, kind = Web, revealed = True })
+            in
+            addStatus Crippled 1 5 { game | traps = webs ++ game.traps }
+                |> addLog ("The " ++ boss.def.name ++ " spins a web around you!")
+
+        "dwarf-king" ->
+            let
+                ( dmg, s1 ) =
+                    Rng.range game.depth (game.depth + 5) game.seed
+            in
+            checkHeroDeath (damageHero dmg { game | seed = s1 } |> addLog ("The " ++ boss.def.name ++ " brings the ceiling crashing down! (" ++ String.fromInt dmg ++ ")"))
+
+        "yog-dzewa" ->
+            spawnFire game.hero.pos game
+                |> addLog ("The " ++ boss.def.name ++ " calls down hellfire!")
+
+        _ ->
+            spawnGas ParalyticGasCloud 4 boss.pos game
+                |> addLog ("The " ++ boss.def.name ++ " unleashes a paralysing burst!")

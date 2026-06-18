@@ -361,7 +361,11 @@ tickHunger game =
             hero.nutrition - drain
     in
     if fed <= 0 then
-        checkHeroDeath ({ game | hero = { hero | hp = hero.hp - 1, nutrition = 0 } } |> addLog "You are starving!")
+        -- Starving: you lose HP each turn and your weakened body hits softer.
+        checkHeroDeath
+            (addStatus Weakened 1 2 { game | hero = { hero | hp = hero.hp - 1, nutrition = 0 } }
+                |> addLog "You are starving — your strength fails!"
+            )
 
     else if fed >= maxNutrition * 3 // 4 && hero.hp < hero.maxHp && modBy 4 game.turn == 0 then
         -- Well-fed: a full belly knits wounds slowly between fights.
