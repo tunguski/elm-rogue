@@ -382,6 +382,11 @@ cellGeometry scene torches p =
                 in
                 floorQuad fx fz y shimmer
 
+            Grass ->
+                -- A grassy floor plus a few short blades sprouting from it for visible 3-D growth.
+                floorQuad fx fz 0.0 (V3.scale (0.9 + 0.12 * hash01 p) col)
+                    ++ grassBlades p fx fz col
+
             _ ->
                 -- Flagstones: a faint per-cell tone shift so open ground reads as tiled, not a flat slab.
                 floorQuad fx fz 0.0 (V3.scale (0.93 + 0.14 * hash01 p) col)
@@ -519,6 +524,43 @@ distTo a b =
 hash01 : Pos -> Float
 hash01 p =
     toFloat (modBy 100 (p.x * 73 + p.y * 131 + 17)) / 100
+
+
+{-| A few short blades growing from a grass tile, so it reads as living growth rather than a green
+floor. Positions, heights and leans jitter per cell (and per blade) off the cell hash; the blades lean
+toward the camera and carry an up-and-out normal so they catch the light in the isometric view. -}
+grassBlades : Pos -> Float -> Float -> Vec3 -> List ( Vertex, Vertex, Vertex )
+grassBlades p fx fz col =
+    let
+        tip =
+            V3.scale 1.45 col
+
+        h2 a b =
+            toFloat (modBy 100 (p.x * a + p.y * b + 7)) / 100
+
+        blade ox oz hgt lean =
+            grassBlade (fx + ox) (fz + oz) hgt lean tip
+    in
+    blade (0.22 + 0.28 * h2 17 31) (0.28 + 0.3 * h2 23 11) (0.42 + 0.18 * h2 13 41) (0.1 * (h2 7 19 - 0.5))
+        ++ blade (0.42 + 0.28 * h2 29 13) (0.5 + 0.22 * h2 19 37) (0.38 + 0.18 * h2 11 23) (0.1 * (h2 31 5 - 0.5))
+        ++ blade (0.62 - 0.24 * h2 5 43) (0.34 + 0.3 * h2 37 7) (0.46 + 0.16 * h2 41 17) (0.1 * (h2 3 29 - 0.5))
+        ++ blade (0.34 + 0.26 * h2 19 7) (0.62 - 0.2 * h2 11 29) (0.36 + 0.18 * h2 23 13) (0.1 * (h2 5 37 - 0.5))
+        ++ blade (0.55 + 0.2 * h2 31 17) (0.66 - 0.24 * h2 7 41) (0.44 + 0.16 * h2 17 5) (0.1 * (h2 29 11 - 0.5))
+
+
+{-| One blade: a thin ribbon tapering from a small base to a near-point tip, leaning by `lean`. -}
+grassBlade : Float -> Float -> Float -> Float -> Vec3 -> List ( Vertex, Vertex, Vertex )
+grassBlade cx cz h lean col =
+    let
+        w =
+            0.05
+    in
+    quad col
+        (vec3 0.2 0.55 0.85)
+        (vec3 (cx - w) 0.0 cz)
+        (vec3 (cx + w) 0.0 cz)
+        (vec3 (cx + lean + 0.012) h (cz + 0.1))
+        (vec3 (cx + lean - 0.012) h (cz + 0.1))
 
 
 {-| A flat floor tile (top face only) at height `y`. -}
