@@ -566,3 +566,96 @@ type alias SaveData =
     , knownIds : List String
     , seed : Int
     }
+
+
+-- PRIMITIVES & SHARED HELPERS (moved out of Rogue.Game) ------------------------------------------
+
+isKey : ItemDef -> Bool
+isKey def =
+    def.kind == Content.Key
+
+
+{-| A compact HUD summary of the keyring — keys grouped by name with counts (e.g. "iron key ×2 ·
+crystal key ×1"). Empty when the hero carries none; keys live here instead of cluttering the bag. -}
+keyringLabel : List ItemDef -> String
+keyringLabel inventory =
+    let
+        names =
+            inventory |> List.filter isKey |> List.map .name
+
+        count name =
+            List.length (List.filter ((==) name) names)
+
+        uniques =
+            names |> List.foldl (\n acc -> if List.member n acc then acc else acc ++ [ n ]) []
+    in
+    uniques
+        |> List.map (\n -> n ++ " ×" ++ String.fromInt (count n))
+        |> String.join " · "
+
+{-| Turns to fully charge a class ability. -}
+abilityMax : Int
+abilityMax =
+    40
+
+
+abilityName : String -> String
+abilityName classId =
+    case classId of
+        "warrior" ->
+            "Ground Slam"
+
+        "mage" ->
+            "Elemental Blast"
+
+        "rogue" ->
+            "Smoke Bomb"
+
+        "huntress" ->
+            "Spectral Blades"
+
+        "duelist" ->
+            "Lunge"
+
+        _ ->
+            "Ability"
+
+{-| Total XP needed to advance *out of* the given level. A gentle ramp: 10×level. -}
+xpToNext : Int -> Int
+xpToNext level =
+    10 * level
+
+gasColor : GasKind -> String
+gasColor kind =
+    case kind of
+        ToxicGasCloud ->
+            "#7fae5a"
+
+        CausticGasCloud ->
+            "#b6d24a"
+
+        ParalyticGasCloud ->
+            "#d6c24a"
+
+addLog : String -> Game -> Game
+addLog line game =
+    { game | log = line :: game.log }
+
+
+addPopup : Pos -> String -> String -> Game -> Game
+addPopup pos text color game =
+    { game | popups = { pos = pos, text = text, color = color } :: game.popups }
+
+
+listFind : (a -> Bool) -> List a -> Maybe a
+listFind pred xs =
+    case xs of
+        [] ->
+            Nothing
+
+        x :: rest ->
+            if pred x then
+                Just x
+
+            else
+                listFind pred rest

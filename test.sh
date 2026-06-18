@@ -15,4 +15,4 @@ P="$(pwd)"
 $ELM test "$P/test/RogueTest.elm" \
   "$P/src/Rogue/Rng.elm" "$P/src/Rogue/Grid.elm" "$P/src/Rogue/Tile.elm" "$P/src/Rogue/Level.elm" \
   "$P/src/Rogue/Fov.elm" "$P/src/Rogue/Path.elm" "$P/src/Rogue/Dungeon.elm" "$P/src/Rogue/Content.elm" \
-  "$P/src/Rogue/Render.elm" "$P/src/Rogue/Game/Types.elm" "$P/src/Rogue/Game.elm" "$P/src/Mod/Default.elm"
+  "$P/src/Rogue/Render.elm" "$P/src/Rogue/Game/Types.elm" "$P/src/Rogue/Game/Appearance.elm" "$P/src/Rogue/Game/Scene.elm" "$P/src/Rogue/Game.elm" "$P/src/Mod/Default.elm"
