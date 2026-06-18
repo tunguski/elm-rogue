@@ -5654,9 +5654,13 @@ refreshFov game =
     { game | visible = vis, explored = Set.union game.explored vis }
 
 
-{-| Firelight extends sight: any torch the hero can already see also lights the cells around it (their
-own little field of view), so the glow of a sconce helps you make out a room you couldn't otherwise.
-Folded into the hero's visible set. -}
+{-| Firelight extends sight: a torch the hero can already see also lights the room it *faces*, so the
+glow of a sconce helps you make out a little more than you otherwise could. Folded into the visible set.
+
+A torch sits in a wall, so we can't cast its light from the torch cell itself — that would leak through
+the wall and reveal the empty rock behind it. Instead each visible torch lights the room from its open,
+already-seen neighbours (the side the sconce faces); casting from those floor cells, walls properly stop
+the light. -}
 torchSightRadius : Int
 torchSightRadius =
     3
@@ -5666,7 +5670,15 @@ withTorchlight : Level -> Set ( Int, Int ) -> Set ( Int, Int )
 withTorchlight level vis =
     Level.torches level
         |> List.filter (\t -> Set.member ( t.x, t.y ) vis)
-        |> List.foldl (\t acc -> Set.union acc (Fov.compute torchSightRadius t level)) vis
+        |> List.foldl (\t acc -> Set.union acc (torchLit level vis t)) vis
+
+
+torchLit : Level -> Set ( Int, Int ) -> Pos -> Set ( Int, Int )
+torchLit level vis torch =
+    Grid.eightDirs
+        |> List.map (Grid.move torch)
+        |> List.filter (\n -> Level.isPassableAt n level && Set.member ( n.x, n.y ) vis)
+        |> List.foldl (\n acc -> Set.union acc (Fov.compute torchSightRadius n level)) Set.empty
 
 
 {-| Close out a turn-consuming hero action: run the monsters, then tick the counter. -}
