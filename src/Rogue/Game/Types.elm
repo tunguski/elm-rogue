@@ -659,3 +659,241 @@ listFind pred xs =
 
             else
                 listFind pred rest
+
+
+-- MORE PRIMITIVES (status + generic list helpers, moved from Rogue.Game) ------------------------
+
+{-| Add a status, or refresh the duration of one already active of the same kind. Opposing elements
+cancel: fire melts a chill (Crippled) and a chill quenches a fire (Burn). -}
+addStatus : StatusKind -> Int -> Int -> Game -> Game
+addStatus kind magnitude turns game =
+    let
+        hero =
+            game.hero
+
+        opposite =
+            case kind of
+                Burn ->
+                    [ Crippled ]
+
+                Crippled ->
+                    [ Burn ]
+
+                _ ->
+                    []
+
+        others =
+            List.filter (\s -> s.kind /= kind && not (List.member s.kind opposite)) hero.statuses
+    in
+    { game | hero = { hero | statuses = { kind = kind, magnitude = magnitude, turns = turns } :: others } }
+
+
+{-| Strip the hero's harmful statuses (poison, burn, bleed, weakness, etc.) — as a heal does. -}
+cureDebuffs : Game -> Game
+cureDebuffs game =
+    let
+        hero =
+            game.hero
+
+        harmful s =
+            List.member s.kind [ Poison, Burn, Bleed, Weakened, Vulnerable, Crippled, Slowed ]
+    in
+    { game | hero = { hero | statuses = List.filter (\s -> not (harmful s)) hero.statuses } }
+
+
+nth : Int -> List a -> Maybe a
+nth i xs =
+    if i < 0 then
+        Nothing
+
+    else
+        List.head (List.drop i xs)
+
+
+removeAt : Int -> List a -> List a
+removeAt i xs =
+    List.take i xs ++ List.drop (i + 1) xs
+
+
+replaceAt : Int -> a -> List a -> List a
+replaceAt i x xs =
+    List.indexedMap
+        (\j old ->
+            if j == i then
+                x
+
+            else
+                old
+        )
+        xs
+
+
+maximumBy : (a -> comparable) -> List a -> Maybe a
+maximumBy f xs =
+    case xs of
+        [] ->
+            Nothing
+
+        first :: rest ->
+            Just (List.foldl (\x best -> if f x > f best then x else best) first rest)
+
+
+
+
+-- MORE PRIMITIVES (moved from Rogue.Game) ---------------------------------------------------------
+
+withArticle : String -> String
+withArticle word =
+    let
+        starts c =
+            String.startsWith c (String.toLower word)
+    in
+    if starts "a" || starts "e" || starts "i" || starts "o" || starts "u" then
+        "an " ++ word
+
+    else
+        "a " ++ word
+
+cellsWithin : Int -> Pos -> List Pos
+cellsWithin r center =
+    List.concatMap
+        (\dy -> List.map (\dx -> { x = center.x + dx, y = center.y + dy }) (List.range -r r))
+        (List.range -r r)
+
+isCursed : ItemDef -> Bool
+isCursed item =
+    case item.kind of
+        Content.Equipment _ bonus ->
+            bonus.cursed
+
+        _ ->
+            False
+
+damageHero : Int -> Game -> Game
+damageHero dmg game =
+    let
+        hero =
+            game.hero
+
+        actual =
+            if List.member "glass-cannon" game.challenges then
+                dmg * 2
+
+            else
+                dmg
+
+        -- A Shield status soaks damage before HP; the absorbed amount drains its magnitude.
+        shieldLeft =
+            hero.statuses
+                |> List.filter (\s -> s.kind == Shielded)
+                |> List.map .magnitude
+                |> List.sum
+
+        absorbed =
+            min shieldLeft actual
+
+        toHp =
+            actual - absorbed
+
+        drainedStatuses =
+            List.filterMap
+                (\s ->
+                    if s.kind == Shielded then
+                        let
+                            left =
+                                s.magnitude - absorbed
+                        in
+                        if left > 0 then
+                            Just { s | magnitude = left }
+
+                        else
+                            Nothing
+
+                    else
+                        Just s
+                )
+                hero.statuses
+    in
+    { game | hero = { hero | hp = hero.hp - toHp, statuses = drainedStatuses } }
+
+
+
+
+{-| Turn neighbouring `SecretDoor`s satisfying `pred` into ordinary `Door`s; returns the updated level
+and how many were revealed. -}
+revealSecretsNear : (Pos -> Bool) -> Level -> Pos -> ( Level, Int )
+revealSecretsNear pred level origin =
+    List.foldl
+        (\nb ( lv, n ) ->
+            if pred nb && Level.at nb lv == SecretDoor then
+                ( Level.set nb Door lv, n + 1 )
+
+            else
+                ( lv, n )
+        )
+        ( level, 0 )
+        (origin :: Grid.neighbors8 origin)
+
+
+
+
+-- ENEMY/HERO PRIMITIVES (moved to base) ----------------------------------------------------------
+
+checkHeroDeath : Game -> Game
+checkHeroDeath game =
+    if game.hero.hp <= 0 && not game.gameOver then
+        case findIndex (\it -> it.id == "ankh") game.hero.inventory of
+            Just idx ->
+                -- An ankh shatters to pull the hero back from death, restoring half their health.
+                let
+                    hero =
+                        game.hero
+                in
+                { game
+                    | hero =
+                        { hero
+                            | inventory = removeAt idx hero.inventory
+                            , hp = max 1 (hero.maxHp // 2)
+                            , statuses = []
+                        }
+                }
+                    |> addLog "Your ankh blazes and shatters — you are wrenched back from death!"
+
+            Nothing ->
+                { game | gameOver = True } |> addLog "You die. Press R to restart."
+
+    else
+        game
+
+updateEnemyAt : Pos -> (Enemy -> Enemy) -> List Enemy -> List Enemy
+updateEnemyAt p f enemies =
+    List.map
+        (\e ->
+            if e.pos == p then
+                f e
+
+            else
+                e
+        )
+        enemies
+
+addEnemyStatus : StatusKind -> Int -> Int -> List Status -> List Status
+addEnemyStatus kind magnitude turns statuses =
+    { kind = kind, magnitude = magnitude, turns = turns } :: List.filter (\s -> s.kind /= kind) statuses
+
+findIndex : (a -> Bool) -> List a -> Maybe Int
+findIndex pred xs =
+    let
+        go i ys =
+            case ys of
+                [] ->
+                    Nothing
+
+                y :: rest ->
+                    if pred y then
+                        Just i
+
+                    else
+                        go (i + 1) rest
+    in
+    go 0 xs
