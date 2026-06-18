@@ -118,6 +118,7 @@ newGame ruleset class rawSeed =
             , talents = []
             , heroClass = class.id
             , abilityCharge = 0
+            , str = 10
             }
     in
     let
@@ -172,6 +173,7 @@ resume ruleset save =
             , talents = []
             , heroClass = ""
             , abilityCharge = 0
+            , str = 10
             }
 
         ( looks, seedA ) =

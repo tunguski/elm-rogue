@@ -290,10 +290,11 @@ interactionTests =
 
                     Just sample ->
                         let
-                            -- Place a single foe just east of the hero in the controlled arena, so the
-                            -- lone survivor (if any) is unambiguous even after it acts on its own turn.
+                            -- Place a single *unaware* foe just east of the hero in the controlled arena:
+                            -- striking it is a surprise attack, which bypasses the accuracy roll so the hit
+                            -- always lands (the lone survivor stays unambiguous even after it acts).
                             foe =
-                                { sample | pos = { x = 3, y = 1 }, hp = sample.def.maxHp, alerted = True }
+                                { sample | pos = { x = 3, y = 1 }, hp = sample.def.maxHp, alerted = False }
 
                             staged =
                                 { arena | enemies = [ foe ] }

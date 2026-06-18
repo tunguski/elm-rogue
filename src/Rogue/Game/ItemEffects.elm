@@ -52,8 +52,9 @@ applyEffect def game =
                 |> addLog ("You drink the " ++ name ++ ". (+" ++ String.fromInt n ++ " max HP)")
 
         DamageBonus n ->
-            { game | hero = { hero | damage = hero.damage + n } }
-                |> addLog ("You drink the " ++ name ++ ". You feel stronger.")
+            -- Potion of Strength: +n STR (which lifts both melee damage and accuracy) and a little vitality.
+            { game | hero = { hero | str = hero.str + n, maxHp = hero.maxHp + n, hp = hero.hp + n } }
+                |> addLog ("You drink the " ++ name ++ ". You feel stronger!")
 
         DefenseBonus n ->
             { game | hero = { hero | defense = hero.defense + n } }

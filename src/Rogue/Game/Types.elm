@@ -12,7 +12,7 @@ import Rogue.Content as Content exposing (EnemyDef, ItemDef, Ruleset)
 import Rogue.Dungeon exposing (Room)
 import Rogue.Grid as Grid exposing (Pos)
 import Rogue.Level as Level exposing (Level)
-import Rogue.Rng exposing (Seed)
+import Rogue.Rng as Rng exposing (Seed)
 import Set exposing (Set)
 
 
@@ -38,6 +38,7 @@ type alias Hero =
     , talents : List String
     , heroClass : String
     , abilityCharge : Int
+    , str : Int
     }
 
 
@@ -240,7 +241,7 @@ heroDamage hero =
             else
                 0
     in
-    max 1 (hero.damage + equipBonus .damage hero.weapon + equipBonus .damage hero.ring + sub + talent + weak)
+    max 1 (hero.damage + equipBonus .damage hero.weapon + equipBonus .damage hero.ring + sub + talent + weak + strModifier hero)
 
 
 {-| The hero's defense including the worn armour's, ring's and subclass/talent bonuses. -}
@@ -939,3 +940,45 @@ priceFor depth def =
     in
     base + depth * 5
 
+
+
+-- ACCURACY / EVASION (SPD-style to-hit) ------------------------------------------------------------
+
+
+{-| The hero's accuracy and evasion, and a monster's, used for to-hit rolls. An attack lands with
+probability accuracy / (accuracy + evasion); a surprise attack bypasses the roll entirely. Strength
+(see `strModifier`) nudges these once the hero is over/under a weapon's requirement. -}
+heroAccuracy : Hero -> Int
+heroAccuracy hero =
+    9 + hero.level + strModifier hero
+
+
+heroEvasion : Hero -> Int
+heroEvasion hero =
+    4 + hero.level // 2 + min 0 (strModifier hero)
+
+
+enemyAccuracy : EnemyDef -> Int
+enemyAccuracy def =
+    8 + def.damage // 2
+
+
+enemyEvasion : EnemyDef -> Int
+enemyEvasion def =
+    3 + def.defense
+
+
+hitRoll : Int -> Int -> Seed -> ( Bool, Seed )
+hitRoll acc eva seed =
+    let
+        ( r, s ) =
+            Rng.int (max 1 (acc + eva)) seed
+    in
+    ( r < acc, s )
+
+
+{-| How the hero's Strength deviates from the baseline of 10 — a flat bump (or penalty) to accuracy
+and melee damage. Potion of Strength raises it. -}
+strModifier : Hero -> Int
+strModifier hero =
+    hero.str - 10

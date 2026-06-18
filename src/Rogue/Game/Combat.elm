@@ -19,14 +19,11 @@ import Rogue.Game.Appearance exposing (..)
 -- COMBAT -----------------------------------------------------------------------------------------
 
 
-{-| Damage is `attack − defense` with ±1 of scatter, never below 1, drawn from the game seed. -}
+{-| Damage rolls over a range — from roughly half the attack up to the full attack — then subtracts
+the defender's defense, never below 1 (Shattered Pixel's swingy weapon damage). -}
 rollDamage : Int -> Int -> Seed -> ( Int, Seed )
 rollDamage attack defense seed =
-    let
-        base =
-            attack - defense
-    in
-    Rng.range (max 1 (base - 1)) (max 1 (base + 1)) seed
+    Rng.range (max 1 (attack // 2 - defense)) (max 1 (attack - defense)) seed
 
 
 {-| The hero strikes a monster; a lethal blow removes it and counts a kill. -}
@@ -119,8 +116,16 @@ heroAttack enemy game =
                 || List.any (\s -> s.kind == Paralyzed) enemy.statuses
                 || (Level.at game.hero.pos game.level == Grass)
 
+        -- To-hit: a surprise strike always lands; otherwise roll accuracy against the foe's evasion.
+        ( hit, seedHit ) =
+            if surprised then
+                ( True, game.seed )
+
+            else
+                hitRoll (heroAccuracy game.hero) (enemyEvasion enemy.def) game.seed
+
         ( critRoll, seedC ) =
-            Rng.int 12 game.seed
+            Rng.int 12 seedHit
 
         crit =
             critRoll == 0
@@ -192,7 +197,12 @@ heroAttack enemy game =
                         ""
                    )
     in
-    if remaining <= 0 && enemy.revives > 0 then
+    if not hit then
+        { game | seed = seedHit, enemies = updateEnemyAt enemy.pos (\e -> { e | alerted = True }) game.enemies }
+            |> addLog ("You miss the " ++ enemy.def.name ++ ".")
+            |> addPopup enemy.pos "miss" "#9aa7ba"
+
+    else if remaining <= 0 && enemy.revives > 0 then
         -- A ghoul shrugs off the killing blow and claws back up, one fewer life to spare.
         { game
             | enemies = updateEnemyAt enemy.pos (\e -> { e | hp = max 1 (e.def.maxHp // 2), revives = e.revives - 1, alerted = True }) game.enemies

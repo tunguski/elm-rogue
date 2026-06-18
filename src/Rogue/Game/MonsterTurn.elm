@@ -447,8 +447,11 @@ attackHero enemy verb done acc =
             else
                 0
 
+        ( hit, seedHit ) =
+            hitRoll (enemyAccuracy enemy.def) (heroEvasion acc.hero) acc.seed
+
         ( rolled, seed1 ) =
-            rollDamage (max 1 (enemy.def.damage + enrage - weaken)) (heroDefense acc.hero) acc.seed
+            rollDamage (max 1 (enemy.def.damage + enrage - weaken)) (heroDefense acc.hero) seedHit
 
         glassed =
             if acc.glassCannon then
@@ -489,13 +492,19 @@ attackHero enemy verb done acc =
             else
                 ( enemy, "" )
     in
-    ( reflectedEnemy :: done
-    , { acc
-        | hero = { hero | hp = hero.hp - dmg, statuses = burnt }
-        , seed = seed1
-        , log = ("The " ++ verb ++ " (" ++ String.fromInt dmg ++ ")." ++ burnLog ++ thornLog) :: acc.log
-      }
-    )
+    if not hit then
+        ( enemy :: done
+        , { acc | seed = seedHit, log = ("The " ++ enemy.def.name ++ " attacks — you dodge!") :: acc.log }
+        )
+
+    else
+        ( reflectedEnemy :: done
+        , { acc
+            | hero = { hero | hp = hero.hp - dmg, statuses = burnt }
+            , seed = seed1
+            , log = ("The " ++ verb ++ " (" ++ String.fromInt dmg ++ ")." ++ burnLog ++ thornLog) :: acc.log
+          }
+        )
 
 
 moveEnemy : Enemy -> Enemy -> Maybe Pos -> List Enemy -> TurnAcc -> ( List Enemy, TurnAcc )
