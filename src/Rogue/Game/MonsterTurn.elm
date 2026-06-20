@@ -204,6 +204,15 @@ stepEnemyAct enemy ( done, acc ) =
         else if landlocked then
             ( woken :: done1, acc1 )
 
+        else if woken.def.ability == Content.Blinks then
+            -- A caster blinks to a fresh vantage near the hero instead of trudging over.
+            case blinkSpot heroPos acc1 enemy.pos of
+                ( Just p, s1 ) ->
+                    moveEnemy enemy woken (Just p) done1 { acc1 | seed = s1 }
+
+                ( Nothing, _ ) ->
+                    moveEnemy enemy woken stepCell done1 acc1
+
         else
             moveEnemy enemy woken stepCell done1 acc1
 
@@ -525,16 +534,37 @@ attackHero enemy verb done acc =
             else if enemy.def.ability == Content.Charms then
                 ( addEnemyStatus Charmed 1 4 hero.statuses, " You are charmed!" )
 
+            else if enemy.def.ability == Content.PoisonHit then
+                ( addEnemyStatus Poison 2 4 hero.statuses, " Venom courses through you!" )
+
+            else if enemy.def.ability == Content.Grips then
+                ( addEnemyStatus Crippled 1 3 hero.statuses, " It seizes you in a crushing grip!" )
+
             else
                 ( hero.statuses, "" )
+
+        -- A life-leech attacker heals from the blow it lands.
+        leeched =
+            if enemy.def.ability == Content.LifeLeech then
+                { enemy | hp = min enemy.def.maxHp (enemy.hp + max 1 (dmg // 2)) }
+
+            else
+                enemy
+
+        leechLog =
+            if enemy.def.ability == Content.LifeLeech then
+                " It drains your life!"
+
+            else
+                ""
 
         -- Thorns armour reflects a barb of damage back at the attacker.
         ( reflectedEnemy, thornLog ) =
             if itemEnchant hero.armour == "thorns" then
-                ( { enemy | hp = enemy.hp - 3 }, " Thorns bite back!" )
+                ( { leeched | hp = leeched.hp - 3 }, " Thorns bite back!" ++ leechLog )
 
             else
-                ( enemy, "" )
+                ( leeched, leechLog )
     in
     if not hit then
         ( enemy :: done
@@ -1040,3 +1070,32 @@ bossSignature boss game =
         _ ->
             spawnGas ParalyticGasCloud 4 boss.pos game
                 |> addLog ("The " ++ boss.def.name ++ " unleashes a paralysing burst!")
+
+
+{-| A free passable cell with line of sight to the hero, 2–4 tiles away, for a blinking caster to
+teleport to. -}
+blinkSpot : Pos -> TurnAcc -> Pos -> ( Maybe Pos, Seed )
+blinkSpot heroPos acc from =
+    let
+        cands =
+            cellsWithin 4 heroPos
+                |> List.filter
+                    (\p ->
+                        Level.isPassableAt p acc.level
+                            && not (Set.member ( p.x, p.y ) acc.occupied)
+                            && p /= from
+                            && Grid.chebyshev p heroPos >= 2
+                            && Grid.chebyshev p heroPos <= 4
+                            && Fov.visibleFrom p heroPos acc.level
+                    )
+    in
+    case cands of
+        [] ->
+            ( Nothing, acc.seed )
+
+        _ ->
+            let
+                ( i, s ) =
+                    Rng.int (List.length cands) acc.seed
+            in
+            ( nth i cands, s )

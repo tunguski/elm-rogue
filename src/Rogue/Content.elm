@@ -49,6 +49,10 @@ type MonsterAbility
     | Weakens
     | Spores
     | Charms
+    | Grips
+    | PoisonHit
+    | LifeLeech
+    | Blinks
 
 
 {-| A monster archetype. Instances in play (`Rogue.Game.Enemy`) carry a copy of their `EnemyDef`, so
