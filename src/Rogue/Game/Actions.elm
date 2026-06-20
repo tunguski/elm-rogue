@@ -115,6 +115,18 @@ abilityNote ability =
         Content.Charms ->
             " (charms on hit)"
 
+        Content.Grips ->
+            " (grapples on hit)"
+
+        Content.PoisonHit ->
+            " (poisons on hit)"
+
+        Content.LifeLeech ->
+            " (drains life)"
+
+        Content.Blinks ->
+            " (blinks away)"
+
 
 {-| The hero's intent for one cell: bumping a monster attacks it, an open cell is a step, a wall is a
 no-op (costs no turn). A turn-consuming action is followed by every monster taking its turn. -}
@@ -755,7 +767,7 @@ trapEffect kind game =
                 |> addLog "An alarm blares — every monster on the floor is roused!"
 
         FrostTrap ->
-            addStatus Slowed 1 8 game |> addLog "A frost trap! Ice slows your movements."
+            freezeWaterNear game.hero.pos (addStatus Slowed 1 8 game |> addLog "A frost trap! Ice slows your movements.")
 
         FlameTrap ->
             spawnFire game.hero.pos game |> addLog "A flame trap roars to life beneath you!"

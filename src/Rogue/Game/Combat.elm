@@ -302,6 +302,23 @@ applyHitEnchant enemy dmg game =
                 Nothing ->
                     game
 
+        "elastic" ->
+            -- Knock the struck foe back one cell, if there's open ground directly behind it.
+            let
+                dest =
+                    { x = enemy.pos.x + clamp -1 1 (enemy.pos.x - game.hero.pos.x)
+                    , y = enemy.pos.y + clamp -1 1 (enemy.pos.y - game.hero.pos.y)
+                    }
+
+                blocked =
+                    dest == enemy.pos || dest == game.hero.pos || not (Level.isPassableAt dest game.level) || List.any (\e -> e.pos == dest) game.enemies
+            in
+            if blocked then
+                game
+
+            else
+                { game | enemies = updateEnemyAt enemy.pos (\e -> { e | pos = dest }) game.enemies }
+
         "lucky" ->
             -- A lucky strike now and then shakes loose a little coin.
             let

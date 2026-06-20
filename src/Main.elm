@@ -771,6 +771,10 @@ choiceOverlay model =
                             , [ ( "blazing", "Blazing — sets struck foes alight" )
                               , ( "vampiric", "Vampiric — heals you for a share of the damage dealt" )
                               , ( "grim", "Grim — a chance to slay wounded foes outright" )
+                              , ( "chilling", "Chilling — slows the foe you strike" )
+                              , ( "shocking", "Shocking — lightning arcs to a nearby foe" )
+                              , ( "lucky", "Lucky — strikes sometimes shake loose gold" )
+                              , ( "elastic", "Elastic — knocks the struck foe back a step" )
                               ]
                             )
             in

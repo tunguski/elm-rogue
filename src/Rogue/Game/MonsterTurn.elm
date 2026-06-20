@@ -91,6 +91,9 @@ stepEnemy enemy ( done, acc ) =
     else if not acc.fastOnly && enemy.def.speed <= 0 && modBy 2 acc.tempo == 1 then
         ( enemy :: done, acc )
 
+    else if not acc.fastOnly && Level.at enemy.pos acc.level == Water && enemy.def.ability /= Content.Aquatic && modBy 2 acc.tempo == 0 then
+        ( enemy :: done, acc )
+
     else
         stepEnemyAct enemy ( done, acc )
 

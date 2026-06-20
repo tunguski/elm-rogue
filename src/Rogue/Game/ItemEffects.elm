@@ -72,8 +72,11 @@ applyEffect def game =
             teleportHero game |> addLog "You read the scroll and blink away."
 
         MagicMap ->
-            { game | explored = Set.fromList (List.map (\p -> ( p.x, p.y )) (Level.positions game.level)) }
-                |> addLog "You read the scroll. The floor plan floods into your mind."
+            { game
+                | explored = Set.fromList (List.map (\p -> ( p.x, p.y )) (Level.positions game.level))
+                , traps = List.map (\t -> { t | revealed = True }) game.traps
+            }
+                |> addLog "You read the scroll. The floor plan — and its traps — floods into your mind."
 
         IdentifyAll ->
             let

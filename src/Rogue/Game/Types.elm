@@ -777,12 +777,23 @@ damageHero dmg game =
         hero =
             game.hero
 
-        actual =
+        raw =
             if List.member "glass-cannon" game.challenges then
                 dmg * 2
 
             else
                 dmg
+
+        -- Ring of Tenacity: the closer to death you are, the more of the blow it shrugs off (up to ~50%).
+        tenacity =
+            if Maybe.map .id hero.ring == Just "ring-tenacity" && hero.maxHp > 0 then
+                raw * (hero.maxHp - hero.hp) // (hero.maxHp * 2)
+
+            else
+                0
+
+        actual =
+            max 0 (raw - tenacity)
 
         -- A Shield status soaks damage before HP; the absorbed amount drains its magnitude.
         shieldLeft =
@@ -950,7 +961,7 @@ probability accuracy / (accuracy + evasion); a surprise attack bypasses the roll
 (see `strModifier`) nudges these once the hero is over/under a weapon's requirement. -}
 heroAccuracy : Hero -> Int
 heroAccuracy hero =
-    9 + hero.level + strModifier hero + (if Maybe.map .id hero.ring == Just "ring-accuracy" then 3 else 0)
+    9 + hero.level + strModifier hero + (if Maybe.map .id hero.ring == Just "ring-accuracy" then 3 else 0) + (if List.member "Marksman" hero.talents then 3 else 0)
 
 
 heroEvasion : Hero -> Int
@@ -960,6 +971,7 @@ heroEvasion hero =
         + min 0 (hero.str - armourStrReq hero.armour)
         + (if itemEnchant hero.armour == "swift" then 3 else 0)
         + (if Maybe.map .id hero.ring == Just "ring-evasion" then 3 else 0)
+        + (if List.member "Light Foot" hero.talents then 3 else 0)
 
 
 enemyAccuracy : EnemyDef -> Int
@@ -985,7 +997,7 @@ hitRoll acc eva seed =
 and melee damage. Potion of Strength raises it. -}
 strModifier : Hero -> Int
 strModifier hero =
-    hero.str - weaponStrReq hero.weapon
+    hero.str - weaponStrReq hero.weapon + (if List.member "Strongman" hero.talents then 2 else 0)
 
 
 {-| A weapon's / armour's Strength requirement, derived from its power (heavier gear demands more

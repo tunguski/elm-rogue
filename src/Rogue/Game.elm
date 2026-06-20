@@ -328,6 +328,9 @@ talentChoices =
     , { name = "Executioner", desc = "+4 damage", minLevel = 7 }
     , { name = "Bloodlust", desc = "+3 damage while below half HP", minLevel = 7 }
     , { name = "Last Stand", desc = "+4 defense while below half HP", minLevel = 7 }
+    , { name = "Light Foot", desc = "+3 evasion", minLevel = 4 }
+    , { name = "Marksman", desc = "+3 accuracy", minLevel = 4 }
+    , { name = "Strongman", desc = "wield heavier weapons (-2 STR need)", minLevel = 2 }
     ]
 
 
