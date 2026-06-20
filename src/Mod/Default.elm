@@ -135,6 +135,8 @@ ruleset =
         , ringOfForce
         , ringOfEvasion
         , ringOfSharpshooting
+        , ringOfHaste
+        , ringOfFuror
         , ringOfTenacity
         , cloakOfShadows
         , hornOfPlenty
@@ -2053,4 +2055,30 @@ amulet =
     , minDepth = 1
     , maxDepth = 99
     , spawnWeight = 0
+    }
+
+
+ringOfHaste : ItemDef
+ringOfHaste =
+    { id = "ring-haste"
+    , name = "ring of haste"
+    , glyph = "="
+    , color = "#5dd4cf"
+    , kind = Equipment RingSlot { damage = 0, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "" }
+    , minDepth = 5
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+ringOfFuror : ItemDef
+ringOfFuror =
+    { id = "ring-furor"
+    , name = "ring of furor"
+    , glyph = "="
+    , color = "#e0824b"
+    , kind = Equipment RingSlot { damage = 0, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "" }
+    , minDepth = 5
+    , maxDepth = 99
+    , spawnWeight = 2
     }

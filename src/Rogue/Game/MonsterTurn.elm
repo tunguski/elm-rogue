@@ -487,8 +487,15 @@ attackHero enemy verb done acc =
         ( hit, seedHit ) =
             hitRoll (enemyAccuracy enemy.def) (heroEvasion acc.hero) acc.seed
 
-        ( rolled, seed1 ) =
-            rollDamage (max 1 (enemy.def.damage + enrage - weaken)) (heroDefense acc.hero) seedHit
+        ( rawHit, seedB ) =
+            rollDamage (max 1 (enemy.def.damage + enrage - weaken)) 0 seedHit
+
+        -- Armour blocks a random amount up to its rating (SPD-style mitigation variance).
+        ( block, seed1 ) =
+            Rng.int (heroDefense acc.hero + 1) seedB
+
+        rolled =
+            max 1 (rawHit - block)
 
         glassed =
             if acc.glassCannon then
@@ -642,7 +649,7 @@ endTurn game =
         -- Haste lets the hero act on every tick while monsters act on every other; slow does the
         -- reverse (monsters get a bonus turn). Neither → the usual one-for-one.
         enemyPhases =
-            if hasStatus Hasted bumped.hero then
+            if hasStatus Hasted bumped.hero || Maybe.map .id bumped.hero.ring == Just "ring-haste" then
                 modBy 2 tempo
 
             else if hasStatus Slowed bumped.hero || hasStatus Crippled bumped.hero then

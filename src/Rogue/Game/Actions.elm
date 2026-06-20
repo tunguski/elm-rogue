@@ -184,8 +184,12 @@ heavyRecovery game =
 
                 Nothing ->
                     False
+
+        -- A Ring of Furor speeds your swings, cancelling a heavy weapon's recovery beat.
+        furor =
+            Maybe.map .id game.hero.ring == Just "ring-furor"
     in
-    if heavy then
+    if heavy && not furor then
         addStatus Slowed 1 1 game
 
     else

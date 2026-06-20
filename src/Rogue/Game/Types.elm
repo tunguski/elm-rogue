@@ -241,7 +241,7 @@ heroDamage hero =
             else
                 0
     in
-    max 1 (hero.damage + equipBonus .damage hero.weapon + equipBonus .damage hero.ring + sub + talent + weak + strModifier hero)
+    max 1 (hero.damage + equipBonus .damage hero.weapon + equipBonus .damage hero.ring + sub + talent + weak + max 0 (strModifier hero))
 
 
 {-| The hero's defense including the worn armour's, ring's and subclass/talent bonuses. -}
@@ -957,7 +957,7 @@ heroEvasion : Hero -> Int
 heroEvasion hero =
     4
         + hero.level // 2
-        + min 0 (strModifier hero)
+        + min 0 (hero.str - armourStrReq hero.armour)
         + (if itemEnchant hero.armour == "swift" then 3 else 0)
         + (if Maybe.map .id hero.ring == Just "ring-evasion" then 3 else 0)
 
@@ -985,4 +985,37 @@ hitRoll acc eva seed =
 and melee damage. Potion of Strength raises it. -}
 strModifier : Hero -> Int
 strModifier hero =
-    hero.str - 10
+    hero.str - weaponStrReq hero.weapon
+
+
+{-| A weapon's / armour's Strength requirement, derived from its power (heavier gear demands more
+STR). Wielding under requirement saps accuracy (weapons) or evasion (armour); excess STR adds melee
+damage. Kept derived so we don't have to stamp a strReq onto every gear literal. -}
+weaponStrReq : Maybe ItemDef -> Int
+weaponStrReq maybeItem =
+    case maybeItem of
+        Just item ->
+            case item.kind of
+                Content.Equipment Content.WeaponSlot bonus ->
+                    9 + bonus.damage // 4
+
+                _ ->
+                    0
+
+        Nothing ->
+            0
+
+
+armourStrReq : Maybe ItemDef -> Int
+armourStrReq maybeItem =
+    case maybeItem of
+        Just item ->
+            case item.kind of
+                Content.Equipment Content.ArmourSlot bonus ->
+                    9 + bonus.defense // 2
+
+                _ ->
+                    0
+
+        Nothing ->
+            0
