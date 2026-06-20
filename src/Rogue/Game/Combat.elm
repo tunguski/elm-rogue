@@ -115,6 +115,7 @@ heroAttack enemy game =
             not enemy.alerted
                 || List.any (\s -> s.kind == Paralyzed) enemy.statuses
                 || (Level.at game.hero.pos game.level == Grass)
+                || hasStatus Invisible game.hero
 
         -- To-hit: a surprise strike always lands; otherwise roll accuracy against the foe's evasion.
         ( hit, seedHit ) =
@@ -127,8 +128,9 @@ heroAttack enemy game =
         ( critRoll, seedC ) =
             Rng.int 12 seedHit
 
+        -- Striking from invisibility is an assassination: always a critical hit.
         crit =
-            critRoll == 0
+            critRoll == 0 || hasStatus Invisible game.hero
 
         ( base, seed1 ) =
             rollDamage (heroDamage game.hero) enemy.def.defense seedC
@@ -223,6 +225,8 @@ heroAttack enemy game =
             |> dropLoot enemy
             |> maybeDropDew enemy
             |> applyHitEnchant enemy dmg
+            |> alertNearby 5
+            |> breakInvis
 
     else
         { game
@@ -233,6 +237,29 @@ heroAttack enemy game =
             |> addPopup enemy.pos (String.fromInt dmg) color
             |> applyHitEnchant enemy dmg
             |> maybeSplit enemy remaining
+            |> alertNearby 5
+            |> breakInvis
+
+
+{-| The din of combat: every foe within `radius` of the hero wakes (Shattered's noise/aggro). -}
+alertNearby : Int -> Game -> Game
+alertNearby radius game =
+    { game | enemies = List.map (\e -> if Grid.chebyshev e.pos game.hero.pos <= radius then { e | alerted = True } else e) game.enemies }
+
+
+{-| Striking ends invisibility — an assassination reveals you. -}
+breakInvis : Game -> Game
+breakInvis game =
+    if List.any (\s -> s.kind == Invisible) game.hero.statuses then
+        let
+            hero =
+                game.hero
+        in
+        { game | hero = { hero | statuses = List.filter (\s -> s.kind /= Invisible) hero.statuses } }
+            |> addLog "Your strike shatters your invisibility."
+
+    else
+        game
 
 
 {-| On-hit weapon enchantment effects: **blazing** ignites the struck foe, **vampiric** heals the hero

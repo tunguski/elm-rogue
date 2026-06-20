@@ -92,7 +92,7 @@ applyGasEffects game =
         afterHero =
             case Dict.get ( hero.pos.x, hero.pos.y ) game.gas of
                 Just g ->
-                    addStatus (gasStatus g.kind) (gasMagnitude g.kind) 2 game
+                    addStatus (gasStatus g.kind) (gasMagnitude g.kind + causticBonus g) 2 game
                         |> addLog (gasLog g.kind)
 
                 Nothing ->
@@ -101,7 +101,7 @@ applyGasEffects game =
         affected e =
             case Dict.get ( e.pos.x, e.pos.y ) afterHero.gas of
                 Just g ->
-                    { e | statuses = addEnemyStatus (gasStatus g.kind) (gasMagnitude g.kind) 2 e.statuses, alerted = True }
+                    { e | statuses = addEnemyStatus (gasStatus g.kind) (gasMagnitude g.kind + causticBonus g) 2 e.statuses, alerted = True }
 
                 Nothing ->
                     e
@@ -470,3 +470,13 @@ tickStatuses game =
         }
 
 
+
+
+{-| A thick caustic cloud bites harder: extra corrosion scaling with the cloud's density. -}
+causticBonus : Gas -> Int
+causticBonus g =
+    if g.kind == CausticGasCloud then
+        g.density // 2
+
+    else
+        0

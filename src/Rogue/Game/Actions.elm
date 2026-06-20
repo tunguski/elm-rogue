@@ -252,30 +252,47 @@ applyTerrainStep tile game =
     let
         hero =
             game.hero
+
+        base =
+            case tile of
+                Grass ->
+                    let
+                        ( forage, seed1 ) =
+                            Rng.chance 25 game.seed
+                    in
+                    if forage && hero.hp < hero.maxHp then
+                        { game | hero = { hero | hp = min hero.maxHp (hero.hp + 2) }, seed = seed1 }
+                            |> addLog "You gather dew from the grass. (+2 HP)"
+
+                    else
+                        { game | seed = seed1 }
+
+                Water ->
+                    if hasStatus Burn hero then
+                        { game | hero = { hero | statuses = List.filter (\s -> s.kind /= Burn) hero.statuses } }
+                            |> addLog "You wade into the water; the flames hiss out."
+
+                    else
+                        game
+
+                _ ->
+                    game
     in
-    case tile of
-        Grass ->
-            let
-                ( forage, seed1 ) =
-                    Rng.chance 25 game.seed
-            in
-            if forage && hero.hp < hero.maxHp then
-                { game | hero = { hero | hp = min hero.maxHp (hero.hp + 2) }, seed = seed1 }
-                    |> addLog "You gather dew from the grass. (+2 HP)"
+    -- A frozen cell (frost patch) is slippery: a non-levitating hero may stumble and be Slowed.
+    if Dict.member ( hero.pos.x, hero.pos.y ) base.ice && not (hasStatus Levitating hero) then
+        let
+            ( slip, s1 ) =
+                Rng.chance 35 base.seed
+        in
+        if slip then
+            addStatus Slowed 1 2 { base | seed = s1 }
+                |> addLog "You slip on the frozen ground!"
 
-            else
-                { game | seed = seed1 }
+        else
+            { base | seed = s1 }
 
-        Water ->
-            if hasStatus Burn hero then
-                { game | hero = { hero | statuses = List.filter (\s -> s.kind /= Burn) hero.statuses } }
-                    |> addLog "You wade into the water; the flames hiss out."
-
-            else
-                game
-
-        _ ->
-            game
+    else
+        base
 
 
 npcAt : Pos -> Game -> Bool
