@@ -24,8 +24,8 @@ import Rogue.Game.Sim exposing (..)
 {-| Every living monster acts once, in list order, after a hero action that consumed a turn. Each
 either attacks the adjacent hero, steps toward a hero it can see, or idles. Positions are threaded
 through an `occupied` set so monsters never stack. -}
-enemiesTurn : Game -> Game
-enemiesTurn game =
+enemiesTurnPass : Bool -> Game -> Game
+enemiesTurnPass fastOnly game =
     if game.gameOver then
         game
 
@@ -35,7 +35,7 @@ enemiesTurn game =
                 Set.fromList (( game.hero.pos.x, game.hero.pos.y ) :: List.map (\e -> ( e.pos.x, e.pos.y )) game.enemies)
 
             ( newEnemiesRev, acc ) =
-                List.foldl stepEnemy ( [], { hero = game.hero, seed = game.seed, log = game.log, occupied = occupied0, level = game.level, glassCannon = List.member "glass-cannon" game.challenges, badderBosses = List.member "badder-bosses" game.challenges, foes = game.enemies |> List.filter (\e -> not e.ally) |> List.map .pos } ) game.enemies
+                List.foldl stepEnemy ( [], { hero = game.hero, seed = game.seed, log = game.log, occupied = occupied0, level = game.level, glassCannon = List.member "glass-cannon" game.challenges, badderBosses = List.member "badder-bosses" game.challenges, foes = game.enemies |> List.filter (\e -> not e.ally) |> List.map .pos, tempo = game.tempo, fastOnly = fastOnly } ) game.enemies
         in
         checkHeroDeath
             { game
@@ -55,6 +55,8 @@ type alias TurnAcc =
     , glassCannon : Bool
     , badderBosses : Bool
     , foes : List Pos
+    , tempo : Int
+    , fastOnly : Bool
     }
 
 
@@ -83,6 +85,18 @@ nearestFoeOf enemy acc =
 in range/sight if it has a ranged attack, or BFS-paths toward the hero (rounding corners). -}
 stepEnemy : Enemy -> ( List Enemy, TurnAcc ) -> ( List Enemy, TurnAcc )
 stepEnemy enemy ( done, acc ) =
+    if acc.fastOnly && enemy.def.speed < 2 then
+        ( enemy :: done, acc )
+
+    else if not acc.fastOnly && enemy.def.speed <= 0 && modBy 2 acc.tempo == 1 then
+        ( enemy :: done, acc )
+
+    else
+        stepEnemyAct enemy ( done, acc )
+
+
+stepEnemyAct : Enemy -> ( List Enemy, TurnAcc ) -> ( List Enemy, TurnAcc )
+stepEnemyAct enemy ( done, acc ) =
     let
         heroPos =
             acc.hero.pos
@@ -607,6 +621,11 @@ torchLit level vis torch =
         |> List.foldl (\n acc -> Set.union acc (Fov.compute torchSightRadius n level)) Set.empty
 
 
+enemiesTurn : Game -> Game
+enemiesTurn game =
+    enemiesTurnPass False game
+
+
 {-| Close out a turn-consuming hero action: run the monsters, then tick the counter. -}
 endTurn : Game -> Game
 endTurn game =
@@ -653,8 +672,11 @@ endTurn game =
         afterMonsters =
             applyTimes enemyPhases enemiesTurn afterStatues
 
+        afterFast =
+            enemiesTurnPass True afterMonsters
+
         afterGas =
-            tickGas afterMonsters
+            tickGas afterFast
 
         afterFire =
             tickFire afterGas
