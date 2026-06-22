@@ -450,8 +450,10 @@ addWarm base warm =
         (min 1 (V3.getZ base + V3.getZ warm))
 
 
-{-| The torch itself: a small flickering flame quad on the wall's camera-facing (south) side near the
-top, bright warm so it reads as the light's source. Only drawn when `on`. -}
+{-| The torch itself: a proper little 3-D tongue of fire on the wall's camera-facing (south) side. It
+breathes in height and brightness and its tip sways, and it's built from a hot yellow-white core inside
+a softer orange flame — each a teardrop drawn as two crossed planes so it reads as a volume, not a
+sticker, from the isometric camera. A dark sconce bracket grounds it on the wall. Only drawn when `on`. -}
 torchOn : Bool -> Float -> Pos -> Float -> Float -> Float -> List ( Vertex, Vertex, Vertex )
 torchOn on time p fx fz h =
     if not on then
@@ -459,23 +461,68 @@ torchOn on time p fx fz h =
 
     else
         let
-            flame =
-                V3.scale (0.7 + 0.5 * torchFlicker time p) (vec3 1.0 0.7 0.3)
+            phase =
+                toFloat (p.x * 13 + p.y * 29)
+
+            flick =
+                torchFlicker time p
+
+            -- the tip wavers side to side; the body breathes up and down
+            sway =
+                0.07 * sin (time / 130 + phase) + 0.03 * sin (time / 53 + phase * 1.7)
 
             cx =
                 fx + 0.5
 
-            y0 =
-                h * 0.55
+            cz =
+                fz + 1.04
 
-            y1 =
-                h * 0.85
+            baseY =
+                h * 0.5
 
-            z =
-                fz + 1.02
+            tipY =
+                baseY + 0.4 + 0.14 * flick
+
+            outer =
+                V3.scale (0.75 + 0.45 * flick) (vec3 1.1 0.42 0.1)
+
+            core =
+                V3.scale (0.9 + 0.4 * flick) (vec3 1.2 0.95 0.45)
+
+            bracket =
+                quad (vec3 0.22 0.16 0.1)
+                    (vec3 0 0 1)
+                    (vec3 (cx - 0.06) (baseY - 0.1) cz)
+                    (vec3 (cx + 0.06) (baseY - 0.1) cz)
+                    (vec3 (cx + 0.06) baseY cz)
+                    (vec3 (cx - 0.06) baseY cz)
         in
-        -- a small flame patch standing slightly proud of the south face
-        quad flame (vec3 0 0 1) (vec3 (cx - 0.12) y0 z) (vec3 (cx + 0.12) y0 z) (vec3 (cx + 0.12) y1 z) (vec3 (cx - 0.12) y1 z)
+        bracket
+            ++ flameLayer cx cz baseY tipY 0.14 sway outer
+            ++ flameLayer cx cz (baseY + 0.05) (tipY - 0.13) 0.08 (sway * 0.6) core
+
+
+{-| A teardrop flame built as two crossed vertical planes (one varying in x, one in z) so it has
+volume from any angle. -}
+flameLayer : Float -> Float -> Float -> Float -> Float -> Float -> Vec3 -> List ( Vertex, Vertex, Vertex )
+flameLayer cx cz y0 y1 w sway col =
+    flamePoly (\o y -> vec3 (cx + o) y cz) y0 y1 w sway col
+        ++ flamePoly (\o y -> vec3 cx y (cz + o)) y0 y1 w sway col
+
+
+{-| One teardrop silhouette in a plane: a bulge that widens off the base then tapers to a swaying tip.
+`pt` maps a horizontal offset and a height to a world point (so the same shape serves either plane). -}
+flamePoly : (Float -> Float -> Vec3) -> Float -> Float -> Float -> Float -> Vec3 -> List ( Vertex, Vertex, Vertex )
+flamePoly pt y0 y1 w sway col =
+    let
+        ym =
+            y0 + (y1 - y0) * 0.42
+
+        n =
+            vec3 0.25 0.7 0.6
+    in
+    quad col n (pt (negate w) y0) (pt w y0) (pt (w * 1.25) ym) (pt (negate (w * 1.25)) ym)
+        ++ quad col n (pt (negate (w * 1.25)) ym) (pt (w * 1.25) ym) (pt (sway + 0.035) y1) (pt (sway - 0.035) y1)
 
 
 {-| A region's 3-D character: base wall height, how rough/jagged the wall tops are, and the colour the
