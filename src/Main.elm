@@ -775,6 +775,8 @@ choiceOverlay model =
                               , ( "shocking", "Shocking — lightning arcs to a nearby foe" )
                               , ( "lucky", "Lucky — strikes sometimes shake loose gold" )
                               , ( "elastic", "Elastic — knocks the struck foe back a step" )
+                              , ( "dazzling", "Dazzling — a flash blinds the foe you strike" )
+                              , ( "corrupting", "Corrupting — leaves the foe Vulnerable to your blows" )
                               ]
                             )
             in

@@ -127,28 +127,54 @@ abilityNote ability =
         Content.Blinks ->
             " (blinks away)"
 
+        Content.ConfusesHit ->
+            " (confuses on hit)"
+
+        Content.BlindsHit ->
+            " (blinds on hit)"
+
 
 {-| The hero's intent for one cell: bumping a monster attacks it, an open cell is a step, a wall is a
 no-op (costs no turn). A turn-consuming action is followed by every monster taking its turn. -}
 tryMove : Dir -> Game -> Game
-tryMove dir game =
+tryMove dir0 game =
     let
+        -- Confusion sends your step in a random direction; the seed is threaded so it stays deterministic.
+        ( dir, seedC ) =
+            if hasStatus Confused game.hero then
+                let
+                    ( i, s ) =
+                        Rng.int 8 game.seed
+                in
+                ( Maybe.withDefault dir0 (nth i Grid.eightDirs), s )
+
+            else
+                ( dir0, game.seed )
+
+        g =
+            { game | seed = seedC }
+
         target =
-            Grid.move game.hero.pos dir
+            Grid.move g.hero.pos dir
     in
-    case enemyAt target game of
+    case enemyAt target g of
         Just enemy ->
-            endTurn (heavyRecovery (heroAttack enemy game))
+            endTurn (heavyRecovery (heroAttack enemy g))
 
         Nothing ->
-            -- Reach weapons (spear) strike a foe two cells away in a straight line, through the empty
-            -- cell you'd have stepped into.
-            case reachTarget dir game of
-                Just farEnemy ->
-                    endTurn (heroAttack farEnemy game)
+            if hasStatus Rooted g.hero then
+                -- Webs/roots pin you: the turn passes but you don't move (you can still fight adjacent foes).
+                endTurn (addLog "You strain against the roots but can't move!" g)
 
-                Nothing ->
-                    moveOrInteract dir target game
+            else
+                -- Reach weapons (spear) strike a foe two cells away in a straight line, through the empty
+                -- cell you'd have stepped into.
+                case reachTarget dir g of
+                    Just farEnemy ->
+                        endTurn (heroAttack farEnemy g)
+
+                    Nothing ->
+                        moveOrInteract dir target g
 
 
 {-| The enemy a reach weapon can hit: two cells out in `dir`, when the hero wields a reach weapon and
@@ -806,8 +832,11 @@ trapEffect kind game =
                 { game | enemies = game.enemies ++ picks, seed = s1 }
                     |> addLog "A summoning trap! Monsters claw out of the floor!"
 
+        ConfusionTrap ->
+            addStatus Confused 1 5 game |> addLog "A burst of spores muddles your senses!"
+
         Web ->
-            addStatus Crippled 1 6 game |> addLog "Sticky webs spring from the floor and ensnare you!"
+            addStatus Rooted 1 4 game |> addLog "Sticky webs spring from the floor and ensnare you!"
 
         PitfallTrap ->
             fallThroughChasm game

@@ -135,7 +135,7 @@ stepEnemyAct enemy ( done, acc ) =
         woken =
             { healed | alerted = healed.alerted && not heroHidden || aware }
     in
-    if List.any (\s -> s.kind == Paralyzed) enemy.statuses then
+    if List.any (\s -> List.member s.kind [ Paralyzed, Rooted, Confused ]) enemy.statuses then
         -- Asleep / paralysed: it idles this turn (its status counts down in tickEnemyStatuses).
         ( woken :: done, acc )
 
@@ -496,8 +496,16 @@ attackHero enemy verb done acc =
             else
                 0
 
+        -- A blinded attacker swings wildly: a steep accuracy penalty.
+        blindPenalty =
+            if List.any (\s -> s.kind == Blinded) enemy.statuses then
+                6
+
+            else
+                0
+
         ( hit, seedHit ) =
-            hitRoll (enemyAccuracy enemy.def) (heroEvasion acc.hero) acc.seed
+            hitRoll (enemyAccuracy enemy.def - blindPenalty) (heroEvasion acc.hero) acc.seed
 
         ( rawHit, seedB ) =
             rollDamage (max 1 (enemy.def.damage + enrage - weaken)) 0 seedHit
@@ -542,6 +550,12 @@ attackHero enemy verb done acc =
 
             else if enemy.def.ability == Content.Grips then
                 ( addEnemyStatus Crippled 1 3 hero.statuses, " It seizes you in a crushing grip!" )
+
+            else if enemy.def.ability == Content.ConfusesHit then
+                ( addEnemyStatus Confused 1 4 hero.statuses, " Your head reels in confusion!" )
+
+            else if enemy.def.ability == Content.BlindsHit then
+                ( addEnemyStatus Blinded 1 4 hero.statuses, " A swarm blinds you!" )
 
             else
                 ( hero.statuses, "" )
@@ -626,7 +640,11 @@ refreshFov game =
                 0
 
         radius =
-            max 2 (fovRadiusFor game.hero game.depth - darkness)
+            if hasStatus Blinded game.hero then
+                1
+
+            else
+                max 2 (fovRadiusFor game.hero game.depth - darkness)
 
         vis =
             withTorchlight game.level (Fov.compute radius game.hero.pos game.level)
@@ -1056,7 +1074,7 @@ bossSignature boss game =
                         |> List.take 3
                         |> List.map (\p -> { pos = p, kind = Web, revealed = True })
             in
-            addStatus Crippled 1 5 { game | traps = webs ++ game.traps }
+            addStatus Rooted 1 4 { game | traps = webs ++ game.traps }
                 |> addLog ("The " ++ boss.def.name ++ " spins a web around you!")
 
         "dwarf-king" ->

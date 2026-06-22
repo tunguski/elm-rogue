@@ -336,6 +336,14 @@ applyHitEnchant enemy dmg game =
             else
                 { game | seed = s1 }
 
+        "dazzling" ->
+            -- A flash of light blinds the struck foe.
+            { game | enemies = updateEnemyAt enemy.pos (\e -> { e | statuses = addEnemyStatus Blinded 1 3 e.statuses }) game.enemies }
+
+        "corrupting" ->
+            -- The blow leaves the foe Vulnerable, taking extra damage from your next hits.
+            { game | enemies = updateEnemyAt enemy.pos (\e -> { e | statuses = addEnemyStatus Vulnerable 1 4 e.statuses }) game.enemies }
+
         _ ->
             game
 

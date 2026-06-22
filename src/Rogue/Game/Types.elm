@@ -65,6 +65,9 @@ type StatusKind
     | Crippled
     | Shielded
     | Charmed
+    | Confused
+    | Blinded
+    | Rooted
 
 
 type alias Status =
@@ -123,6 +126,15 @@ statusLabel status =
 
                 Charmed ->
                     "Charmed"
+
+                Confused ->
+                    "Confused"
+
+                Blinded ->
+                    "Blind"
+
+                Rooted ->
+                    "Rooted"
     in
     name ++ " (" ++ String.fromInt status.turns ++ ")"
 
@@ -175,6 +187,15 @@ statusColor kind =
 
         Charmed ->
             "#e07ab0"
+
+        Confused ->
+            "#d8b24c"
+
+        Blinded ->
+            "#6a6f86"
+
+        Rooted ->
+            "#7fae5a"
 
 
 hasStatus : StatusKind -> Hero -> Bool
@@ -424,6 +445,7 @@ type TrapKind
     | SummonTrap
     | PitfallTrap
     | Web
+    | ConfusionTrap
 
 
 type alias Trap =

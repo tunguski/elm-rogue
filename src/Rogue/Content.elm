@@ -53,6 +53,8 @@ type MonsterAbility
     | PoisonHit
     | LifeLeech
     | Blinks
+    | ConfusesHit
+    | BlindsHit
 
 
 {-| A monster archetype. Instances in play (`Rogue.Game.Enemy`) carry a copy of their `EnemyDef`, so
