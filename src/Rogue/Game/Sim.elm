@@ -426,6 +426,14 @@ tickStatuses game =
             else
                 hero.statuses
 
+        -- A Ring of Elements halves the bite of elemental damage-over-time (fire and poison).
+        resist m =
+            if Maybe.map .id hero.ring == Just "ring-elements" then
+                (m + 1) // 2
+
+            else
+                m
+
         ( hpDelta, logs0 ) =
             List.foldl
                 (\status ( dhp, ls ) ->
@@ -434,10 +442,10 @@ tickStatuses game =
                             ( dhp + status.magnitude, ls )
 
                         Poison ->
-                            ( dhp - status.magnitude, ("Poison gnaws at you (" ++ String.fromInt status.magnitude ++ ").") :: ls )
+                            ( dhp - resist status.magnitude, ("Poison gnaws at you (" ++ String.fromInt (resist status.magnitude) ++ ").") :: ls )
 
                         Burn ->
-                            ( dhp - status.magnitude, ("Flames sear you (" ++ String.fromInt status.magnitude ++ ").") :: ls )
+                            ( dhp - resist status.magnitude, ("Flames sear you (" ++ String.fromInt (resist status.magnitude) ++ ").") :: ls )
 
                         Bleed ->
                             ( dhp - status.magnitude, ("You bleed (" ++ String.fromInt status.magnitude ++ ").") :: ls )

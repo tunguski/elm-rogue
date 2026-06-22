@@ -462,6 +462,8 @@ type PlantKind
     | Sungrass
     | Sorrowmoss
     | Earthroot
+    | Stormvine
+    | Dreamfoil
 
 
 {-| A volatile gas occupying a cell: it spreads to neighbours and thins by one each turn. -}
@@ -708,8 +710,16 @@ addStatus kind magnitude turns game =
 
         others =
             List.filter (\s -> s.kind /= kind && not (List.member s.kind opposite)) hero.statuses
+
+        -- The Steadfast talent halves how long crowd-control conditions cling to you.
+        effTurns =
+            if List.member kind [ Confused, Rooted, Blinded, Paralyzed ] && List.member "Steadfast" hero.talents then
+                max 1 (turns // 2)
+
+            else
+                turns
     in
-    { game | hero = { hero | statuses = { kind = kind, magnitude = magnitude, turns = turns } :: others } }
+    { game | hero = { hero | statuses = { kind = kind, magnitude = magnitude, turns = effTurns } :: others } }
 
 
 {-| Strip the hero's harmful statuses (poison, burn, bleed, weakness, etc.) — as a heal does. -}

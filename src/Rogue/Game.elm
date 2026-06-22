@@ -331,6 +331,9 @@ talentChoices =
     , { name = "Light Foot", desc = "+3 evasion", minLevel = 4 }
     , { name = "Marksman", desc = "+3 accuracy", minLevel = 4 }
     , { name = "Strongman", desc = "wield heavier weapons (-2 STR need)", minLevel = 2 }
+    , { name = "Assassin", desc = "+1 surprise damage multiplier", minLevel = 4 }
+    , { name = "Steadfast", desc = "shrug off confusion/root/blind faster", minLevel = 4 }
+    , { name = "Toughened Hide", desc = "+2 armour block", minLevel = 2 }
     ]
 
 

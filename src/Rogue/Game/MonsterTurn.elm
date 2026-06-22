@@ -510,9 +510,10 @@ attackHero enemy verb done acc =
         ( rawHit, seedB ) =
             rollDamage (max 1 (enemy.def.damage + enrage - weaken)) 0 seedHit
 
-        -- Armour blocks a random amount up to its rating (SPD-style mitigation variance).
+        -- Armour blocks a random amount up to its rating (SPD-style mitigation variance); the
+        -- Toughened Hide talent thickens that block.
         ( block, seed1 ) =
-            Rng.int (heroDefense acc.hero + 1) seedB
+            Rng.int (heroDefense acc.hero + 1 + (if List.member "Toughened Hide" acc.hero.talents then 2 else 0)) seedB
 
         rolled =
             max 1 (rawHit - block)
@@ -891,14 +892,17 @@ rechargeWands game =
         hero =
             game.hero
 
-        -- The Ring of Energy quickens every charge: wands tick up faster and artifacts gain double.
+        -- The Ring of Power (and a 'potential' armour glyph) quickens every charge: wands tick up
+        -- faster and artifacts gain double.
         energized =
-            case hero.ring of
+            (case hero.ring of
                 Just r ->
                     r.id == "ring-power"
 
                 Nothing ->
                     False
+            )
+                || itemEnchant hero.armour == "potential"
 
         wandTick =
             modBy

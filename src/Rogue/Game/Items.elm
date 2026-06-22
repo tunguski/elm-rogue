@@ -69,9 +69,17 @@ pickUpItem it game =
             let
                 hero =
                     game.hero
+
+                -- A Ring of Wealth swells every coin pile you find by half again.
+                found =
+                    if Maybe.map .id hero.ring == Just "ring-wealth" then
+                        amount * 3 // 2
+
+                    else
+                        amount
             in
-            { game | hero = { hero | gold = hero.gold + amount } }
-                |> addLog ("You find " ++ String.fromInt amount ++ " gold.")
+            { game | hero = { hero | gold = hero.gold + found } }
+                |> addLog ("You find " ++ String.fromInt found ++ " gold.")
 
         _ ->
             let

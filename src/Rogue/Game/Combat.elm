@@ -146,11 +146,18 @@ heroAttack enemy game =
             glass
                 * (if surprised then
                     base
-                        * (if game.hero.subclass == Just "Stalker" then
-                            3
+                        * ((if game.hero.subclass == Just "Stalker" then
+                                3
 
-                           else
-                            2
+                            else
+                                2
+                           )
+                            + (if List.member "Assassin" game.hero.talents then
+                                1
+
+                               else
+                                0
+                              )
                           )
 
                    else
@@ -343,6 +350,14 @@ applyHitEnchant enemy dmg game =
         "corrupting" ->
             -- The blow leaves the foe Vulnerable, taking extra damage from your next hits.
             { game | enemies = updateEnemyAt enemy.pos (\e -> { e | statuses = addEnemyStatus Vulnerable 1 4 e.statuses }) game.enemies }
+
+        "blooming" ->
+            -- Vines erupt around the struck foe, rooting it in place for a moment.
+            { game | enemies = updateEnemyAt enemy.pos (\e -> { e | statuses = addEnemyStatus Rooted 1 2 e.statuses }) game.enemies }
+
+        "warding" ->
+            -- Each blow weaves a thin protective shield around you.
+            addStatus Shielded 2 4 game
 
         _ ->
             game

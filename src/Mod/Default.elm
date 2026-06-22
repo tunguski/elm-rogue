@@ -137,6 +137,8 @@ ruleset =
         , ringOfSharpshooting
         , ringOfHaste
         , ringOfFuror
+        , ringOfElements
+        , ringOfWealth
         , ringOfTenacity
         , cloakOfShadows
         , hornOfPlenty
@@ -2079,6 +2081,32 @@ ringOfFuror =
     , color = "#e0824b"
     , kind = Equipment RingSlot { damage = 0, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "" }
     , minDepth = 5
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+ringOfElements : ItemDef
+ringOfElements =
+    { id = "ring-elements"
+    , name = "ring of elements"
+    , glyph = "="
+    , color = "#82c8ff"
+    , kind = Equipment RingSlot { damage = 0, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "" }
+    , minDepth = 5
+    , maxDepth = 99
+    , spawnWeight = 2
+    }
+
+
+ringOfWealth : ItemDef
+ringOfWealth =
+    { id = "ring-wealth"
+    , name = "ring of wealth"
+    , glyph = "="
+    , color = "#ffd166"
+    , kind = Equipment RingSlot { damage = 0, defense = 0, maxHp = 0, plus = 0, cursed = False, enchant = "" }
+    , minDepth = 4
     , maxDepth = 99
     , spawnWeight = 2
     }

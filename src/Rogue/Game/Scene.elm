@@ -396,6 +396,12 @@ plantGlyphs plants =
 
                             Earthroot ->
                                 "#8a6a4a"
+
+                            Stormvine ->
+                                "#5dd4cf"
+
+                            Dreamfoil ->
+                                "#9be0ff"
                 in
                 { pos = { x = x, y = y }, char = "♣", color = color, layer = Render.layerItem, heavy = False, sprite = "plant", tint = "" }
             )

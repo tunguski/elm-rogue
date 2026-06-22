@@ -777,6 +777,8 @@ choiceOverlay model =
                               , ( "elastic", "Elastic — knocks the struck foe back a step" )
                               , ( "dazzling", "Dazzling — a flash blinds the foe you strike" )
                               , ( "corrupting", "Corrupting — leaves the foe Vulnerable to your blows" )
+                              , ( "blooming", "Blooming — vines root the foe you strike" )
+                              , ( "warding", "Warding — each blow shields you a little" )
                               ]
                             )
             in

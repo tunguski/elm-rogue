@@ -485,7 +485,7 @@ buildPlants spots seed =
         (\p ( acc, s ) ->
             let
                 ( roll, s2 ) =
-                    Rng.int 4 s
+                    Rng.int 6 s
 
                 kind =
                     case roll of
@@ -497,6 +497,12 @@ buildPlants spots seed =
 
                         2 ->
                             Sorrowmoss
+
+                        3 ->
+                            Stormvine
+
+                        4 ->
+                            Dreamfoil
 
                         _ ->
                             Earthroot
@@ -535,6 +541,14 @@ stepOnPlant game =
 
                 Earthroot ->
                     addStatus Paralyzed 1 3 cleared |> addLog "Earthroot snares your legs!"
+
+                Stormvine ->
+                    spawnGas ParalyticGasCloud 3 game.hero.pos cleared
+                        |> addLog "Stormvine bursts in a cloud of crackling spores!"
+
+                Dreamfoil ->
+                    cureDebuffs { cleared | hero = { hero | hp = min hero.maxHp (hero.hp + 3) } }
+                        |> addLog "Dreamfoil's calming scent soothes your ailments."
 
 
 {-| About a third of floors hold a magic well at a free cell. -}
