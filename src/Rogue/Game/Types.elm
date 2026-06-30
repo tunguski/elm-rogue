@@ -13,6 +13,7 @@ import Rogue.Dungeon exposing (Room)
 import Rogue.Grid as Grid exposing (Pos)
 import Rogue.Level as Level exposing (Level)
 import Rogue.Rng as Rng exposing (Seed)
+import Rogue.Tile exposing (Tile(..))
 import Set exposing (Set)
 
 
@@ -977,6 +978,9 @@ priceFor depth def =
 
                 Content.Consumable _ ->
                     30
+
+                Content.Artifact _ ->
+                    200
 
                 Content.Key ->
                     20

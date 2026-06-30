@@ -5,7 +5,7 @@ name: Deploy to GitHub Pages
 #
 # The game is written for the elm-lang compiler (github.com/tunguski/elm-lang), which lives in a
 # separate repo, so the build checks that out, packages it into a runnable `elm.jar`, and runs
-# `elm make` to produce the page. Like the other elm-lang example apps it compiles with --no-check
+# `elm make` to produce the page. Like the other elm-lang example apps it compiles with
 # (the strict type checker doesn't fully analyse a few idioms the game uses). The output is fully
 # standalone — no server needed.
 
@@ -57,7 +57,7 @@ jobs:
         run: |
           mkdir -p public
           java -jar elm-lang/target/elm.jar make \
-            src/Main.elm --project=elm.json -o public/index.html --no-check
+            src/Main.elm --project=elm.json -o public/index.html
           # The compiler owns the output <head>; inject a viewport meta (so phones use the responsive
           # layout / touch controls) and inline src/app.css as a <style> (the app's styling lives there
           # as classes; the page stays a single self-contained file).

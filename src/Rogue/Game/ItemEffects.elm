@@ -399,6 +399,11 @@ applyEffect def game =
                 Nothing ->
                     addLog "The seed refuses to take root here." game
 
+        _ ->
+            -- Thrown-only effects (Explode, ThrownHit, ThrownTipped, Freeze) are not consumable, so
+            -- applying one on use is a no-op (they are resolved when thrown — see Rogue.Game.Items).
+            game
+
 
 {-| Map a seed/plant name to its `PlantKind` (for sowing seeds). -}
 plantFromName : String -> Maybe PlantKind
