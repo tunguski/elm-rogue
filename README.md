@@ -9,8 +9,9 @@ content and the renderer are both mods**: the bestiary, the items and the hero a
 (`Ruleset`), and the graphics are a swappable record of functions (`Renderer`). The simulation never
 names SVG, ASCII, a specific monster or a specific potion — it reads everything from injected values.
 
-> Built iteratively in milestones. This is the first set of ten (a playable, moddable core); more
-> follow until it reaches Pixel-Dungeon depth.
+> Built iteratively in milestones, grouped into content "Sets". The first ten Sets took it from a
+> playable moddable core to broad Pixel-Dungeon coverage; Sets 11–13 keep pushing toward parity, and
+> a real WebGL 3-D renderer joins the SVG and ASCII views.
 
 ## Play
 
@@ -86,7 +87,7 @@ visible/explored sets, the drawable `Glyph`s, and a `Hud`) and a **`Renderer msg
 - [`Rogue.Render.Webgl`](src/Rogue/Render/Webgl.elm) — a real-time **WebGL** isometric 3-D diorama:
   extruded walls, hovering hero/monster cubes, a directional light, and continuous animations.
 
-Both consume the identical `Scene`, so swapping them changes nothing in the simulation — the
+All three consume the identical `Scene`, so swapping them changes nothing in the simulation — the
 "alternative game rendering engine" extension point. `Main` lists the installed renderers and lets
 you pick one at runtime.
 
@@ -101,9 +102,9 @@ you pick one at runtime.
 | [`Rogue.Dungeon`](src/Rogue/Dungeon.elm) | Seeded room+corridor generator. |
 | [`Rogue.Fov`](src/Rogue/Fov.elm) | Raycast field of view. |
 | [`Rogue.Content`](src/Rogue/Content.elm) | **Moddable content types** (`Ruleset`, `EnemyDef`, `ItemDef`). |
-| [`Rogue.Game`](src/Rogue/Game.elm) | The pure engine: state, movement, combat, AI, items, `toScene`. |
+| [`Rogue.Game`](src/Rogue/Game.elm) | The pure engine: state, movement, `toScene`. Now split into [`Rogue.Game.*`](src/Rogue/Game) helpers (`Types`, `Scene`, `Appearance`, `Combat`, `Sim`, `MonsterTurn`, `Actions`, `Floor`, `Items`, `ItemEffects`) so every module stays under ~1000 lines. |
 | [`Rogue.Render`](src/Rogue/Render.elm) | **The `Scene`/`Renderer` seam.** |
-| [`Rogue.Render.Svg`](src/Rogue/Render/Svg.elm) / [`.Ascii`](src/Rogue/Render/Ascii.elm) | Two rendering engines. |
+| [`Rogue.Render.Svg`](src/Rogue/Render/Svg.elm) / [`.Ascii`](src/Rogue/Render/Ascii.elm) / [`.Webgl`](src/Rogue/Render/Webgl.elm) | Three rendering engines (SVG, text, WebGL 3-D). |
 | [`Mod.Default`](src/Mod/Default.elm) / [`Mod.Hard`](src/Mod/Hard.elm) | Two content mods. |
 | [`Main`](src/Main.elm) | Wiring: input, the mod/renderer toolbar, `Browser.element`. |
 
@@ -175,6 +176,32 @@ engine plays it.
   **varied altar blessings**, **boss bonus loot**, **reach** (spear) and **heavy** (warhammer) weapons,
   a returning **boomerang**, a **fire elemental**, the **Wand of Warding**, **well-fed** regeneration,
   two new **challenges** (+score bonus), and three tier-3 **talents**.
+
+- **WebGL 3-D renderer:** a real-time **WebGL** isometric diorama alongside SVG and ASCII — extruded
+  walls with surface detail, hovering hero/monster cubes, a directional light, move tweening, animated
+  torch flames, shimmering water, grass blades growing from the floor, and per-region height/fog.
+
+- **Engine split:** the monolithic `Game.elm` was broken into `Rogue.Game.*` modules (`Types`,
+  `Scene`, `Appearance`, `Combat`, `Sim`, `MonsterTurn`, `Actions`, `Floor`, `Items`, `ItemEffects`),
+  each under ~1000 lines, plus interaction and autopilot-playthrough tests.
+
+- **Set 11 — the Shattered "feel":** **accuracy vs evasion** to-hit rolls (attacks can miss/dodge),
+  a **Strength** stat feeding damage & accuracy, **swingy weapon damage ranges**, **critical hits**,
+  new enchantments (chilling/shocking/lucky), healing **dewdrops**, **web** traps, **tall-grass
+  stealth** & trampling, starving **Weakened**, **boss signature** desperation moves, gas/flame
+  chemistry, the swift armour glyph, and evasion/sharpshooting rings.
+
+- **Set 12 — combat depth:** **per-monster action speed** (fast bats, sluggish ghouls), per-item
+  **Strength requirements**, **random armour block** variance, working **Haste/Furor/Tenacity** rings,
+  four new monster abilities (grip/poison-hit/life-leech/blink), **combat noise** aggro, **assassination**
+  from invisibility, **slippery ice**, density-scaled caustic gas, deep-water **wading**, the elastic
+  knockback enchant, and Light Foot / Marksman / Strongman talents.
+
+- **Set 13 — conditions & kit:** three new status effects (**Confused / Blinded / Rooted**) with
+  their inflictors (confusion trap, on-hit abilities, web/Spider-Queen roots), four new weapon
+  enchantments (dazzling, corrupting, blooming, warding), Assassin / Steadfast / Toughened-Hide
+  talents, the Elements / Wealth rings, the potential armour glyph, and two new plants
+  (**Stormvine**, **Dreamfoil**).
 
 Every system above is data behind the same two seams — content is a `Ruleset`, rendering is a
 `Renderer` — so mods extend all of it. Run the tests with `ELM=../../elm.sh ./test.sh`; see

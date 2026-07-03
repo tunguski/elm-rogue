@@ -5,9 +5,10 @@ already does, what was changed in the M41 pass, and the highest-value work still
 
 ## The shape of the problem
 
-elm-rogue is **turn-based**, so it only re-renders in response to a keypress — there is no
-per-frame animation loop and no idle CPU use. The cost that matters is therefore **per-keypress
-latency**, which is:
+elm-rogue is **turn-based**, so on the DOM renderers (SVG/ASCII) it only re-renders in response to a
+keypress — no per-frame animation loop, no idle CPU use. (The opt-in WebGL renderer is the one
+exception: it runs a **throttled ~30 fps** clock to animate torches/water/idle-bob on the GPU; the
+DOM path below is clock-free.) The cost that matters is therefore **per-keypress latency**, which is:
 
 ```
 keypress → Game.update (pure)  →  Game.toScene (pure)  →  Renderer.view → Html  →  vDOM diff → paint
@@ -20,9 +21,10 @@ proportional to the whole map when it can be proportional to what's on screen or
 
 ## What already helps
 
-- **Turn-based, event-driven rendering.** No `requestAnimationFrame`/`Time.every` redraw loop, so the
-  GPU/CPU is idle between moves. (The one place a clock could creep in — animations — is deliberately
-  avoided; combat "floating numbers" are one-frame, state-driven, not tweened.)
+- **Turn-based, event-driven rendering.** On the SVG/ASCII path there's no `requestAnimationFrame`/
+  `Time.every` redraw loop, so the CPU is idle between moves. (Combat "floating numbers" are one-frame,
+  state-driven, not tweened.) The WebGL renderer opts into a throttled clock only while it's the active
+  view.
 - **Renderer-agnostic `Scene`.** The engine emits a flat data `Scene` once per move; the renderer is
   pure `Scene → Html`. This keeps the hot path allocation-light and makes the renderer swappable
   (the ASCII renderer is markedly cheaper than SVG on very weak machines — it's one `<span>` per cell
@@ -32,20 +34,22 @@ proportional to the whole map when it can be proportional to what's on screen or
 ## Changes made in the M41 pass
 
 1. **Viewport culling (M35).** The SVG renderer draws only a camera-centred **31×21 window** of cells
-   instead of the whole 40×26 floor — and, crucially, this is **constant regardless of map size**, so
-   bigger future floors cost nothing extra. The ASCII renderer got the same windowing (a 41×23
-   window) in M41; previously it emitted a `<span>` for every map cell (~1040), now ~940 worst case
-   and bounded.
+   instead of the whole floor — and, crucially, this is **constant regardless of map size**, so
+   bigger floors cost nothing extra. This matters now that floors are depth-scaled up to **72×48**
+   (~3450 cells) rather than the fixed 40×26 (~1040) this pass was first written against. The ASCII
+   renderer got the same windowing (a 41×23 window) in M41; previously it emitted a `<span>` for every
+   map cell, now bounded to its window.
 2. **Skip unseen cells.** `cellSvg` now returns `Nothing` for never-seen cells and lets the SVG's own
    background show through. Early in a floor (most of the viewport unexplored) this cuts the node
    count dramatically; node count now scales with *explored area in view*, not the viewport rectangle.
-3. **Minimap iterates the explored `Set`, not the whole map.** It previously scanned all 1040 cells
-   every keypress; it now folds over `Set.toList explored`, so its cost scales with how much you've
-   actually seen. The hero marker is drawn as one extra node on top.
+3. **Minimap iterates the explored `Set`, not the whole map.** It previously scanned every cell in the
+   floor each keypress; it now folds over `Set.toList explored`, so its cost scales with how much
+   you've actually seen. The hero marker is drawn as one extra node on top.
 
-Net effect: on an unexplored early floor the SVG map went from ~1040 always-drawn rects to a few
-dozen; fully explored, it's bounded by the ~650-cell viewport instead of the whole floor; and the
-minimap no longer does a full-map scan per move.
+Net effect: on an unexplored early floor the SVG map went from a full grid of always-drawn rects to a
+few dozen; fully explored, it's bounded by the ~650-cell viewport instead of the whole floor (a win
+that grows as depth-scaled floors reach 72×48); and the minimap no longer does a full-map scan per
+move.
 
 ## Further opportunities (ranked by value)
 
